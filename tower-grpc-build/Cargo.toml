@@ -1,0 +1,8 @@
+[package]
+name = "tower-grpc-build"
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+
+[dependencies]
+codegen = { git = "https://github.com/carllerche/codegen" }
+prost-build = "0.2"
