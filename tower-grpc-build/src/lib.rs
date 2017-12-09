@@ -28,10 +28,10 @@ struct ServiceGenerator {
 }
 
 impl Config {
-    /// Returns a new `Config` with default values.
-    pub fn new() -> Self {
-        let mut prost = prost_build::Config::new();
-
+    /// Returns a new `Config` with pre-configured prost.
+    ///
+    /// You can tweak the configuration how the proto buffers are generated and use this config.
+    pub fn from_prost(mut prost: prost_build::Config) -> Self {
         let inner = Rc::new(RefCell::new(Inner {
             // Enable client code gen by default
             build_client: true,
@@ -51,6 +51,11 @@ impl Config {
             prost,
             inner,
         }
+    }
+
+    /// Returns a new `Config` with default values.
+    pub fn new() -> Self {
+        Self::from_prost(prost_build::Config::new())
     }
 
     /// Enable gRPC client code generation
