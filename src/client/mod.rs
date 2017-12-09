@@ -1,9 +1,10 @@
 #![allow(warnings, missing_debug_implementations)]
 
+use Status;
 use util::BoxBody;
 
-use futures::{stream, Future, Poll};
-use http::{Request, Response};
+use futures::{stream, Future, Stream, Poll};
+use http::{Request, Response, HeaderMap};
 use tower::Service;
 use tower_h2::Body;
 
@@ -69,8 +70,9 @@ impl<T, U> Grpc<T, U>
 where T: HttpService<RequestBody = U>,
       U: Body,
 {
-    pub fn poll_ready(&mut self) -> Poll<(), ::Error> {
-        unimplemented!();
+    pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
+        self.inner.poll_ready()
+            .map_err(::Error::Inner)
     }
 
     /*
@@ -108,13 +110,26 @@ where T: HttpService<RequestBody = U>,
     /// **M**: The response **message** (not stream) type.
     pub fn streaming<B, M>(&mut self, request: ::Request<B>)
         -> streaming::ResponseFuture<M, T::Future>
-    where B: IntoBody<U>,
+    where B: Stream + IntoBody<U>,
     {
+        use http::header::{self, HeaderValue};
+
         // Convert the request
         let request = request.into_http();
         let (head, body) = request.into_parts();
         let body = body.into_body();
-        let request = Request::from_parts(head, body);
+        let mut request = Request::from_parts(head, body);
+
+        // Add the gRPC related HTTP headers
+        request.headers_mut()
+            .insert(header::TE, HeaderValue::from_static("trailers"));
+
+        // Set the content type
+        // TODO: Don't hard code this here
+        let content_type = "application/grpc+proto";
+        request.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static(content_type));
 
         // Call the inner HTTP service
         let response = self.inner.call(request);
@@ -175,7 +190,8 @@ pub mod streaming {
 
     use futures::{Future, Poll};
     use http::Response;
-    use tower_h2::Body;
+    use prost::Message;
+    use tower_h2::{Body, Data};
 
     use std::marker::PhantomData;
 
@@ -195,14 +211,40 @@ pub mod streaming {
     }
 
     impl<T, U, B> Future for ResponseFuture<T, U>
-    where U: Future<Item = Response<B>>,
-          B: Body,
+    where T: Message + Default,
+          U: Future<Item = Response<B>>,
+          B: Body<Data = Data>,
     {
-        type Item = ::Response<Streaming<U>>;
-        type Error = ::Error;
+        type Item = ::Response<Streaming<T, B>>;
+        type Error = ::Error<U::Error>;
 
         fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-            unimplemented!();
+            use codec::Decoder;
+            use generic::Streaming;
+
+            let response = self.inner.poll()
+                .map_err(::Error::Inner);
+
+            // Get the response
+            let response = try_ready!(response);
+
+            // Destructure into the head / body
+            let (head, body) = response.into_parts();
+
+            if let Some(status) = super::check_grpc_status(&head.headers) {
+                return Err(::Error::Grpc(status));
+            }
+
+            let body = Streaming::new(Decoder::new(), body, true);
+            let response = Response::from_parts(head, body);
+
+            Ok(::Response::from_http(response).into())
         }
     }
+}
+
+fn check_grpc_status(trailers: &HeaderMap) -> Option<Status> {
+    trailers.get("grpc-status").map(|s| {
+        Status::from_bytes(s.as_ref())
+    })
 }
