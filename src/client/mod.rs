@@ -1,262 +1,208 @@
-#![allow(missing_debug_implementations)]
+#![allow(warnings, missing_debug_implementations)]
 
-pub mod codec;
+use util::BoxBody;
 
-use futures::{Async, Future, Poll, Stream};
-use http;
-use http::header::{HeaderMap, HeaderValue};
+use futures::{stream, Future, Poll};
+use http::{Request, Response};
 use tower::Service;
-use tower_h2::RecvBody;
+use tower_h2::Body;
 
-pub use self::codec::Codec;
+use std::marker::PhantomData;
 
-use self::codec::{DecodingBody, EncodingBody};
-use ::Status;
-
-/// A gRPC client wrapping a `Service` over `h2`.
 #[derive(Debug)]
-pub struct Client<C, S> {
-    codec: C,
-    service: S,
+pub struct Grpc<T, B = BoxBody> {
+    inner: T,
+    _m: PhantomData<B>,
 }
 
-#[must_use = "futures do nothing unless polled"]
-#[derive(Debug)]
-pub struct ResponseFuture<D, F> {
-    decoder: Option<D>,
-    future: F,
+/// An HTTP (2.0) service that backs the gRPC client
+pub trait HttpService {
+    type RequestBody: Body;
+    type ResponseBody: Body;
+    type Error;
+    type Future: Future<Item = Response<Self::ResponseBody>, Error = Self::Error>;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+
+    fn call(&mut self, request: Request<Self::RequestBody>) -> Self::Future;
 }
 
-/// Future mapping Response<B> into B.
-#[must_use = "futures do nothing unless polled"]
-#[derive(Debug)]
-pub struct BodyFuture<F> {
-    future: F,
-}
-
-#[must_use = "futures do nothing unless polled"]
-#[derive(Debug)]
-pub struct Unary<F, D> where D: Codec {
-    body: Option<DecodingBody<D>>,
-    future: F,
-    head: Option<http::response::Parts>,
-    message: Option<D::Decode>,
-}
-
-/// A stream of a future Response's body items.
-#[must_use = "streams do nothing unless polled"]
-#[derive(Debug)]
-pub struct Streaming<F, B> {
-    body: Option<B>,
-    future: F,
-}
-
-// ====== impl Client =====
-
-impl<C, S> Client<C, S> {
-    /// Create a new `Client` over an h2 service.
-    pub fn new(codec: C, service: S) -> Self {
-        Client {
-            codec,
-            service,
-        }
-    }
-}
-
-impl<C, S, R> Service for Client<C, S>
-where
-    C: Codec,
-    S: Service<Request=http::Request<EncodingBody<C, R>>, Response=http::Response<RecvBody>>,
-    R: Stream<Item=C::Encode>,
+impl<T, B1, B2> HttpService for T
+where T: Service<Request = Request<B1>,
+                Response = Response<B2>>,
+      B1: Body,
+      B2: Body,
 {
-    type Request = ::Request<R>;
-    type Response = ::Response<DecodingBody<C>>;
-    type Error = ::Error<S::Error>;
-    type Future = ResponseFuture<C, S::Future>;
+    type RequestBody = B1;
+    type ResponseBody = B2;
+    type Error = T::Error;
+    type Future = T::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready()
-            .map_err(::Error::Inner)
+        Service::poll_ready(self)
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
-        let http  = req.into_http();
-        let (mut head, body) = http.into_parts();
+    fn call(&mut self, request: Request<Self::RequestBody>) -> Self::Future {
+        Service::call(self, request)
+    }
+}
 
-        // gRPC headers
-        head.headers.insert(http::header::TE, HeaderValue::from_static("trailers"));
+/// Convert a stream of protobuf messages to an HTTP body payload.
+pub trait IntoBody<T>
+{
+    fn into_body(self) -> T;
+}
 
-        let content_type = HeaderValue::from_static(C::CONTENT_TYPE);
-        head.headers.insert(http::header::CONTENT_TYPE, content_type);
+pub type Once<T> = stream::Once<T, ::Error>;
 
-        let encoded = EncodingBody::new(self.codec.clone(), body);
-        let req = http::Request::from_parts(head, encoded);
-        let fut = self.service.call(req);
-
-        ResponseFuture {
-            decoder: Some(self.codec.clone()),
-            future: fut,
+impl<T> Grpc<T>
+{
+    pub fn new(inner: T) -> Self {
+        Grpc {
+            inner,
+            _m: PhantomData,
         }
     }
 }
 
-// ====== impl ResponseFuture =====
-
-impl<D, F> Future for ResponseFuture<D, F>
-where
-    D: Codec,
-    F: Future<Item=http::Response<RecvBody>>,
+impl<T, U> Grpc<T, U>
+where T: HttpService<RequestBody = U>,
+      U: Body,
 {
-    type Item = ::Response<DecodingBody<D>>;
-    type Error = ::Error<F::Error>;
+    pub fn poll_ready(&mut self) -> Poll<(), ::Error> {
+        unimplemented!();
+    }
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let res = try_ready!(self.future.poll().map_err(::Error::Inner));
-        let (head, body) = res.into_parts();
+    /*
+    pub fn unary<M>(&mut self, request: ::Request<M>) -> unary::ResponseFuture
+    where Once<M>: IntoBody<U>,
+    {
+        let response = self.client_streaming(
+            request.map(|v| stream::once(Ok(v))));
 
-        if let Some(status) = check_grpc_status(&head.headers) {
-            return Err(::Error::Grpc(status));
-        }
+        unary::ResponseFuture { inner: response }
+    }
 
-        let decoded = DecodingBody::new(self.decoder.take().unwrap(), body);
-        let res = http::Response::from_parts(head, decoded);
-        let grpc = ::Response::from_http(res);
-        Ok(Async::Ready(grpc))
+    pub fn client_streaming<B, M>(&mut self, request: ::Request<B>)
+        -> client_streaming::ResponseFuture<M, T::Future>
+    where B: IntoBody<U>,
+    {
+        // Convert the request
+        let request = request.into_http();
+        let (head, body) = request.into_parts();
+        let body = body.into_body();
+        let request = Request::from_parts(head, body);
+
+        // Call the inner HTTP service
+        let response = self.inner.call(request);
+
+        client_streaming::ResponseFuture::new(response)
+    }
+    */
+
+    /// Initiate a full streaming gRPC request
+    ///
+    /// # Generics
+    ///
+    /// **B**: The request stream of gRPC message values.
+    /// **M**: The response **message** (not stream) type.
+    pub fn streaming<B, M>(&mut self, request: ::Request<B>)
+        -> streaming::ResponseFuture<M, T::Future>
+    where B: IntoBody<U>,
+    {
+        // Convert the request
+        let request = request.into_http();
+        let (head, body) = request.into_parts();
+        let body = body.into_body();
+        let request = Request::from_parts(head, body);
+
+        // Call the inner HTTP service
+        let response = self.inner.call(request);
+
+        streaming::ResponseFuture::new(response)
     }
 }
 
-// ====== impl Unary =====
+/*
+pub mod unary {
+    use super::client_streaming;
 
-impl<F, D> Unary<F, D>
-where
-    D: Codec,
-{
-    pub fn map_future(future: F) -> Self {
-        Unary {
-            body: None,
-            future,
-            head: None,
-            message: None,
-        }
+    pub struct ResponseFuture {
+        pub(super) inner: client_streaming::ResponseFuture,
     }
 }
 
-impl<F, D, E> Future for Unary<F, D>
-where
-    F: Future<Item=::Response<DecodingBody<D>>, Error=::Error<E>>,
-    D: Codec,
-{
-    type Item = ::Response<D::Decode>;
-    type Error = ::Error<E>;
+pub mod client_streaming {
+    use codec::Streaming;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let ref mut body = match self.body {
-            Some(ref mut body) => body,
-            None => {
-                let resp = try_ready!(self.future.poll()).into_http();
-                let (head, body) = resp.into_parts();
-                self.head = Some(head);
-                self.body = Some(body);
-                self.body.as_mut().unwrap()
-            }
-        };
+    use futures::{Future, Poll};
+    use http::Response;
+    use tower_h2::Body;
 
-        loop {
-            let message = try_ready!(body.poll()
-                .map_err(|e| match e {
-                    ::Error::Inner(h2) => ::Error::Grpc(::Status::from(h2)),
-                    ::Error::Grpc(err) => ::Error::Grpc(err),
-                }));
+    use std::marker::PhantomData;
 
-            match (self.message.is_some(), message) {
-                (false, Some(msg)) => {
-                    self.message = Some(msg);
-                    continue;
-                },
-                (true, None) => {
-                    let head = self.head.take().expect("polled more than once");
-                    let body = self.message.take().expect("polled more than once");
-                    let http = http::Response::from_parts(head, body);
-                    let resp = ::Response::from_http(http);
-                    return Ok(Async::Ready(resp));
-                }
-                (true, Some(_)) => {
-                    debug!("Unary decoder found 2 messages");
-                    return Err(::Error::Grpc(Status::UNKNOWN));
-                }
-                (false, None) => {
-                    debug!("Unary decoder ended before any messages");
-                    return Err(::Error::Grpc(Status::UNKNOWN));
-                }
-            }
-        }
+    pub struct ResponseFuture<T, U> {
+        inner: U,
+        _m: PhantomData<T>,
     }
-}
 
-// ====== impl Stream =====
-
-impl<F, B> Streaming<F, B>
-where
-    F: Future<Item=::Response<B>>,
-    B: Stream<Error=::Error<::h2::Error>>,
-{
-    pub fn map_future(future: F) -> Self {
-        Streaming {
-            body: None,
-            future,
-        }
-    }
-}
-
-impl<F, B, E> Stream for Streaming<F, B>
-where
-    F: Future<Item=::Response<B>, Error=::Error<E>>,
-    B: Stream<Error=::Error<::h2::Error>>,
-{
-    type Item = B::Item;
-    type Error = ::Error<E>;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        loop {
-            if let Some(ref mut body) = self.body {
-                return body.poll().map_err(|e| match e {
-                        ::Error::Inner(h2) => ::Error::Grpc(::Status::from(h2)),
-                        ::Error::Grpc(err) => ::Error::Grpc(err),
-                    });
-            } else {
-                let res = try_ready!(self.future.poll());
-                self.body = Some(res.into_http().into_parts().1);
+    impl<T, U> ResponseFuture<T, U> {
+        /// Create a new client-streaming response future.
+        pub(crate) fn new(inner: U) -> Self {
+            ResponseFuture {
+                inner,
+                _m: PhantomData,
             }
         }
     }
-}
 
-// ====== impl BodyFuture =====
+    impl<T, U, B> Future for ResponseFuture<T, U>
+    where U: Future<Item = Response<B>>,
+          B: Body,
+    {
+        type Item = ::Response<Streaming<U>>;
+        type Error = ::Error;
 
-impl<F> BodyFuture<F> {
-    /// Wrap the future.
-    pub fn new(fut: F) -> Self {
-        BodyFuture {
-            future: fut,
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            unimplemented!();
         }
     }
 }
+*/
 
-impl<F, B> Future for BodyFuture<F>
-where
-    F: Future<Item=::Response<B>>,
-{
-    type Item = B;
-    type Error = F::Error;
+pub mod streaming {
+    use codec::Streaming;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let res = try_ready!(self.future.poll());
-        Ok(Async::Ready(res.into_http().into_parts().1))
+    use futures::{Future, Poll};
+    use http::Response;
+    use tower_h2::Body;
+
+    use std::marker::PhantomData;
+
+    pub struct ResponseFuture<T, U> {
+        inner: U,
+        _m: PhantomData<T>,
     }
-}
 
-fn check_grpc_status(trailers: &HeaderMap) -> Option<Status> {
-    trailers.get("grpc-status").map(|s| {
-        Status::from_bytes(s.as_ref())
-    })
+    impl<T, U> ResponseFuture<T, U> {
+        /// Create a new client-streaming response future.
+        pub(crate) fn new(inner: U) -> Self {
+            ResponseFuture {
+                inner,
+                _m: PhantomData,
+            }
+        }
+    }
+
+    impl<T, U, B> Future for ResponseFuture<T, U>
+    where U: Future<Item = Response<B>>,
+          B: Body,
+    {
+        type Item = ::Response<Streaming<U>>;
+        type Error = ::Error;
+
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            unimplemented!();
+        }
+    }
 }

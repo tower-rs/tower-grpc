@@ -2,8 +2,6 @@ use std::str::FromStr;
 
 use http;
 
-use ::client::codec::Unary;
-
 #[derive(Debug)]
 pub struct Request<T> {
     http: http::Request<T>,
@@ -47,14 +45,7 @@ impl<T> Request<T> {
         Request { http }
     }
 
-    pub fn into_unary(self) -> Request<Unary<T>> {
-        let (head, body) = self.http.into_parts();
-        let http = http::Request::from_parts(head, Unary::new(body));
-        Request {
-            http,
-        }
-    }
-
+    // TODO: This should be priv?
     pub fn into_http(self) -> http::Request<T> {
         self.http
     }

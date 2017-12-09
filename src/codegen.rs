@@ -53,3 +53,16 @@ pub mod server {
         pub use ::tower::{Service, ReadyService, NewService};
     }
 }
+
+pub mod client {
+    /// Re-export types from this crate
+    pub mod grpc {
+        pub use ::client::Grpc;
+        pub use ::{Request, Response, Error, Status};
+    }
+
+    /// Re-export types from the `future` crate.
+    pub mod futures {
+        pub use ::futures::{Future, Poll};
+    }
+}
