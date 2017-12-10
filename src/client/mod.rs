@@ -5,15 +5,15 @@ use util::BoxBody;
 
 use futures::{stream, Future, Stream, Poll};
 use http::{Request, Response, HeaderMap};
+use prost::Message;
 use tower::Service;
 use tower_h2::Body;
 
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Grpc<T, B = BoxBody> {
+pub struct Grpc<T> {
     inner: T,
-    _m: PhantomData<B>,
 }
 
 /// An HTTP (2.0) service that backs the gRPC client
@@ -54,37 +54,40 @@ pub trait IntoBody<T>
     fn into_body(self) -> T;
 }
 
-pub type Once<T> = stream::Once<T, ::Error>;
-
-impl<T> Grpc<T>
+impl<T, U> IntoBody<BoxBody> for T
+where T: Stream<Item = U, Error = ::Error> + Send + 'static,
+      U: Message,
 {
-    pub fn new(inner: T) -> Self {
-        Grpc {
-            inner,
-            _m: PhantomData,
-        }
+    fn into_body(self) -> BoxBody {
+        unimplemented!();
     }
 }
 
-impl<T, U> Grpc<T, U>
-where T: HttpService<RequestBody = U>,
-      U: Body,
+pub type Once<T> = stream::Once<T, ::Error>;
+
+impl<T> Grpc<T>
+where T: HttpService,
 {
+    pub fn new(inner: T) -> Self {
+        Grpc { inner }
+    }
+
     pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
         self.inner.poll_ready()
             .map_err(::Error::Inner)
     }
 
-    /*
-    pub fn unary<M>(&mut self, request: ::Request<M>) -> unary::ResponseFuture
-    where Once<M>: IntoBody<U>,
+    pub fn unary<M1, M2>(&mut self, request: ::Request<M1>)
+        -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
+    where Once<M1>: IntoBody<T::RequestBody>,
     {
-        let response = self.client_streaming(
+        let response = self.streaming(
             request.map(|v| stream::once(Ok(v))));
 
-        unary::ResponseFuture { inner: response }
+        unary::ResponseFuture::new(response)
     }
 
+    /*
     pub fn client_streaming<B, M>(&mut self, request: ::Request<B>)
         -> client_streaming::ResponseFuture<M, T::Future>
     where B: IntoBody<U>,
@@ -110,7 +113,7 @@ where T: HttpService<RequestBody = U>,
     /// **M**: The response **message** (not stream) type.
     pub fn streaming<B, M>(&mut self, request: ::Request<B>)
         -> streaming::ResponseFuture<M, T::Future>
-    where B: Stream + IntoBody<U>,
+    where B: Stream + IntoBody<T::RequestBody>,
     {
         use http::header::{self, HeaderValue};
 
@@ -138,15 +141,89 @@ where T: HttpService<RequestBody = U>,
     }
 }
 
-/*
 pub mod unary {
-    use super::client_streaming;
+    use super::streaming;
+    use codec::Streaming;
 
-    pub struct ResponseFuture {
-        pub(super) inner: client_streaming::ResponseFuture,
+    use futures::{Future, Stream, Poll};
+    use http::{response, Response};
+    use prost::Message;
+    use tower_h2::{Body, Data};
+
+    use std::marker::PhantomData;
+
+    pub struct ResponseFuture<T, U, B> {
+        state: State<T, U, B>,
+    }
+
+    enum State<T, U, B> {
+        WaitResponse(streaming::ResponseFuture<T, U>),
+        WaitMessage {
+            head: Option<response::Parts>,
+            stream: Streaming<T, B>,
+        },
+    }
+
+    impl<T, U, B> ResponseFuture<T, U, B> {
+        /// Create a new client-streaming response future.
+        pub(crate) fn new(inner: streaming::ResponseFuture<T, U>) -> Self {
+            let state = State::WaitResponse(inner);
+            ResponseFuture { state }
+        }
+    }
+
+    impl<T, U, B> Future for ResponseFuture<T, U, B>
+    where T: Message + Default,
+          U: Future<Item = Response<B>>,
+          B: Body<Data = Data>,
+    {
+        type Item = ::Response<T>;
+        type Error = ::Error<U::Error>;
+
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            use self::State::*;
+
+            loop {
+                let response = match self.state {
+                    WaitResponse(ref mut inner) => {
+                        try_ready!(inner.poll())
+                    }
+                    WaitMessage { ref mut head, ref mut stream } => {
+                        let res = stream.poll()
+                            .map_err(|e| {
+                                match e {
+                                    ::Error::Grpc(s) => ::Error::Grpc(s),
+                                    _ => ::Error::Grpc(::Status::INTERNAL),
+                                }
+                            });
+
+                        let message = match try_ready!(res) {
+                            Some(message) => message,
+                            // TODO: handle missing message
+                            None => unimplemented!(),
+                        };
+
+                        let head = head.take().unwrap();
+                        let response = Response::from_parts(head, message);
+
+                        return Ok(::Response::from_http(response).into());
+                    }
+                };
+
+                let (head, body) = response
+                    .into_http()
+                    .into_parts();
+
+                self.state = WaitMessage {
+                    head: Some(head),
+                    stream: body,
+                };
+            }
+        }
     }
 }
 
+/*
 pub mod client_streaming {
     use codec::Streaming;
 

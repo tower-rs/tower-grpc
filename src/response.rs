@@ -15,6 +15,22 @@ impl<T> Response<T> {
         }
     }
 
+    /// Get a reference to the message
+    pub fn get_ref(&self) -> &T {
+        self.http.body()
+    }
+
+    /// Get a mutable reference to the message
+    pub fn get_mut(&mut self) -> &mut T {
+        self.http.body_mut()
+    }
+
+    /// Consumes `self`, returning the message
+    pub fn into_inner(self) -> T {
+        let (_, body) = self.http.into_parts();
+        body
+    }
+
     pub(crate) fn from_http(res: http::Response<T>) -> Self {
         Response {
             http: res,

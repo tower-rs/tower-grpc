@@ -57,7 +57,7 @@ pub mod server {
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::client::Grpc;
+        pub use ::client::{Grpc, HttpService, unary};
         pub use ::{Request, Response, Error, Status};
     }
 
