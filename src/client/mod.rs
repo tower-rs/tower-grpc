@@ -56,10 +56,14 @@ pub trait IntoBody<T>
 
 impl<T, U> IntoBody<BoxBody> for T
 where T: Stream<Item = U, Error = ::Error> + Send + 'static,
-      U: Message,
+      U: Message + 'static,
 {
     fn into_body(self) -> BoxBody {
-        unimplemented!();
+        use codec::Encoder;
+        use generic::Encode;
+
+        let encode = Encode::new(Encoder::new(), self);
+        BoxBody::new(Box::new(encode))
     }
 }
 

@@ -1,5 +1,6 @@
 extern crate env_logger;
 extern crate futures;
+extern crate http;
 #[macro_use]
 extern crate prost_derive;
 extern crate tokio_connect;
@@ -16,6 +17,7 @@ use tower::NewService;
 use tower_grpc::codegen::client::*;
 
 use std::net::SocketAddr;
+use std::str::FromStr;
 
 struct Conn(SocketAddr, Handle);
 
@@ -70,6 +72,15 @@ where T: grpc::HttpService,
     where Once<HelloRequest>: IntoBody<T::RequestBody>,
     {
         let request = grpc::Request::new("/helloworld.Greeter/SayHello", request);
+
+        // Hack to make it work :(
+        let full_uri = "http://127.0.0.1:8888/helloworld.Greeter/SayHello";
+        let new_uri = http::Uri::from_str(&full_uri).expect("example uri should work");
+
+        let mut http = request.into_http();
+        *http.uri_mut() = new_uri;
+        let request = grpc::Request::from_http(http);
+
         self.inner.unary(request)
     }
 }
@@ -80,7 +91,7 @@ pub fn main() {
     let mut core = Core::new().unwrap();
     let reactor = core.handle();
 
-    let addr = "[::1]:8888".parse().unwrap();
+    let addr = "[::1]:50051".parse().unwrap();
 
     let conn = Conn(addr, reactor.clone());
     let h2 = tower_h2::Client::new(conn, Default::default(), reactor);

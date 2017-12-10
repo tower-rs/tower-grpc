@@ -71,6 +71,14 @@ impl<T, U> Clone for Codec<T, U> {
 
 // ===== impl Encoder =====
 
+impl<T> Encoder<T>
+where T: Message
+{
+    pub fn new() -> Self {
+        Encoder(PhantomData)
+    }
+}
+
 impl<T> ::generic::Encoder for Encoder<T>
 where T: Message,
 {
