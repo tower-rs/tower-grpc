@@ -23,6 +23,12 @@ pub struct Grpc<T> {
     authority: uri::Authority,
 }
 
+#[derive(Debug, Default)]
+pub struct Builder {
+    /// The service's URI
+    uri: Option<uri::Uri>,
+}
+
 /// An HTTP (2.0) service that backs the gRPC client
 pub trait HttpService {
     type RequestBody: Body;
@@ -79,25 +85,6 @@ pub type Once<T> = stream::Once<T, ::Error>;
 impl<T> Grpc<T>
 where T: HttpService,
 {
-    pub fn new(inner: T, uri: uri::Uri) -> Self {
-        let scheme = uri.scheme_part()
-            .expect("gRPC service URI must include scheme and authority")
-            .clone();
-
-        let authority = uri.authority_part()
-            .expect("gRPC service URI must include scheme and authority")
-            .clone();
-
-        // TODO: Validate that the path is empty. Doing this is waiting for
-        // hyper/http#149.
-
-        Grpc {
-            inner,
-            scheme,
-            authority,
-        }
-    }
-
     pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
         self.inner.poll_ready()
             .map_err(::Error::Inner)
@@ -110,28 +97,20 @@ where T: HttpService,
     where Once<M1>: IntoBody<T::RequestBody>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
-        let response = self.streaming(request, path);
+        let response = self.client_streaming(request, path);
 
         unary::ResponseFuture::new(response)
     }
 
-    /*
-    pub fn client_streaming<B, M>(&mut self, request: ::Request<B>)
-        -> client_streaming::ResponseFuture<M, T::Future>
-    where B: IntoBody<U>,
+    pub fn client_streaming<B, M>(&mut self,
+                                  request: ::Request<B>,
+                                  path: uri::PathAndQuery)
+        -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
+    where B: IntoBody<T::RequestBody>,
     {
-        // Convert the request
-        let request = request.into_http();
-        let (head, body) = request.into_parts();
-        let body = body.into_body();
-        let request = Request::from_parts(head, body);
-
-        // Call the inner HTTP service
-        let response = self.inner.call(request);
-
+        let response = self.streaming(request, path);
         client_streaming::ResponseFuture::new(response)
     }
-    */
 
     /// Initiate a full streaming gRPC request
     ///
@@ -143,7 +122,7 @@ where T: HttpService,
                            request: ::Request<B>,
                            path: uri::PathAndQuery)
         -> streaming::ResponseFuture<M, T::Future>
-    where B: Stream + IntoBody<T::RequestBody>,
+    where B: IntoBody<T::RequestBody>,
     {
         use http::header::{self, HeaderValue};
 
@@ -185,7 +164,78 @@ where T: HttpService,
     }
 }
 
+impl Builder {
+    /// Return a new client builder
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn uri(&mut self, value: uri::Uri) -> &mut Self {
+        // TODO: Validate that the path is empty. Doing this is waiting for
+        // hyper/http#149.
+
+        self.uri = Some(value);
+        self
+    }
+
+    pub fn build<T>(&mut self, inner: T) -> Grpc<T>
+    where T: HttpService,
+    {
+        let uri = self.uri.as_mut().expect("service URI is required");
+
+        let scheme = uri.scheme_part()
+            .expect("gRPC service URI must include scheme and authority")
+            .clone();
+
+        let authority = uri.authority_part()
+            .expect("gRPC service URI must include scheme and authority")
+            .clone();
+
+        Grpc {
+            inner,
+            scheme,
+            authority,
+        }
+    }
+}
+
 pub mod unary {
+    use super::client_streaming;
+    use codec::Streaming;
+
+    use futures::{Future, Stream, Poll};
+    use http::{response, Response};
+    use prost::Message;
+    use tower_h2::{Body, Data};
+
+    use std::marker::PhantomData;
+
+    pub struct ResponseFuture<T, U, B> {
+        inner: client_streaming::ResponseFuture<T, U, B>,
+    }
+
+    impl<T, U, B> ResponseFuture<T, U, B> {
+        /// Create a new client-streaming response future.
+        pub(crate) fn new(inner: client_streaming::ResponseFuture<T, U, B>) -> Self {
+            ResponseFuture { inner }
+        }
+    }
+
+    impl<T, U, B> Future for ResponseFuture<T, U, B>
+    where T: Message + Default,
+          U: Future<Item = Response<B>>,
+          B: Body<Data = Data>,
+    {
+        type Item = ::Response<T>;
+        type Error = ::Error<U::Error>;
+
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            self.inner.poll()
+        }
+    }
+}
+
+pub mod client_streaming {
     use super::streaming;
     use codec::Streaming;
 
@@ -266,45 +316,6 @@ pub mod unary {
         }
     }
 }
-
-/*
-pub mod client_streaming {
-    use codec::Streaming;
-
-    use futures::{Future, Poll};
-    use http::Response;
-    use tower_h2::Body;
-
-    use std::marker::PhantomData;
-
-    pub struct ResponseFuture<T, U> {
-        inner: U,
-        _m: PhantomData<T>,
-    }
-
-    impl<T, U> ResponseFuture<T, U> {
-        /// Create a new client-streaming response future.
-        pub(crate) fn new(inner: U) -> Self {
-            ResponseFuture {
-                inner,
-                _m: PhantomData,
-            }
-        }
-    }
-
-    impl<T, U, B> Future for ResponseFuture<T, U>
-    where U: Future<Item = Response<B>>,
-          B: Body,
-    {
-        type Item = ::Response<Streaming<U>>;
-        type Error = ::Error;
-
-        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-            unimplemented!();
-        }
-    }
-}
-*/
 
 pub mod streaming {
     use codec::Streaming;

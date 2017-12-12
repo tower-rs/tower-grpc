@@ -58,7 +58,10 @@ impl<T> Greeter<T>
 where T: grpc::HttpService,
 {
     pub fn new(inner: T, uri: http::Uri) -> Self {
-        let inner = grpc::Grpc::new(inner, uri);
+        let inner = grpc::Builder::new()
+            .uri(uri)
+            .build(inner);
+
         Greeter { inner }
     }
 
