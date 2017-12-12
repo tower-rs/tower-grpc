@@ -16,7 +16,6 @@ extern crate prost;
 
 pub mod client;
 pub mod generic;
-pub mod util;
 
 mod error;
 mod request;

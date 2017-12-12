@@ -1,13 +1,12 @@
 #![allow(warnings, missing_debug_implementations)]
 
 use Status;
-use util::BoxBody;
 
 use futures::{stream, Future, Stream, Poll};
 use http::{uri, Request, Response, HeaderMap, Uri};
 use prost::Message;
 use tower::Service;
-use tower_h2::Body;
+use tower_h2::{Body, BoxBody};
 
 use std::marker::PhantomData;
 
@@ -62,6 +61,8 @@ where T: Service<Request = Request<B1>,
 }
 
 /// Convert a stream of protobuf messages to an HTTP body payload.
+///
+/// TODO: Rename to `IntoEncode` or something...
 pub trait IntoBody<T>
 {
     fn into_body(self) -> T;
