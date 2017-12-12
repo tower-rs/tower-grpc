@@ -1,13 +1,12 @@
 use super::streaming;
 use codec::Streaming;
 
-use futures::{Future, Stream, Poll};
-use http::{response, Response};
+use futures::{Future, Poll};
+use http::Response;
 use prost::Message;
 use tower_h2::{Body, Data};
 
-use std::marker::PhantomData;
-
+#[derive(Debug)]
 pub struct ResponseFuture<T, U> {
     inner: streaming::ResponseFuture<T, U>,
 }

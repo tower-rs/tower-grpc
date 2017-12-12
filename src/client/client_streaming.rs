@@ -6,12 +6,12 @@ use http::{response, Response};
 use prost::Message;
 use tower_h2::{Body, Data};
 
-use std::marker::PhantomData;
-
+#[derive(Debug)]
 pub struct ResponseFuture<T, U, B> {
     state: State<T, U, B>,
 }
 
+#[derive(Debug)]
 enum State<T, U, B> {
     WaitResponse(streaming::ResponseFuture<T, U>),
     WaitMessage {

@@ -1,5 +1,3 @@
-#![allow(warnings, missing_debug_implementations)]
-
 pub mod unary;
 pub mod client_streaming;
 pub mod server_streaming;
@@ -7,13 +5,10 @@ pub mod streaming;
 
 use Status;
 
-use futures::{stream, Future, Stream, Poll};
-use http::{uri, Request, Response, HeaderMap, Uri};
+use futures::{stream, Stream, Poll};
+use http::{uri, HeaderMap, Uri};
 use prost::Message;
-use tower::Service;
-use tower_h2::{HttpService, Body, BoxBody};
-
-use std::marker::PhantomData;
+use tower_h2::{HttpService, BoxBody};
 
 #[derive(Debug)]
 pub struct Grpc<T> {

@@ -7,6 +7,7 @@ use tower_h2::{Body, Data};
 
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 pub struct ResponseFuture<T, U> {
     inner: U,
     _m: PhantomData<T>,
