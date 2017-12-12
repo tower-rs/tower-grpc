@@ -57,7 +57,7 @@ pub mod server {
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::client::{Grpc, Builder, HttpService, unary};
+        pub use ::client::{Grpc, Builder, unary};
         pub use ::{Request, Response, Error, Status};
     }
 
@@ -68,5 +68,9 @@ pub mod client {
     /// Re-export types from the `future` crate.
     pub mod futures {
         pub use ::futures::{Future, Poll};
+    }
+
+    pub mod tower_h2 {
+        pub use ::tower_h2::HttpService;
     }
 }

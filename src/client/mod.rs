@@ -11,7 +11,7 @@ use futures::{stream, Future, Stream, Poll};
 use http::{uri, Request, Response, HeaderMap, Uri};
 use prost::Message;
 use tower::Service;
-use tower_h2::{Body, BoxBody};
+use tower_h2::{HttpService, Body, BoxBody};
 
 use std::marker::PhantomData;
 
@@ -33,38 +33,6 @@ pub struct Builder {
     uri: Option<uri::Uri>,
 }
 
-/// An HTTP (2.0) service that backs the gRPC client
-pub trait HttpService {
-    type RequestBody: Body;
-    type ResponseBody: Body;
-    type Error;
-    type Future: Future<Item = Response<Self::ResponseBody>, Error = Self::Error>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
-
-    fn call(&mut self, request: Request<Self::RequestBody>) -> Self::Future;
-}
-
-impl<T, B1, B2> HttpService for T
-where T: Service<Request = Request<B1>,
-                Response = Response<B2>>,
-      B1: Body,
-      B2: Body,
-{
-    type RequestBody = B1;
-    type ResponseBody = B2;
-    type Error = T::Error;
-    type Future = T::Future;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Service::poll_ready(self)
-    }
-
-    fn call(&mut self, request: Request<Self::RequestBody>) -> Self::Future {
-        Service::call(self, request)
-    }
-}
-
 /// Convert a stream of protobuf messages to an HTTP body payload.
 ///
 /// TODO: Rename to `IntoEncode` or something...
@@ -73,20 +41,9 @@ pub trait IntoBody<T>
     fn into_body(self) -> T;
 }
 
-impl<T, U> IntoBody<BoxBody> for T
-where T: Stream<Item = U, Error = ::Error> + Send + 'static,
-      U: Message + 'static,
-{
-    fn into_body(self) -> BoxBody {
-        use codec::Encoder;
-        use generic::Encode;
-
-        let encode = Encode::new(Encoder::new(), self);
-        BoxBody::new(Box::new(encode))
-    }
-}
-
 pub type Once<T> = stream::Once<T, ::Error>;
+
+// ===== impl Grpc =====
 
 impl<T> Grpc<T>
 where T: HttpService,
@@ -182,6 +139,8 @@ where T: HttpService,
     }
 }
 
+// ===== impl Builder =====
+
 impl Builder {
     /// Return a new client builder
     pub fn new() -> Self {
@@ -214,6 +173,21 @@ impl Builder {
             scheme,
             authority,
         }
+    }
+}
+
+// ===== impl IntoBody =====
+
+impl<T, U> IntoBody<BoxBody> for T
+where T: Stream<Item = U, Error = ::Error> + Send + 'static,
+      U: Message + 'static,
+{
+    fn into_body(self) -> BoxBody {
+        use codec::Encoder;
+        use generic::Encode;
+
+        let encode = Encode::new(Encoder::new(), self);
+        BoxBody::new(Box::new(encode))
     }
 }
 

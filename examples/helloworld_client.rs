@@ -55,7 +55,7 @@ pub struct Greeter<T> {
 use tower_grpc::client::{Once, IntoBody};
 
 impl<T> Greeter<T>
-where T: grpc::HttpService,
+where T: tower_h2::HttpService,
 {
     pub fn new(inner: T, uri: http::Uri) -> Self {
         let inner = grpc::Builder::new()
