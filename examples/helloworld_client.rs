@@ -52,7 +52,7 @@ pub struct Greeter<T> {
     inner: grpc::Grpc<T>,
 }
 
-use tower_grpc::client::{Once, Encodable};
+use tower_grpc::client::Encodable;
 
 impl<T> Greeter<T>
 where T: tower_h2::HttpService,
@@ -71,7 +71,7 @@ where T: tower_h2::HttpService,
 
     pub fn say_hello(&mut self, request: grpc::Request<HelloRequest>)
         -> grpc::unary::ResponseFuture<HelloReply, T::Future, T::ResponseBody>
-    where Once<HelloRequest>: Encodable<T::RequestBody>,
+    where grpc::unary::Once<HelloRequest>: Encodable<T::RequestBody>,
     {
         let path = http::uri::PathAndQuery::from_static("/helloworld.Greeter/SayHello");
         self.inner.unary(request, path)

@@ -1,7 +1,7 @@
 use super::client_streaming;
 use codec::Streaming;
 
-use futures::{Future, Stream, Poll};
+use futures::{stream, Future, Stream, Poll};
 use http::{response, Response};
 use prost::Message;
 use tower_h2::{Body, Data};
@@ -11,6 +11,8 @@ use std::marker::PhantomData;
 pub struct ResponseFuture<T, U, B> {
     inner: client_streaming::ResponseFuture<T, U, B>,
 }
+
+pub type Once<T> = stream::Once<T, ::Error>;
 
 impl<T, U, B> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.

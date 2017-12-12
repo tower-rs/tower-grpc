@@ -41,8 +41,6 @@ pub trait Encodable<T>
     fn into_encode(self) -> T;
 }
 
-pub type Once<T> = stream::Once<T, ::Error>;
-
 // ===== impl Grpc =====
 
 impl<T> Grpc<T>
@@ -57,7 +55,7 @@ where T: HttpService,
                          request: ::Request<M1>,
                          path: uri::PathAndQuery)
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
-    where Once<M1>: Encodable<T::RequestBody>,
+    where unary::Once<M1>: Encodable<T::RequestBody>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.client_streaming(request, path);
@@ -79,7 +77,7 @@ where T: HttpService,
                                     request: ::Request<M1>,
                                     path: uri::PathAndQuery)
         -> server_streaming::ResponseFuture<M2, T::Future>
-    where Once<M1>: Encodable<T::RequestBody>,
+    where unary::Once<M1>: Encodable<T::RequestBody>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.streaming(request, path);
