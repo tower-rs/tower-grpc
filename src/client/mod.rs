@@ -112,6 +112,18 @@ where T: HttpService,
         client_streaming::ResponseFuture::new(response)
     }
 
+    pub fn server_streaming<M1, M2>(&mut self,
+                                    request: ::Request<M1>,
+                                    path: uri::PathAndQuery)
+        -> server_streaming::ResponseFuture<M2, T::Future>
+    where Once<M1>: IntoBody<T::RequestBody>,
+    {
+        let request = request.map(|v| stream::once(Ok(v)));
+        let response = self.streaming(request, path);
+
+        server_streaming::ResponseFuture::new(response)
+    }
+
     /// Initiate a full streaming gRPC request
     ///
     /// # Generics
@@ -313,6 +325,42 @@ pub mod client_streaming {
                     stream: body,
                 };
             }
+        }
+    }
+}
+
+pub mod server_streaming {
+    use super::streaming;
+    use codec::Streaming;
+
+    use futures::{Future, Stream, Poll};
+    use http::{response, Response};
+    use prost::Message;
+    use tower_h2::{Body, Data};
+
+    use std::marker::PhantomData;
+
+    pub struct ResponseFuture<T, U> {
+        inner: streaming::ResponseFuture<T, U>,
+    }
+
+    impl<T, U> ResponseFuture<T, U> {
+        /// Create a new client-streaming response future.
+        pub(crate) fn new(inner: streaming::ResponseFuture<T, U>) -> Self {
+            ResponseFuture { inner }
+        }
+    }
+
+    impl<T, U, B> Future for ResponseFuture<T, U>
+    where T: Message + Default,
+          U: Future<Item = Response<B>>,
+          B: Body<Data = Data>,
+    {
+        type Item = ::Response<Streaming<T, B>>;
+        type Error = ::Error<U::Error>;
+
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            self.inner.poll()
         }
     }
 }
