@@ -88,13 +88,7 @@ where T: ServerStreamingService<Request = S::Item>,
                 Some(msg) => {
                     match self.state.take().unwrap() {
                         Requesting(request) => {
-                            // A bunch of junk to map the body type
-                            let http = request.into_http();
-                            let (head, _) = http.into_parts();
-
-                            let http = ::http::Request::from_parts(head, msg);
-                            let request = Request::from_http(http);
-
+                            let request = request.map(|_| msg);
                             let response = self.inner.call(request);
 
                             self.state = Some(Responding(response));

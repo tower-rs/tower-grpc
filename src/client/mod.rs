@@ -4,7 +4,7 @@ use Status;
 use util::BoxBody;
 
 use futures::{stream, Future, Stream, Poll};
-use http::{Request, Response, HeaderMap};
+use http::{uri, Request, Response, HeaderMap, Uri};
 use prost::Message;
 use tower::Service;
 use tower_h2::Body;
@@ -13,7 +13,14 @@ use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Grpc<T> {
+    /// The inner HTTP/2.0 service.
     inner: T,
+
+    /// The service's scheme.
+    scheme: uri::Scheme,
+
+    /// The service's authority.
+    authority: uri::Authority,
 }
 
 /// An HTTP (2.0) service that backs the gRPC client
@@ -72,8 +79,23 @@ pub type Once<T> = stream::Once<T, ::Error>;
 impl<T> Grpc<T>
 where T: HttpService,
 {
-    pub fn new(inner: T) -> Self {
-        Grpc { inner }
+    pub fn new(inner: T, uri: uri::Uri) -> Self {
+        let scheme = uri.scheme_part()
+            .expect("gRPC service URI must include scheme and authority")
+            .clone();
+
+        let authority = uri.authority_part()
+            .expect("gRPC service URI must include scheme and authority")
+            .clone();
+
+        // TODO: Validate that the path is empty. Doing this is waiting for
+        // hyper/http#149.
+
+        Grpc {
+            inner,
+            scheme,
+            authority,
+        }
     }
 
     pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
@@ -81,12 +103,14 @@ where T: HttpService,
             .map_err(::Error::Inner)
     }
 
-    pub fn unary<M1, M2>(&mut self, request: ::Request<M1>)
+    pub fn unary<M1, M2>(&mut self,
+                         request: ::Request<M1>,
+                         path: uri::PathAndQuery)
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
     where Once<M1>: IntoBody<T::RequestBody>,
     {
-        let response = self.streaming(
-            request.map(|v| stream::once(Ok(v))));
+        let request = request.map(|v| stream::once(Ok(v)));
+        let response = self.streaming(request, path);
 
         unary::ResponseFuture::new(response)
     }
@@ -115,17 +139,33 @@ where T: HttpService,
     ///
     /// **B**: The request stream of gRPC message values.
     /// **M**: The response **message** (not stream) type.
-    pub fn streaming<B, M>(&mut self, request: ::Request<B>)
+    pub fn streaming<B, M>(&mut self,
+                           request: ::Request<B>,
+                           path: uri::PathAndQuery)
         -> streaming::ResponseFuture<M, T::Future>
     where B: Stream + IntoBody<T::RequestBody>,
     {
         use http::header::{self, HeaderValue};
 
-        // Convert the request
-        let request = request.into_http();
-        let (head, body) = request.into_parts();
-        let body = body.into_body();
-        let mut request = Request::from_parts(head, body);
+        // TODO: validate the path
+
+        // Get the gRPC's method URI
+        let mut parts = uri::Parts::default();
+        parts.scheme = Some(self.scheme.clone());
+        parts.authority = Some(self.authority.clone());
+        parts.path_and_query = Some(path);
+
+        // Get the URI;
+        let uri = match Uri::from_parts(parts) {
+            Ok(uri) => uri,
+            Err(_) => unimplemented!(),
+        };
+
+        // Convert the request body
+        let request = request.map(|v| v.into_body());
+
+        // Convert to an HTTP request
+        let mut request = request.into_http(uri);
 
         // Add the gRPC related HTTP headers
         request.headers_mut()

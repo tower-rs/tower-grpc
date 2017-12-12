@@ -61,6 +61,10 @@ pub mod client {
         pub use ::{Request, Response, Error, Status};
     }
 
+    pub mod http {
+        pub use ::http::uri::PathAndQuery;
+    }
+
     /// Re-export types from the `future` crate.
     pub mod futures {
         pub use ::futures::{Future, Poll};

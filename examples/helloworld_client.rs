@@ -17,7 +17,6 @@ use tower::NewService;
 use tower_grpc::codegen::client::*;
 
 use std::net::SocketAddr;
-use std::str::FromStr;
 
 struct Conn(SocketAddr, Handle);
 
@@ -49,6 +48,7 @@ pub struct HelloReply {
 
 #[derive(Debug)]
 pub struct Greeter<T> {
+    /// The inner HTTP/2.0 service
     inner: grpc::Grpc<T>,
 }
 
@@ -57,8 +57,8 @@ use tower_grpc::client::{Once, IntoBody};
 impl<T> Greeter<T>
 where T: grpc::HttpService,
 {
-    pub fn new(inner: T) -> Self {
-        let inner = grpc::Grpc::new(inner);
+    pub fn new(inner: T, uri: http::Uri) -> Self {
+        let inner = grpc::Grpc::new(inner, uri);
         Greeter { inner }
     }
 
@@ -66,22 +66,12 @@ where T: grpc::HttpService,
         self.inner.poll_ready()
     }
 
-    // TODO: This should take grpc::Request<HelloRequest>
-    pub fn say_hello(&mut self, request: HelloRequest)
+    pub fn say_hello(&mut self, request: grpc::Request<HelloRequest>)
         -> grpc::unary::ResponseFuture<HelloReply, T::Future, T::ResponseBody>
     where Once<HelloRequest>: IntoBody<T::RequestBody>,
     {
-        let request = grpc::Request::new("/helloworld.Greeter/SayHello", request);
-
-        // Hack to make it work :(
-        let full_uri = "http://127.0.0.1:8888/helloworld.Greeter/SayHello";
-        let new_uri = http::Uri::from_str(&full_uri).expect("example uri should work");
-
-        let mut http = request.into_http();
-        *http.uri_mut() = new_uri;
-        let request = grpc::Request::from_http(http);
-
-        self.inner.unary(request)
+        let path = http::uri::PathAndQuery::from_static("/helloworld.Greeter/SayHello");
+        self.inner.unary(request, path)
     }
 }
 
@@ -99,19 +89,12 @@ pub fn main() {
     let done = h2.new_service()
         .map_err(|e| unimplemented!("h2 new_service error: {:?}", e))
         .and_then(move |service| {
-            let mut client = Greeter::new(service);
-            client.say_hello(HelloRequest {
+            let uri = "http://127.0.0.1:8888/".parse().unwrap();
+            let mut client = Greeter::new(service, uri);
+
+            client.say_hello(grpc::Request::new(HelloRequest {
                 name: String::from("world"),
-            })
-            /*
-            let service = AddOrigin(service);
-            let grpc = tower_grpc::client::Client::new(StupidCodec, service);
-            let say_hello = SayHello::new(grpc);
-            let mut greeter = Greeter::new(say_hello);
-            greeter.say_hello(HelloRequest {
-                name: String::from("world"),
-            })
-            */
+            }))
         })
         .map(|reply| println!("Greeter.SayHello: {}", reply.get_ref().message))
         .map_err(|e| println!("error: {:?}", e));
