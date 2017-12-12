@@ -36,9 +36,9 @@ pub struct Builder {
 /// Convert a stream of protobuf messages to an HTTP body payload.
 ///
 /// TODO: Rename to `IntoEncode` or something...
-pub trait IntoBody<T>
+pub trait Encodable<T>
 {
-    fn into_body(self) -> T;
+    fn into_encode(self) -> T;
 }
 
 pub type Once<T> = stream::Once<T, ::Error>;
@@ -57,7 +57,7 @@ where T: HttpService,
                          request: ::Request<M1>,
                          path: uri::PathAndQuery)
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
-    where Once<M1>: IntoBody<T::RequestBody>,
+    where Once<M1>: Encodable<T::RequestBody>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.client_streaming(request, path);
@@ -69,7 +69,7 @@ where T: HttpService,
                                   request: ::Request<B>,
                                   path: uri::PathAndQuery)
         -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
-    where B: IntoBody<T::RequestBody>,
+    where B: Encodable<T::RequestBody>,
     {
         let response = self.streaming(request, path);
         client_streaming::ResponseFuture::new(response)
@@ -79,7 +79,7 @@ where T: HttpService,
                                     request: ::Request<M1>,
                                     path: uri::PathAndQuery)
         -> server_streaming::ResponseFuture<M2, T::Future>
-    where Once<M1>: IntoBody<T::RequestBody>,
+    where Once<M1>: Encodable<T::RequestBody>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.streaming(request, path);
@@ -97,7 +97,7 @@ where T: HttpService,
                            request: ::Request<B>,
                            path: uri::PathAndQuery)
         -> streaming::ResponseFuture<M, T::Future>
-    where B: IntoBody<T::RequestBody>,
+    where B: Encodable<T::RequestBody>,
     {
         use http::header::{self, HeaderValue};
 
@@ -116,7 +116,7 @@ where T: HttpService,
         };
 
         // Convert the request body
-        let request = request.map(|v| v.into_body());
+        let request = request.map(Encodable::into_encode);
 
         // Convert to an HTTP request
         let mut request = request.into_http(uri);
@@ -176,13 +176,13 @@ impl Builder {
     }
 }
 
-// ===== impl IntoBody =====
+// ===== impl Encodable =====
 
-impl<T, U> IntoBody<BoxBody> for T
+impl<T, U> Encodable<BoxBody> for T
 where T: Stream<Item = U, Error = ::Error> + Send + 'static,
       U: Message + 'static,
 {
-    fn into_body(self) -> BoxBody {
+    fn into_encode(self) -> BoxBody {
         use codec::Encoder;
         use generic::Encode;
 
@@ -190,6 +190,8 @@ where T: Stream<Item = U, Error = ::Error> + Send + 'static,
         BoxBody::new(Box::new(encode))
     }
 }
+
+// ===== utility fns =====
 
 fn check_grpc_status(trailers: &HeaderMap) -> Option<Status> {
     trailers.get("grpc-status").map(|s| {
