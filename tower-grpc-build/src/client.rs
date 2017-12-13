@@ -92,11 +92,12 @@ impl ServiceGenerator {
                 ;
 
             let mut request = codegen::Type::new("grpc::Request");
-            let request_stream = format!("grpc::Streaming<{}>", input_type);
 
             let req_body = match (method.client_streaming, method.server_streaming) {
                 (false, false) => {
-                    let ret = format!("grpc::unary::ResponseFuture<{}, T::Future, T::ResponseBody>", output_type);
+                    let ret = format!(
+                        "grpc::unary::ResponseFuture<{}, T::Future, T::ResponseBody>",
+                        output_type);
 
                     request.generic(input_type);
 
@@ -107,16 +108,46 @@ impl ServiceGenerator {
                     format!("grpc::unary::Once<{}>", input_type)
                 }
                 (false, true) => {
+                    let ret = format!(
+                        "grpc::server_streaming::ResponseFuture<{}, T::Future>",
+                        output_type);
+
                     request.generic(input_type);
-                    unimplemented!()
+
+                    func.generic("B")
+                        .ret(ret)
+                        .line("self.inner.server_streaming(request, path)")
+                        ;
+
+                    format!("grpc::unary::Once<{}>", input_type)
                 }
                 (true, false) => {
-                    request.generic(&request_stream);
-                    unimplemented!()
+                    let ret = format!(
+                        "grpc::client_streaming::ResponseFuture<{}, T::Future, T::ResponseBody>",
+                        output_type);
+
+                    request.generic("B");
+
+                    func.generic("B")
+                        .ret(ret)
+                        .line("self.inner.client_streaming(request, path)")
+                        ;
+
+                    "B".to_string()
                 }
                 (true, true) => {
-                    request.generic(&request_stream);
-                    unimplemented!()
+                    let ret = format!(
+                        "grpc::streaming::ResponseFuture<{}, T::Future>",
+                        output_type);
+
+                    request.generic("B");
+
+                    func.generic("B")
+                        .ret(ret)
+                        .line("self.inner.streaming(request, path)")
+                        ;
+
+                    "B".to_string()
                 }
             };
 

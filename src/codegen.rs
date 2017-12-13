@@ -57,7 +57,15 @@ pub mod server {
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::client::{Grpc, Builder, Encodable, unary};
+        pub use ::client::{
+            Grpc,
+            Builder,
+            Encodable,
+            unary,
+            client_streaming,
+            server_streaming,
+            streaming,
+        };
         pub use ::{Request, Response, Error, Status};
     }
 

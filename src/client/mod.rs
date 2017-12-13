@@ -31,8 +31,7 @@ pub struct Builder {
 /// Convert a stream of protobuf messages to an HTTP body payload.
 ///
 /// TODO: Rename to `IntoEncode` or something...
-pub trait Encodable<T>
-{
+pub trait Encodable<T> {
     fn into_encode(self) -> T;
 }
 

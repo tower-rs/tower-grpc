@@ -11,7 +11,7 @@ extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
 
-mod hello_world {
+pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
 

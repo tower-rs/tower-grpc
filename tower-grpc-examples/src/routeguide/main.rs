@@ -20,7 +20,7 @@ extern crate serde_json;
 extern crate serde_derive;
 
 mod data;
-mod routeguide {
+pub mod routeguide {
     include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));
 }
 use routeguide::{server, Point, Rectangle, Feature, RouteSummary, RouteNote};
