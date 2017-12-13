@@ -57,12 +57,12 @@ pub mod server {
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::client::{Grpc, Builder, unary};
+        pub use ::client::{Grpc, Builder, Encodable, unary};
         pub use ::{Request, Response, Error, Status};
     }
 
     pub mod http {
-        pub use ::http::uri::PathAndQuery;
+        pub use ::http::uri::{Uri, PathAndQuery};
     }
 
     /// Re-export types from the `future` crate.
