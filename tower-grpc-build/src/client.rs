@@ -36,8 +36,8 @@ impl ServiceGenerator {
 
     fn import_message_types(&self, service: &prost_build::Service, scope: &mut codegen::Scope) {
         for method in &service.methods {
-            let (input_path, input_type) = ::super_import(&method.input_type, 2);
-            let (output_path, output_type) = ::super_import(&method.output_type, 2);
+            let (input_path, input_type) = ::super_import(&method.input_type, 1);
+            let (output_path, output_type) = ::super_import(&method.output_type, 1);
 
             scope.import(&input_path, input_type);
             scope.import(&output_path, output_type);

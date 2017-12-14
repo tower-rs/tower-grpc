@@ -8,8 +8,12 @@ name = "helloworld"
 path = "src/helloworld.rs"
 
 [[bin]]
-name = "route_guide"
-path = "src/routeguide/main.rs"
+name = "route-guide-server"
+path = "src/routeguide/server.rs"
+
+[[bin]]
+name = "route-guide-client"
+path = "src/routeguide/client.rs"
 
 [dependencies]
 futures = "0.1"
