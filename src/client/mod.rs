@@ -28,6 +28,11 @@ pub struct Builder {
     uri: Option<uri::Uri>,
 }
 
+#[derive(Debug)]
+pub struct BuilderError {
+    _p: (),
+}
+
 /// Convert a stream of protobuf messages to an HTTP body payload.
 ///
 /// TODO: Rename to `IntoEncode` or something...
@@ -147,24 +152,34 @@ impl Builder {
         self
     }
 
-    pub fn build<T>(&mut self, inner: T) -> Grpc<T>
+    pub fn build<T>(&mut self, inner: T) -> Result<Grpc<T>, BuilderError>
     where T: HttpService,
     {
         let uri = self.uri.as_mut().expect("service URI is required");
 
-        let scheme = uri.scheme_part()
-            .expect("gRPC service URI must include scheme and authority")
-            .clone();
+        let scheme = match uri.scheme_part() {
+            Some(scheme) => scheme.clone(),
+            None => return Err(BuilderError::new()),
+        };
 
-        let authority = uri.authority_part()
-            .expect("gRPC service URI must include scheme and authority")
-            .clone();
+        let authority = match uri.authority_part() {
+            Some(authority) => authority.clone(),
+            None => return Err(BuilderError::new()),
+        };
 
-        Grpc {
+        Ok(Grpc {
             inner,
             scheme,
             authority,
-        }
+        })
+    }
+}
+
+// ===== impl BuilderError =====
+
+impl BuilderError {
+    fn new() -> Self {
+        BuilderError { _p: () }
     }
 }
 

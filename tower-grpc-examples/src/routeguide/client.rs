@@ -50,7 +50,7 @@ pub fn main() {
             })
             .and_then(move |conn| {
                 use routeguide::client::RouteGuide;
-                Ok(RouteGuide::new(conn, uri))
+                Ok(RouteGuide::new(conn, uri).unwrap())
             })
     }).unwrap();
 

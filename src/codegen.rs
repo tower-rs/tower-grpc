@@ -60,6 +60,7 @@ pub mod client {
         pub use ::client::{
             Grpc,
             Builder,
+            BuilderError,
             Encodable,
             unary,
             client_streaming,

@@ -64,12 +64,12 @@ impl ServiceGenerator {
             .vis("pub")
             .arg("inner", "T")
             .arg("uri", "http::Uri")
-            .ret("Self")
+            .ret("Result<Self, grpc::BuilderError>")
             .line("let inner = grpc::Builder::new()")
             .line("    .uri(uri)")
-            .line("    .build(inner);")
+            .line("    .build(inner)?;")
             .line("")
-            .line("Self { inner }")
+            .line("Ok(Self { inner })")
             ;
 
         imp.new_fn("poll_ready")

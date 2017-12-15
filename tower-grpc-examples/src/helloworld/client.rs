@@ -37,7 +37,7 @@ pub fn main() {
         })
         .and_then(move |conn| {
             use hello_world::client::Greeter;
-            Ok(Greeter::new(conn, uri))
+            Ok(Greeter::new(conn, uri).unwrap())
         })
         .and_then(|mut client| {
             use hello_world::HelloRequest;
