@@ -1,8 +1,6 @@
 use codegen;
 use prost_build;
 
-#[allow(unused)]
-use std::ascii::AsciiExt;
 use std::fmt;
 
 /// Generates service code
@@ -43,7 +41,7 @@ macro_rules! try_ready {
             self.define_service_trait(service, module.scope());
             self.define_server_struct(service, module.scope());
 
-            let support = module.new_module(&lower_name(&service.name))
+            let support = module.new_module(&::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 .import("super", &service.proto_name)
@@ -62,8 +60,8 @@ macro_rules! try_ready {
 
             // Define service modules
             for method in &service.methods {
-                let (input_path, input_type) = super_import(&method.input_type, 2);
-                let (output_path, output_type) = super_import(&method.output_type, 2);
+                let (input_path, input_type) = ::super_import(&method.input_type, 2);
+                let (output_path, output_type) = ::super_import(&method.output_type, 2);
 
                 methods.import(&input_path, input_type);
                 methods.import(&output_path, output_type);
@@ -82,7 +80,7 @@ macro_rules! try_ready {
             ;
 
         for method in &service.methods {
-            let name = lower_name(&method.proto_name);
+            let name = ::lower_name(&method.proto_name);
 
             let future_bound;
 
@@ -90,7 +88,7 @@ macro_rules! try_ready {
                 let stream_name = format!("{}Stream", &method.proto_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Error>",
-                    unqualified(&method.output_type));
+                    ::unqualified(&method.output_type));
 
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Error>",
@@ -101,7 +99,7 @@ macro_rules! try_ready {
             } else {
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<{}>, Error = grpc::Error>",
-                    unqualified(&method.output_type));
+                    ::unqualified(&method.output_type));
             }
 
             let future_name = format!("{}Future", &method.proto_name);
@@ -110,8 +108,8 @@ macro_rules! try_ready {
                 .bound(&future_bound)
                 ;
 
-            let (input_path, input_type) = super_import(&method.input_type, 1);
-            let (output_path, output_type) = super_import(&method.output_type, 1);
+            let (input_path, input_type) = ::super_import(&method.input_type, 1);
+            let (output_path, output_type) = ::super_import(&method.output_type, 1);
 
             scope.import(&input_path, input_type);
             scope.import(&output_path, output_type);
@@ -134,7 +132,7 @@ macro_rules! try_ready {
 
     fn define_server_struct(&self, service: &prost_build::Service, scope: &mut codegen::Scope) {
         let name = format!("{}Server", service.name);
-        let lower_name = lower_name(&service.name);
+        let lower_name = ::lower_name(&service.name);
 
         scope.new_struct(&name)
             .vis("pub")
@@ -192,10 +190,7 @@ macro_rules! try_ready {
 
             for method in &service.methods {
                 // The service method path.
-                let match_line = format!("\"/{}.{}/{}\" =>",
-                                   service.package,
-                                   service.proto_name,
-                                   method.proto_name);
+                let match_line = format!("{} =>", ::method_path(service, method));
 
                 // Match the service path
                 let mut handle = codegen::Block::new(&match_line);
@@ -434,20 +429,20 @@ macro_rules! try_ready {
 
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let request_stream = format!("grpc::Streaming<{}>", unqualified(&method.input_type));
+        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type));
         let response_stream = format!("T::{}Stream", method.proto_name);
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                request.generic(unqualified(&method.input_type));
-                response.generic(unqualified(&method.output_type));
+                request.generic(::unqualified(&method.input_type));
+                response.generic(::unqualified(&method.output_type));
             }
             (false, true) => {
-                request.generic(unqualified(&method.input_type));
+                request.generic(::unqualified(&method.input_type));
                 response.generic(&response_stream);
             }
             (true, false) => {
-                response.generic(unqualified(&method.output_type));
+                response.generic(::unqualified(&method.output_type));
                 request.generic(&request_stream);
             }
             (true, true) => {
@@ -472,40 +467,6 @@ macro_rules! try_ready {
             .line(&format!("self.0.{}(request)", method.name))
             ;
     }
-}
-
-fn lower_name(name: &str) -> String {
-    let mut ret = String::new();
-
-    for (i, ch) in name.chars().enumerate() {
-        if ch.is_uppercase() {
-            if i != 0 {
-                ret.push('_');
-            }
-
-            ret.push(ch.to_ascii_lowercase());
-        } else {
-            ret.push(ch);
-        }
-    }
-
-    ret
-}
-
-fn super_import(ty: &str, level: usize) -> (String, &str) {
-    let mut v: Vec<&str> = ty.split("::").collect();
-
-    for _ in 0..level {
-        v.insert(0, "super");
-    }
-
-    let last = v.pop().unwrap_or(ty);
-
-    (v.join("::"), last)
-}
-
-fn unqualified(ty: &str) -> &str {
-    ty.rsplit("::").next().unwrap_or(ty)
 }
 
 // ===== Here be the crazy types =====

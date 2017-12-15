@@ -53,3 +53,33 @@ pub mod server {
         pub use ::tower::{Service, ReadyService, NewService};
     }
 }
+
+pub mod client {
+    /// Re-export types from this crate
+    pub mod grpc {
+        pub use ::client::{
+            Grpc,
+            Builder,
+            BuilderError,
+            Encodable,
+            unary,
+            client_streaming,
+            server_streaming,
+            streaming,
+        };
+        pub use ::{Request, Response, Error, Status};
+    }
+
+    pub mod http {
+        pub use ::http::uri::{Uri, PathAndQuery};
+    }
+
+    /// Re-export types from the `future` crate.
+    pub mod futures {
+        pub use ::futures::{Future, Poll};
+    }
+
+    pub mod tower_h2 {
+        pub use ::tower_h2::HttpService;
+    }
+}

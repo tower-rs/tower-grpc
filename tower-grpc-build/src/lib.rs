@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::fmt::Write;
 use std::path::Path;
 use std::rc::Rc;
+use std::ascii::AsciiExt;
 
 /// Code generation configuration
 pub struct Config {
@@ -90,8 +91,51 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
         }
 
         if inner.build_server {
-            write!(buf, "\n\n").unwrap();
+            write!(buf, "\n").unwrap();
             self.server.generate(&service, buf).unwrap();
         }
     }
+}
+
+// ===== utility fns =====
+
+fn method_path(service: &prost_build::Service, method: &prost_build::Method) -> String {
+    format!("\"/{}.{}/{}\"",
+            service.package,
+            service.proto_name,
+            method.proto_name)
+}
+
+fn lower_name(name: &str) -> String {
+    let mut ret = String::new();
+
+    for (i, ch) in name.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i != 0 {
+                ret.push('_');
+            }
+
+            ret.push(ch.to_ascii_lowercase());
+        } else {
+            ret.push(ch);
+        }
+    }
+
+    ret
+}
+
+fn super_import(ty: &str, level: usize) -> (String, &str) {
+    let mut v: Vec<&str> = ty.split("::").collect();
+
+    for _ in 0..level {
+        v.insert(0, "super");
+    }
+
+    let last = v.pop().unwrap_or(ty);
+
+    (v.join("::"), last)
+}
+
+fn unqualified(ty: &str) -> &str {
+    ty.rsplit("::").next().unwrap_or(ty)
 }

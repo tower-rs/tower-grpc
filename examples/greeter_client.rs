@@ -187,7 +187,6 @@ fn main() {
 
     let addr = "[::1]:8888".parse().unwrap();
 
-
     let conn = Conn(addr, reactor.clone());
     let h2 = tower_h2::Client::new(conn, Default::default(), reactor);
 

@@ -1,73 +1,63 @@
-use std::str::FromStr;
-
 use http;
-
-use ::client::codec::Unary;
 
 #[derive(Debug)]
 pub struct Request<T> {
-    http: http::Request<T>,
+    headers: http::HeaderMap,
+    message: T,
 }
 
 impl<T> Request<T> {
     /// Create a new gRPC request
-    pub fn new(name: &str, message: T) -> Self {
-        let mut req = http::Request::new(message);
-        *req.version_mut() = http::Version::HTTP_2;
-        *req.method_mut() = http::Method::POST;
-
-        //TODO: specifically parse a `http::uri::PathAndQuery`
-        *req.uri_mut() = http::Uri::from_str(name)
-            .expect("user supplied illegal RPC name");
-
+    pub fn new(message: T) -> Self {
         Request {
-            http: req,
+            headers: http::HeaderMap::new(),
+            message,
         }
     }
 
     /// Get a reference to the message
     pub fn get_ref(&self) -> &T {
-        self.http.body()
+        &self.message
     }
 
     /// Get a mutable reference to the message
     pub fn get_mut(&mut self) -> &mut T {
-        self.http.body_mut()
+        &mut self.message
     }
 
     /// Consumes `self`, returning the message
     pub fn into_inner(self) -> T {
-        let (_, body) = self.http.into_parts();
-        body
+        self.message
     }
 
     /// Convert an HTTP request to a gRPC request
     pub fn from_http(http: http::Request<T>) -> Self {
-        // TODO: validate
-        Request { http }
-    }
-
-    pub fn into_unary(self) -> Request<Unary<T>> {
-        let (head, body) = self.http.into_parts();
-        let http = http::Request::from_parts(head, Unary::new(body));
+        let (head, message) = http.into_parts();
         Request {
-            http,
+            headers: head.headers,
+            message,
         }
     }
 
-    pub fn into_http(self) -> http::Request<T> {
-        self.http
+    pub fn into_http(self, uri: http::Uri) -> http::Request<T> {
+        let mut request = http::Request::new(self.message);
+
+        *request.version_mut() = http::Version::HTTP_2;
+        *request.method_mut() = http::Method::POST;
+        *request.uri_mut() = uri;
+        *request.headers_mut() = self.headers;
+
+        request
     }
 
     pub fn map<F, U>(self, f: F) -> Request<U>
     where F: FnOnce(T) -> U,
     {
-        let (head, body) = self.http.into_parts();
-        let body = f(body);
-        let http = http::Request::from_parts(head, body);
-        Request::from_http(http)
-    }
+        let message = f(self.message);
 
-    // pub fn metadata()
-    // pub fn metadata_bin()
+        Request {
+            headers: self.headers,
+            message,
+        }
+    }
 }

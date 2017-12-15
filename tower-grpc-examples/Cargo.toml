@@ -4,18 +4,27 @@ version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
 
 [[bin]]
-name = "helloworld"
-path = "src/helloworld.rs"
+name = "helloworld-server"
+path = "src/helloworld/server.rs"
 
 [[bin]]
-name = "route_guide"
-path = "src/routeguide/main.rs"
+name = "helloworld-client"
+path = "src/helloworld/client.rs"
+
+[[bin]]
+name = "route-guide-server"
+path = "src/routeguide/server.rs"
+
+[[bin]]
+name = "route-guide-client"
+path = "src/routeguide/client.rs"
 
 [dependencies]
 futures = "0.1"
 bytes = "0.4"
 env_logger = "0.4"
 log = "0.3"
+http = "0.1"
 prost = "0.2"
 prost-derive = "0.2"
 tokio-core = "0.1"

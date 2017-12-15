@@ -15,6 +15,7 @@ where T: UnaryService,
     inner: server_streaming::ResponseFuture<Inner<T>, E, S>,
 }
 
+// TODO: Use type in futures-rs instead
 #[derive(Debug)]
 pub struct Once<T> {
     inner: Option<T>,
