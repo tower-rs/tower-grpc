@@ -36,3 +36,6 @@ tokio-core = "0.1"
 # For examples
 prost = "0.2"
 prost-derive = "0.2"
+
+[patch.crates-io]
+http = { git = "http://github.com/hyperium/http", rev = "5f362a32278891672f428d570d46387fe6896a5d" }
