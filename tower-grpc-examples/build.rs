@@ -14,4 +14,11 @@ fn main() {
         .enable_client(true)
         .build(&["proto/routeguide/route_guide.proto"], &["proto/routeguide"])
         .unwrap();
+
+    // // Build grpc-interop
+    // tower_grpc_build::Config::new()
+    //     .enable_server(true)
+    //     .enable_client(true)
+    //     .build(&["proto/interop/test.proto"], &["proto/interop"])
+    //     .unwrap();
 }
