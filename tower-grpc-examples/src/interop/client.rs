@@ -12,7 +12,7 @@ extern crate tower_grpc;
 
 
 mod test {
-    include!(concat!(env!("OUT_DIR"), "/test.rs"));
+    include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
 arg_enum!{
