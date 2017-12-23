@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
 
 [dependencies]
-codegen = { git = "https://github.com/carllerche/codegen" }
+codegen = { git = "https://github.com/hawkw/codegen", branch = "eliza/get-or-create"}
 prost-build = "0.2"
-heck = "0.3"
+

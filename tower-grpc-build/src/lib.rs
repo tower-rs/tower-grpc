@@ -1,6 +1,5 @@
 extern crate codegen;
 extern crate prost_build;
-extern crate heck;
 
 mod client;
 mod server;
