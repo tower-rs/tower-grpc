@@ -10,14 +10,16 @@ impl ServiceGenerator {
     /// Generate the gRPC server code
     pub fn generate(&self,
                     service: &prost_build::Service,
-                    scope: &mut codegen::Scope) {
-        self.define(service, scope);
+                    mut scope: codegen::Scope) 
+                    -> codegen::Scope {
+        scope.raw("\n");
+        self.define(service, &mut scope);
+        scope
     }
 
     fn define(&self, 
               service: &prost_build::Service,
-              scope: &mut codegen::Scope) 
-    {
+              scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
         {
             let module = scope.get_or_new_module("server")

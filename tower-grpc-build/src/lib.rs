@@ -1,5 +1,6 @@
 extern crate codegen;
 extern crate prost_build;
+extern crate heck;
 
 mod client;
 mod server;
@@ -86,33 +87,39 @@ impl Config {
 impl prost_build::ServiceGenerator for ServiceGenerator {
 
     fn generate(&self, service: prost_build::Service, _buf: &mut String) {
-        // Note that neither this implementation of `generate` nor the 
-        // implementations for `client::ServiceGenerator` and 
+        // Note that neither this implementation of `generate` nor the
+        // implementations for `client::ServiceGenerator` and
         // `server::ServiceGenerator` will actually output any code to the
         // buffer; all code is written out in the implementation of the
         // `ServiceGenerator::finalize` function on this type.
         let inner = self.inner.borrow();
         let mut root = self.root_scope.borrow_mut();
 
-        if inner.build_client {
-            self.client.generate(&service, &mut root);
-        }
+        let root = if inner.build_client {
+            self.client.generate(&service, codegen::Scope::new())
+        } else {
+            codegen::Scope::new()
+        };
 
-        if inner.build_server {
-            self.server.generate(&service, &mut root);
-        }
-    }
+        let root = if inner.build_server {
+            self.server.generate(&service, root)
+        } else {
+            root
+        };
+
+        let mut fmt = codegen::Formatter::new(buf);
+        root.fmt(&mut fmt).unwrap();
 
     fn finalize(&self, buf: &mut String) {
-        // Rather than outputting each service to the buffer as it's generated, 
-        // we generate the code in our root `codegen::Scope`, which is shared 
-        // between the generation of each service in the proto file. Unlike a 
-        // string, codegen provides us with something not unlike a simplified 
-        // Rust AST, making it easier for us to add new items to modules 
-        // defined by previous service generator invocations. As we want to 
+        // Rather than outputting each service to the buffer as it's generated,
+        // we generate the code in our root `codegen::Scope`, which is shared
+        // between the generation of each service in the proto file. Unlike a
+        // string, codegen provides us with something not unlike a simplified
+        // Rust AST, making it easier for us to add new items to modules
+        // defined by previous service generator invocations. As we want to
         // output the client and server implementations for each service in the
         // proto file in one `client` or `server` module in the generated code,
-        // we wait until all the services have been generated before actually 
+        // we wait until all the services have been generated before actually
         // outputting to the buffer.
         let mut fmt = codegen::Formatter::new(buf);
         self.root_scope.borrow()
