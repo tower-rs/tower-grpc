@@ -10,17 +10,15 @@ pub struct ServiceGenerator;
 impl ServiceGenerator {
     pub fn generate(&self,
                     service: &prost_build::Service,
-                    mut scope: codegen::Scope) 
-                    -> codegen::Scope {
-        self.define(service, &mut scope);
-        scope
+                    scope: &mut codegen::Scope) {
+        self.define(service, scope);
     }
 
     fn define(&self, 
               service: &prost_build::Service,
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated client code.
-        let scope = scope.module("client")
+        let scope = scope.module_or_add("client")
             .vis("pub")
             .import("::tower_grpc::codegen::client", "*")
             .scope()

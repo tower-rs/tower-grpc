@@ -10,11 +10,8 @@ impl ServiceGenerator {
     /// Generate the gRPC server code
     pub fn generate(&self,
                     service: &prost_build::Service,
-                    mut scope: codegen::Scope) 
-                    -> codegen::Scope {
-        scope.raw("\n");
-        self.define(service, &mut scope);
-        scope
+                    scope: &mut codegen::Scope) {
+        self.define(service, scope);
     }
 
     fn define(&self, 
@@ -22,7 +19,7 @@ impl ServiceGenerator {
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
         {
-            let module = scope.module("server")
+            let module = scope.module_or_add("server")
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 ;
@@ -130,7 +127,7 @@ macro_rules! try_ready {
                 ;
         }
 
-        scope.push_trait(&service.name, service_trait);
+        scope.push_trait(service_trait);
     }
 
     fn define_server_struct(&self, 
@@ -249,7 +246,7 @@ macro_rules! try_ready {
             call.push_block(route_block);
         }
 
-        scope.push_impl(&format!("tower::Service for {}", name), service_impl);
+        scope.push_impl(service_impl);
 
         scope.new_impl(&name)
             .generic("T")

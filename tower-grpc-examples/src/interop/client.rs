@@ -10,6 +10,7 @@ extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
 
+use std::net::ToSocketAddrs;
 
 mod test {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
@@ -45,8 +46,16 @@ arg_enum!{
     }
 }
 
+impl Testcase {
+    fn run<A: ToSocketAddrs>(&self, server_addr: A) {
+        match *self {
+            t => unimplemented!("test case {:?} is not yet implemented.", t),
+        }
+    }
+}
+
 fn main() {
-    use clap::{Arg, App, SubCommand};
+    use clap::{Arg, App};
     let matches = 
         App::new("interop-client")
             .author("Eliza Weisman <eliza@buoyant.io>")
@@ -77,7 +86,11 @@ fn main() {
                 .takes_value(true)
             )
             .get_matches();
+    
+    let server_addr = unimplemented!();
 
     let test_case = value_t!(matches.value_of("test_case"), Testcase)
         .unwrap_or_else(|e| e.exit());
+        
+    test_case.run(server_addr);
 }
