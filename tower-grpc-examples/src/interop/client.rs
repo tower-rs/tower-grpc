@@ -10,14 +10,14 @@ extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
 
-use std::net::ToSocketAddrs;
+use std::net::{IpAddr, SocketAddr};
 
 mod test {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
 arg_enum!{
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     #[allow(non_camel_case_types)]
     enum Testcase {
         empty_unary,
@@ -47,7 +47,7 @@ arg_enum!{
 }
 
 impl Testcase {
-    fn run<A: ToSocketAddrs>(&self, server_addr: A) {
+    fn run(&self, server_addr: SocketAddr) {
         match *self {
             t => unimplemented!("test case {:?} is not yet implemented.", t),
         }
@@ -64,6 +64,7 @@ fn main() {
                 .value_name("HOSTNAME")
                 .help("The server host to connect to. For example, \"localhost\" or \"127.0.0.1\"")
                 .takes_value(true)
+                .default_value("127.0.0.1")
             )
             .arg(Arg::with_name("server_host_override")
                 .long("server_host_override")
@@ -76,6 +77,7 @@ fn main() {
                 .value_name("PORT")
                 .help("The server port to connect to. For example, \"8080\".")
                 .takes_value(true)
+                .default_value("8080")
             )
             .arg(Arg::with_name("test_case")
                 .long("test_case")
@@ -86,11 +88,21 @@ fn main() {
                 .takes_value(true)
             )
             .get_matches();
+
+    let server_addr = value_t!(matches.value_of("server_host"), IpAddr)
+        .and_then(|ip| 
+            value_t!(matches.value_of("server_port"), u16)
+                .map(|port| 
+                    SocketAddr::new(ip, port)
+                )
+        )
+        .unwrap_or_else(|e| e.exit());
+    
     
     let server_addr = unimplemented!();
 
     let test_case = value_t!(matches.value_of("test_case"), Testcase)
         .unwrap_or_else(|e| e.exit());
-        
+
     test_case.run(server_addr);
 }
