@@ -2,6 +2,7 @@
 extern crate clap;
 #[macro_use]
 extern crate log;
+extern crate env_logger;
 extern crate prost;
 #[macro_use]
 extern crate prost_derive;
@@ -11,6 +12,11 @@ extern crate tower_h2;
 extern crate tower_grpc;
 
 use std::net::{IpAddr, SocketAddr};
+use futures::Future;
+use tokio_core::reactor::Core;
+use tokio_core::net::TcpStream;
+use tower_grpc::Request;
+use tower_h2::client::Connection;
 
 mod test {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
@@ -47,7 +53,10 @@ arg_enum!{
 }
 
 impl Testcase {
-    fn run(&self, server_addr: SocketAddr) {
+    fn run(&self, server_addr: SocketAddr) -> io::Result<()> {
+
+        let mut core = Core::new()?;
+        let reactor = core.handle();
         match *self {
             t => unimplemented!("test case {:?} is not yet implemented.", t),
         }
@@ -56,6 +65,8 @@ impl Testcase {
 
 fn main() {
     use clap::{Arg, App};
+    let _ = ::env_logger::init();
+
     let matches = 
         App::new("interop-client")
             .author("Eliza Weisman <eliza@buoyant.io>")
@@ -104,5 +115,5 @@ fn main() {
     let test_case = value_t!(matches.value_of("test_case"), Testcase)
         .unwrap_or_else(|e| e.exit());
 
-    test_case.run(server_addr);
+    test_case.run(server_addr).unwrap();
 }
