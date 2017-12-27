@@ -75,6 +75,8 @@ where T: Codec,
         -> Request<Streaming<T::Decoder, B>>
     where B: Body<Data = Data>,
     {
+        use http::header::{self, HeaderValue};
+
         // Map the request body
         let (head, body) = request.into_parts();
 
@@ -82,7 +84,10 @@ where T: Codec,
         let body = Streaming::new(self.codec.decoder(), body, false);
 
         // Reconstruct the HTTP request
-        let request = http::Request::from_parts(head, body);
+        let mut request = http::Request::from_parts(head, body);
+
+        // Set the content type
+        request.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static(T::CONTENT_TYPE));
 
         // Convert the HTTP request to a gRPC request
         Request::from_http(request)

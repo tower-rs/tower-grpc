@@ -122,13 +122,6 @@ where T: HttpService,
         request.headers_mut()
             .insert(header::TE, HeaderValue::from_static("trailers"));
 
-        // Set the content type
-        // TODO: Don't hard code this here
-        let content_type = "application/grpc+proto";
-        request.headers_mut().insert(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static(content_type));
-
         // Call the inner HTTP service
         let response = self.inner.call(request);
 
