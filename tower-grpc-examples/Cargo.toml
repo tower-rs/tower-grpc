@@ -23,6 +23,9 @@ path = "src/routeguide/client.rs"
 name = "interop-client"
 path = "src/interop/client.rs"
 
+[[bin]]
+name = "empty_unary_client"
+path = "src/interop/empty_unary_client.rs"
 
 [dependencies]
 futures = "0.1"
