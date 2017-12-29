@@ -143,11 +143,11 @@ where T: Encoder<Item = U::Item>,
         }
     }
 
-    pub(crate) fn error(status: Status, return_trailers: bool) -> Self {
+    pub(crate) fn error(status: Status) -> Self {
         Encode {
             inner: EncodeInner::Err(status),
             buf: BytesMut::new(),
-            return_trailers,
+            return_trailers: true,
         }
     }
 }

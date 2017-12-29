@@ -43,9 +43,7 @@ where T: Future<Item = Response<S>,
             Err(e) => {
                 match e {
                     ::Error::Grpc(status) => {
-                        let response = Response::new(
-                            Encode::error(status, true)
-                        );
+                        let response = Response::new(Encode::error(status));
                         return Ok(response.into_http().into());
                     }
                     // TODO: Is this correct?
