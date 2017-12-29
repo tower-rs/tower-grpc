@@ -43,7 +43,9 @@ where T: Future<Item = Response<S>,
             Err(e) => {
                 match e {
                     ::Error::Grpc(status) => {
-                        let response = Response::new(Encode::error(status));
+                        let response = Response::new(
+                            Encode::error(status, true)
+                        );
                         return Ok(response.into_http().into());
                     }
                     // TODO: Is this correct?
@@ -62,7 +64,7 @@ where T: Future<Item = Response<S>,
         let encoder = self.encoder.take().expect("encoder consumed");
 
         // Encode the body
-        let body = Encode::new(encoder, body);
+        let body = Encode::new(encoder, body, true);
 
         // Success
         Ok(http::Response::from_parts(head, body).into())
