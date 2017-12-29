@@ -11,6 +11,7 @@ extern crate prost;
 #[macro_use]
 extern crate prost_derive;
 extern crate tokio_core;
+extern crate rustls;
 extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
@@ -34,6 +35,7 @@ mod util;
 
 const LARGE_REQ_SIZE: usize = 271828;
 const LARGE_RSP_SIZE: i32 = 314159;
+
 arg_enum!{
     #[derive(Debug, Copy, Clone)]
     #[allow(non_camel_case_types)]
@@ -221,6 +223,42 @@ fn main() {
                 .help("The name of the test case to execute. For example, 
                 \"empty_unary\".")
                 .possible_values(&Testcase::variants())
+                .default_value("large_unary")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("use_tls")
+                .long("use_tls")
+                .help("Whether to use a plaintext or encrypted connection.")
+            )
+            .arg(Arg::with_name("use_test_ca")
+                .long("use_test_ca")
+                .help("Whether to replace platform root CAs with ca.pem as the CA root.")
+                .requires("use_tls")
+            )
+            .arg(Arg::with_name("ca_file")
+                .long("ca_file")
+                .value_name("FILE")
+                .help("The file containing the CA root cert file")
+                .takes_value(true)
+                .default_value("ca.pem")
+                .requires("use_tls")
+            )
+            .arg(Arg::with_name("oauth_scope")
+                .long("oauth_scope")
+                .value_name("SCOPE")
+                .help("The scope for OAuth2 tokens. For example, \"https://www.googleapis.com/auth/xapi.zoo\".")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("default_service_account")
+                .long("default_service_account")
+                .value_name("ACCOUNT_EMAIL")
+                .help("Email of the GCE default service account.")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("service_account_key_file")
+                .long("service_account_key_file")
+                .value_name("PATH")
+                .help("The path to the service account JSON key file generated from GCE developer console.")
                 .takes_value(true)
             )
             .get_matches();
