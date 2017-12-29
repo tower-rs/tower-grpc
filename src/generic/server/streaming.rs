@@ -62,7 +62,7 @@ where T: Future<Item = Response<S>,
         let encoder = self.encoder.take().expect("encoder consumed");
 
         // Encode the body
-        let body = Encode::new(encoder, body);
+        let body = Encode::new(encoder, body, true);
 
         // Success
         Ok(http::Response::from_parts(head, body).into())

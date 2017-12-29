@@ -64,6 +64,9 @@ pub struct Encode<T, U> {
 
     /// Destination buffer
     buf: BytesMut,
+
+    /// Set to true when trailers should be generated.
+    return_trailers: bool,
 }
 
 #[derive(Debug)]
@@ -132,10 +135,11 @@ impl<T, U> Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
 {
-    pub(crate) fn new(encoder: T, inner: U) -> Self {
+    pub(crate) fn new(encoder: T, inner: U, return_trailers: bool) -> Self {
         Encode {
             inner: EncodeInner::Ok { encoder, inner },
             buf: BytesMut::new(),
+            return_trailers,
         }
     }
 
@@ -143,6 +147,7 @@ where T: Encoder<Item = U::Item>,
         Encode {
             inner: EncodeInner::Err(status),
             buf: BytesMut::new(),
+            return_trailers: true,
         }
     }
 }
@@ -188,6 +193,10 @@ where T: Encoder<Item = U::Item>,
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<HeaderMap>, h2::Error> {
+        if !self.return_trailers {
+            return Ok(Async::Ready(None));
+        }
+
         let mut map = HeaderMap::new();
 
         let status = match self.inner {
