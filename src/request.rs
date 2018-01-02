@@ -25,6 +25,16 @@ impl<T> Request<T> {
         &mut self.message
     }
 
+    /// Get a reference to the request headers.
+    pub fn headers(&self) -> &http::HeaderMap {
+        &self.headers
+    }
+
+    /// Get a mutable reference to the request headers.
+    pub fn headers_mut(&mut self) -> &mut http::HeaderMap {
+        &mut self.headers
+    }
+
     /// Consumes `self`, returning the message
     pub fn into_inner(self) -> T {
         self.message
