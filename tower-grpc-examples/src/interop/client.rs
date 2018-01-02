@@ -25,6 +25,7 @@ use tokio_core::reactor::Core;
 use tokio_core::net::TcpStream;
 use tower_grpc::{Request, Response};
 use tower_h2::client::Connection;
+use pb::SimpleRequest;
 
 mod pb {
     #![allow(dead_code)]
@@ -343,7 +344,6 @@ fn main() {
                 }))
         },
         Testcase::large_unary => {
-            use pb::SimpleRequest;
             use std::mem;
             let payload = util::client_payload(
                 pb::PayloadType::Compressable,
@@ -353,9 +353,6 @@ fn main() {
                 response_type: pb::PayloadType::Compressable as i32,
                 response_size: LARGE_RSP_SIZE,
                 payload: Some(payload),
-                response_compressed: None,
-                response_status: None,
-                expect_compressed: None,
                 ..Default::default()
             };
             core.run(client.unary_call(Request::new(req))
@@ -384,9 +381,11 @@ fn main() {
                 type_: pb::PayloadType::Compressable as i32,
                 body: format!("{:?}", std::time::Instant::now()).into_bytes(),
             };
-            // let req = SimpleRequest {
-            //     response_type: pb
-            // };
+            let req = SimpleRequest {
+                response_type: pb::PayloadType::Compressable as i32,
+                payload: Some(payload),
+                ..Default::default()
+            };
             unimplemented!()
         },
         Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
