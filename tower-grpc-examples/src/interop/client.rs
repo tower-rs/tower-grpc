@@ -110,12 +110,6 @@ impl fmt::Display for TestAssertion {
     }
 }
 
-// impl TestAssertion {
-//     fn from_err<E: Error>(e: E) -> Self {
-//         TestAssertion::Errored
-//     }
-// }
-
 macro_rules! test_assert {
     ($description:expr, $assertion:expr) => {
         if $assertion {
@@ -229,11 +223,28 @@ fn main() {
             .arg(Arg::with_name("use_tls")
                 .long("use_tls")
                 .help("Whether to use a plaintext or encrypted connection.")
+                .takes_value(true)
+                .value_name("BOOLEAN")
+                .possible_values(&["true", "false"])
+                .default_value("false")
+                .validator(|s| 
+                    // use a Clap validator for unimplemented flags so we get a 
+                    // nicer error message than the panic from 
+                    // `unimplemented!()`.
+                    if s == "true" {
+                        // unsupported, always error for now.
+                        Err(String::from(
+                            "tower-grpc does not currently support TLS."
+                        ))
+                    } else {
+                        Ok(())
+                    }
+   
+                )
             )
             .arg(Arg::with_name("use_test_ca")
                 .long("use_test_ca")
                 .help("Whether to replace platform root CAs with ca.pem as the CA root.")
-                .requires("use_tls")
             )
             .arg(Arg::with_name("ca_file")
                 .long("ca_file")
@@ -241,27 +252,50 @@ fn main() {
                 .help("The file containing the CA root cert file")
                 .takes_value(true)
                 .default_value("ca.pem")
-                .requires("use_tls")
             )
             .arg(Arg::with_name("oauth_scope")
                 .long("oauth_scope")
                 .value_name("SCOPE")
                 .help("The scope for OAuth2 tokens. For example, \"https://www.googleapis.com/auth/xapi.zoo\".")
                 .takes_value(true)
+                .validator(|_| 
+                    // unsupported, always error for now.
+                    Err(String::from(
+                        "tower-grpc does not currently support GCE auth."
+                    ))
+                )
             )
             .arg(Arg::with_name("default_service_account")
                 .long("default_service_account")
                 .value_name("ACCOUNT_EMAIL")
                 .help("Email of the GCE default service account.")
                 .takes_value(true)
+                .validator(|_| 
+                    // unsupported, always error for now.
+                    Err(String::from(
+                        "tower-grpc does not currently support GCE auth."
+                    ))
+                )
             )
             .arg(Arg::with_name("service_account_key_file")
                 .long("service_account_key_file")
                 .value_name("PATH")
                 .help("The path to the service account JSON key file generated from GCE developer console.")
                 .takes_value(true)
+                .validator(|_| 
+                    // unsupported, always error for now.
+                    Err(String::from(
+                        "tower-grpc does not currently support GCE auth."
+                    ))
+                )
             )
             .get_matches();
+
+    if matches.is_present("oauth_scope") || 
+       matches.is_present("default_service_account") ||
+       matches.is_present("service_account_key_file") {
+        unimplemented!("tower-grpc does not currently support GCE auth.");
+    }
 
     let ServerInfo { addr, uri, .. } = ServerInfo::from(&matches);
 
@@ -319,10 +353,14 @@ fn main() {
                 response_type: pb::PayloadType::Compressable as i32,
                 response_size: LARGE_RSP_SIZE,
                 payload: Some(payload),
+                response_compressed: None,
+                response_status: None,
+                expect_compressed: None,
                 ..Default::default()
             };
             core.run(client.unary_call(Request::new(req))
                 .then(|result| {
+                    println!("received {:?}", result);
                    let mut assertions = vec![
                         test_assert!(
                             "call must be successful",
@@ -351,6 +389,9 @@ fn main() {
             // };
             unimplemented!()
         },
+        Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
+            Testcase::oauth2_auth_token | Testcase::per_rpc_creds => 
+            unimplemented!("test case unimplemented: tower-grpc does not currently support auth."),        
         _ => unimplemented!()
     };
     
@@ -367,7 +408,7 @@ fn main() {
     //         let test = 
     //         core.run(test).expect("run test");
     //     },
-    //     // cacheable_unary => {
+    //     // cacheable_unary => {                
     //     //     let test = 
     //     //         TcpStream::connect(&addr, &reactor)
     //     //             .and_then(move |socket| {
