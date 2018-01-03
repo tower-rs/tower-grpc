@@ -20,11 +20,12 @@ use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 
-use futures::{future, Future};
+use futures::{future, Future, stream, Stream};
 use tokio_core::reactor::Core;
 use tokio_core::net::TcpStream;
 use tower_grpc::{Request, Response};
 use tower_h2::client::Connection;
+
 use pb::SimpleRequest;
 
 mod pb {
@@ -345,10 +346,7 @@ fn main() {
         },
         Testcase::large_unary => {
             use std::mem;
-            let payload = util::client_payload(
-                pb::PayloadType::Compressable,
-                LARGE_REQ_SIZE,
-            );
+            let payload = util::client_payload(LARGE_REQ_SIZE);
             let req = SimpleRequest {
                 response_type: pb::PayloadType::Compressable as i32,
                 response_size: LARGE_RSP_SIZE,
@@ -387,6 +385,36 @@ fn main() {
                 ..Default::default()
             };
             unimplemented!()
+        },
+        Testcase::client_streaming => {
+            let stream = stream::iter_ok(vec![
+                util::client_payload(27182),
+                util::client_payload(8),
+                util::client_payload(1828),
+                util::client_payload(45904),
+            ]);
+            core.run(
+                client.streaming_input_call(Request::new(stream))
+                    .then(|result| {
+                        println!("received {:?}", result);
+                        let mut assertions = vec![
+                                test_assert!(
+                                    "call must be successful",
+                                    result.is_ok(),
+                                    format!("result={:?}", result)
+                                )
+                        ];
+                        if let Ok(response) = result.map(|r| r.into_inner()) {
+                            assertions.push(test_assert!(
+                            "aggregated payload size must be 74922 bytes",
+                            response.aggregated_payload_size == 74922,
+                            format!("aggregated_payload_size={:?}", 
+                                response.aggregated_payload_size
+                            )));
+                        }
+                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                    })
+            )
         },
         Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
             Testcase::oauth2_auth_token | Testcase::per_rpc_creds => 
