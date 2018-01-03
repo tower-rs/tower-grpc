@@ -387,7 +387,7 @@ fn main() {
             unimplemented!()
         },
         Testcase::client_streaming => {
-            let stream = stream::iter_ok(vec![
+            let stream = stream::iter_ok::<_, tower_grpc::Error>(vec![
                 util::client_payload(27182),
                 util::client_payload(8),
                 util::client_payload(1828),
@@ -396,7 +396,6 @@ fn main() {
             core.run(
                 client.streaming_input_call(Request::new(stream))
                     .then(|result| {
-                        println!("received {:?}", result);
                         let mut assertions = vec![
                                 test_assert!(
                                     "call must be successful",
