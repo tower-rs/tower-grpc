@@ -387,7 +387,7 @@ fn main() {
             unimplemented!()
         },
         Testcase::client_streaming => {
-            let stream = stream::iter_ok::<_, tower_grpc::Error>(vec![
+            let stream = stream::iter_ok(vec![
                 util::client_payload(27182),
                 util::client_payload(8),
                 util::client_payload(1828),
