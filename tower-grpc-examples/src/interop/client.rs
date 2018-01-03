@@ -384,7 +384,13 @@ fn main() {
                 payload: Some(payload),
                 ..Default::default()
             };
-            unimplemented!()
+            let req = Request::new(req);
+            req.get_headers_mut().insert(" x-user-ip", "1.2.3.4");
+            core.run(client.unary_call(req)
+                .then(|result| { 
+                    unimplemented!()
+                })
+            )
         },
         Testcase::client_streaming => {
             let stream = stream::iter_ok(vec![
