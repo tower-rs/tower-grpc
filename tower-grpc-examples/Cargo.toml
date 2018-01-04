@@ -29,7 +29,7 @@ prost = "0.2"
 prost-derive = "0.2"
 tokio-core = "0.1"
 tower = { git = "https://github.com/tower-rs/tower" }
-tower-h2 = { git = "https://github.com/tower-rs/tower-h2", branch = "connection-handshake" }
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-grpc = { path = "../" }
 
 # For the routeguide example
