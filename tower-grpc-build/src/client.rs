@@ -18,7 +18,8 @@ impl ServiceGenerator {
               service: &prost_build::Service,
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated client code.
-        let scope = scope.module_or_add("client")
+        let scope = scope
+            .get_or_add_module("client")
             .vis("pub")
             .import("::tower_grpc::codegen::client", "*")
             .scope()

@@ -19,7 +19,7 @@ impl ServiceGenerator {
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
         {
-            let module = scope.module_or_add("server")
+            let module = scope.get_or_add_module("server")
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 ;
