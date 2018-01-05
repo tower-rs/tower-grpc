@@ -1,0 +1,6 @@
+FROM rust:1.23.0
+WORKDIR /usr/src/tower-grpc
+COPY tower-grpc .
+
+RUN cargo build -p tower-grpc-examples
+ENTRYPOINT ["/usr/src/tower-grpc/target/debug/interop-client"]

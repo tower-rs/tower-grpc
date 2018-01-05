@@ -1,0 +1,11 @@
+FROM golang:1.9
+
+ENV PACKAGE google.golang.org/grpc/interop/server
+ENV PACKAGEDIR $GOPATH/src/$PACKAGE
+
+WORKDIR /
+RUN go get -u $PACKAGE
+WORKDIR $PACKAGEDIR
+
+RUN ["go", "install", "."]
+ENTRYPOINT ["server"]
