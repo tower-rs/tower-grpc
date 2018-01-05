@@ -16,10 +16,12 @@ extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
 
+use std::io::Error as IoError;
 use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 
+use http::header::HeaderValue;
 use futures::{future, Future, stream, Stream};
 use tokio_core::reactor::Core;
 use tokio_core::net::TcpStream;
@@ -27,6 +29,8 @@ use tower_grpc::{Request, Response};
 use tower_h2::client::Connection;
 
 use pb::SimpleRequest;
+use pb::client::TestService;
+
 
 mod pb {
     #![allow(dead_code)]
@@ -68,6 +72,157 @@ arg_enum!{
     }
 }
 
+macro_rules! test_assert {
+    ($description:expr, $assertion:expr) => {
+        if $assertion {
+            TestAssertion::Passed { description: $description }
+        } else {
+            TestAssertion::Failed { 
+                description: $description,
+                expression: stringify!($assertion),
+                why: None
+            }
+        }
+    };
+    ($description:expr, $assertion:expr, $why:expr) => {
+        if $assertion {
+            TestAssertion::Passed { description: $description }
+        } else {
+            TestAssertion::Failed { 
+                description: $description,
+                expression: stringify!($assertion),
+                why: Some($why)
+            }
+        }
+    }; 
+}
+
+impl Testcase {
+    fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core) 
+           -> Result<Vec<TestAssertion>, Box<Error>> {
+        
+        let reactor = core.handle();
+        let mut client = core.run(
+            TcpStream::connect(&server.addr, &reactor)
+                .and_then(move |socket| {
+                    // Bind the HTTP/2.0 connection
+                    Connection::handshake(socket, reactor)
+                        .map_err(|_| panic!("failed HTTP/2.0 handshake"))
+                })
+                .and_then(move |conn| {
+                Ok(TestService::new(conn, server.uri.clone())
+                        .expect("TestService::new"))
+                })
+        ).expect("client");
+            
+        match *self {
+            Testcase::empty_unary => {
+                use pb::Empty;
+                core.run(client.empty_call(Request::new(Empty {}))
+                    .then(|result| {
+                        let mut assertions = vec![
+                            test_assert!(
+                                "call must be successful",
+                                result.is_ok(),
+                                format!("result={:?}", result)
+                            )
+                        ];
+                        if let Ok(body) = result.map(|r| r.into_inner()) {
+                            assertions.push(test_assert!(
+                                "body must not be null",
+                                body == Empty{},
+                                format!("body={:?}", body)
+                            ))
+                        }
+                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                    }))
+            },
+            Testcase::large_unary => {
+                use std::mem;
+                let payload = util::client_payload(LARGE_REQ_SIZE);
+                let req = SimpleRequest {
+                    response_type: pb::PayloadType::Compressable as i32,
+                    response_size: LARGE_RSP_SIZE,
+                    payload: Some(payload),
+                    ..Default::default()
+                };
+                core.run(client.unary_call(Request::new(req))
+                    .then(|result| {
+                        println!("received {:?}", result);
+                    let mut assertions = vec![
+                            test_assert!(
+                                "call must be successful",
+                                result.is_ok(),
+                                format!("result={:?}", result)
+                            )
+                    ];
+                        if let Ok(body) = result.map(|r| r.into_inner()) {
+                            assertions.push(test_assert!(
+                            "body must be 314159 bytes",
+                            mem::size_of_val(&body) == LARGE_RSP_SIZE as usize,
+                            format!("mem::size_of_val(&body)={:?}", 
+                                mem::size_of_val(&body))
+                            ));
+                        }
+                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                    }))
+            },
+            Testcase::cacheable_unary => {
+                let payload = pb::Payload {
+                    type_: pb::PayloadType::Compressable as i32,
+                    body: format!("{:?}", std::time::Instant::now()).into_bytes(),
+                };
+                let req = SimpleRequest {
+                    response_type: pb::PayloadType::Compressable as i32,
+                    payload: Some(payload),
+                    ..Default::default()
+                };
+                let mut req = Request::new(req);
+                req.headers_mut()
+                    .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
+                // core.run(client.unary_call(req)
+                //     .then(|result| { 
+                //         unimplemented!()
+                //     })
+                // )
+                unimplemented!()
+            },
+            Testcase::client_streaming => {
+                let stream = stream::iter_ok(vec![
+                    util::client_payload(27182),
+                    util::client_payload(8),
+                    util::client_payload(1828),
+                    util::client_payload(45904),
+                ]);
+                core.run(
+                    client.streaming_input_call(Request::new(stream))
+                        .then(|result| {
+                            let mut assertions = vec![
+                                    test_assert!(
+                                        "call must be successful",
+                                        result.is_ok(),
+                                        format!("result={:?}", result)
+                                    )
+                            ];
+                            if let Ok(response) = result.map(|r| r.into_inner()) {
+                                assertions.push(test_assert!(
+                                "aggregated payload size must be 74922 bytes",
+                                response.aggregated_payload_size == 74922,
+                                format!("aggregated_payload_size={:?}", 
+                                    response.aggregated_payload_size
+                                )));
+                            }
+                            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                        })
+                )
+            },
+            Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
+                Testcase::oauth2_auth_token | Testcase::per_rpc_creds => 
+                unimplemented!("test case unimplemented: tower-grpc does not currently support auth."),        
+            _ => unimplemented!()
+        }
+    }
+}
 enum TestAssertion {
     Passed { description: &'static str },
     Failed { description: &'static str, 
@@ -111,32 +266,6 @@ impl fmt::Display for TestAssertion {
         
     }
 }
-
-macro_rules! test_assert {
-    ($description:expr, $assertion:expr) => {
-        if $assertion {
-            TestAssertion::Passed { description: $description }
-        } else {
-            TestAssertion::Failed { 
-                description: $description,
-                expression: stringify!($assertion),
-                why: None
-            }
-        }
-    };
-    ($description:expr, $assertion:expr, $why:expr) => {
-        if $assertion {
-            TestAssertion::Passed { description: $description }
-        } else {
-            TestAssertion::Failed { 
-                description: $description,
-                expression: stringify!($assertion),
-                why: Some($why)
-            }
-        }
-    }; 
-}
-
 
 // impl Testcase {
 //     fn future<S>(self, client: &mut pb::client::TestService<S>) -> TestFuture
@@ -221,6 +350,8 @@ fn main() {
                 .possible_values(&Testcase::variants())
                 .default_value("large_unary")
                 .takes_value(true)
+                .min_values(1)
+                .use_delimiter(true)
             )
             .arg(Arg::with_name("use_tls")
                 .long("use_tls")
@@ -299,140 +430,22 @@ fn main() {
         unimplemented!("tower-grpc does not currently support GCE auth.");
     }
 
-    let ServerInfo { addr, uri, .. } = ServerInfo::from(&matches);
-
-    let test_case = value_t!(matches, "test_case", Testcase)
+    let server = ServerInfo::from(&matches);
+    let test_cases = values_t!(matches, "test_case", Testcase)
         .unwrap_or_else(|e| e.exit());
 
     let mut core = Core::new().expect("could not create reactor core!");
-    let reactor = core.handle();
-
-    let mut client = core.run(
-            TcpStream::connect(&addr, &reactor)
-                .and_then(move |socket| {
-                    // Bind the HTTP/2.0 connection
-                    Connection::handshake(socket, reactor)
-                        .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-                })
-                .and_then(move |conn| {
-                    use pb::client::TestService;
-                    let client = TestService::new(conn, uri)
-                        .expect("TestService::new");
-                    Ok(client)
-                })
-        ).expect("client");
     
-    let test = match test_case {
-        Testcase::empty_unary => {
-            use pb::Empty;
-            core.run(client.empty_call(Request::new(Empty {}))
-                .then(|result| {
-                    let mut assertions = vec![
-                        test_assert!(
-                            "call must be successful",
-                            result.is_ok(),
-                            format!("result={:?}", result)
-                        )
-                    ];
-                    if let Ok(body) = result.map(|r| r.into_inner()) {
-                        assertions.push(test_assert!(
-                            "body must not be null",
-                            body == Empty{},
-                            format!("body={:?}", body)
-                        ))
-                    }
-                    future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                }))
-        },
-        Testcase::large_unary => {
-            use std::mem;
-            let payload = util::client_payload(LARGE_REQ_SIZE);
-            let req = SimpleRequest {
-                response_type: pb::PayloadType::Compressable as i32,
-                response_size: LARGE_RSP_SIZE,
-                payload: Some(payload),
-                ..Default::default()
-            };
-            core.run(client.unary_call(Request::new(req))
-                .then(|result| {
-                    println!("received {:?}", result);
-                   let mut assertions = vec![
-                        test_assert!(
-                            "call must be successful",
-                            result.is_ok(),
-                            format!("result={:?}", result)
-                        )
-                   ];
-                    if let Ok(body) = result.map(|r| r.into_inner()) {
-                        assertions.push(test_assert!(
-                        "body must be 314159 bytes",
-                        mem::size_of_val(&body) == LARGE_RSP_SIZE as usize,
-                        format!("mem::size_of_val(&body)={:?}", 
-                            mem::size_of_val(&body))
-                        ));
-                    }
-                    future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                }))
-        },
-        Testcase::cacheable_unary => {
-            let payload = pb::Payload {
-                type_: pb::PayloadType::Compressable as i32,
-                body: format!("{:?}", std::time::Instant::now()).into_bytes(),
-            };
-            let req = SimpleRequest {
-                response_type: pb::PayloadType::Compressable as i32,
-                payload: Some(payload),
-                ..Default::default()
-            };
-            let req = Request::new(req);
-            req.get_headers_mut().insert(" x-user-ip", "1.2.3.4");
-            core.run(client.unary_call(req)
-                .then(|result| { 
-                    unimplemented!()
-                })
-            )
-        },
-        Testcase::client_streaming => {
-            let stream = stream::iter_ok(vec![
-                util::client_payload(27182),
-                util::client_payload(8),
-                util::client_payload(1828),
-                util::client_payload(45904),
-            ]);
-            core.run(
-                client.streaming_input_call(Request::new(stream))
-                    .then(|result| {
-                        let mut assertions = vec![
-                                test_assert!(
-                                    "call must be successful",
-                                    result.is_ok(),
-                                    format!("result={:?}", result)
-                                )
-                        ];
-                        if let Ok(response) = result.map(|r| r.into_inner()) {
-                            assertions.push(test_assert!(
-                            "aggregated payload size must be 74922 bytes",
-                            response.aggregated_payload_size == 74922,
-                            format!("aggregated_payload_size={:?}", 
-                                response.aggregated_payload_size
-                            )));
-                        }
-                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                    })
-            )
-        },
-        Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
-            Testcase::oauth2_auth_token | Testcase::per_rpc_creds => 
-            unimplemented!("test case unimplemented: tower-grpc does not currently support auth."),        
-        _ => unimplemented!()
-    };
-    
-    let test_results = test.expect("error running test!");
-
-    println!("{:?}:", test_case);
-    for result in test_results {
-        println!("  {}", result);
+    for test in test_cases {
+        println!("{:?}:", test);
+        let test_results = test
+            .run(&server, &mut core)
+            .expect("error running test!");
+        for result in test_results {
+            println!("  {}", result);
+        }
     }
+
     
 
     // match test_case {
