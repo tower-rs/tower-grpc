@@ -97,38 +97,38 @@ macro_rules! test_assert {
     }; 
 }
 
-pub struct TestResults {
-    name: String, 
-    assertions: Vec<TestAssertion>,
-}
+// pub struct TestResults {
+//     name: String, 
+//     assertions: Vec<TestAssertion>,
+// }
 
-impl TestResults {
-    pub fn passed(&self) -> bool {
-        self.assertions.iter().all(TestAssertion::passed)
-    }
-}
+// impl TestResults {
+//     pub fn passed(&self) -> bool {
+//         self.assertions.iter().all(TestAssertion::passed)
+//     }
+// }
 
-impl fmt::Display for TestResults {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use console::{Emoji, style};
-        let passed = self.is_passed();
-        write!(f, "{check} {name}\n",
-            check = if passed { 
-                style(Emoji("✔", "+")).green()
-            } else {
-                style(Emoji("✖", "x")).red()
-            },
-            name = if passed { 
-                style(self.name).green()
-            } else {
-                style(self.name).red()
-            },
-        )?;
-        for result in self.assertions {
-            write!(f, "  {}\n", result)?;
-        }
-    }
-}
+// impl fmt::Display for TestResults {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         use console::{Emoji, style};
+//         let passed = self.is_passed();
+//         write!(f, "{check} {name}\n",
+//             check = if passed { 
+//                 style(Emoji("✔", "+")).green()
+//             } else {
+//                 style(Emoji("✖", "x")).red()
+//             },
+//             name = if passed { 
+//                 style(self.name).green()
+//             } else {
+//                 style(self.name).red()
+//             },
+//         )?;
+//         for result in self.assertions {
+//             write!(f, "  {}\n", result)?;
+//         }
+//     }
+// }
 
 impl Testcase {
     fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core) 
@@ -266,7 +266,7 @@ enum TestAssertion {
 
 impl TestAssertion {
     fn passed(&self) -> bool {
-        if let Passed { .. } = *self {
+        if let TestAssertion::Passed { .. } = *self {
             true
         } else {
             false
@@ -291,8 +291,8 @@ impl fmt::Display for TestAssertion {
                 write!(f, "{check} {desc}\n  in `{exp}`: {why}",
                     check = style(Emoji("✖", "x")).red(),
                     desc = style(description).red(),
-                    exp = expression.red(),
-                    why = why.red(),
+                    exp = style(expression).red(),
+                    why = style(why).red(),
                 ),
             TestAssertion::Failed { 
                 ref description,
@@ -302,7 +302,7 @@ impl fmt::Display for TestAssertion {
                 write!(f, "{check} {desc}\n  in `{exp}`",
                     check = style(Emoji("✖", "x")).red(),
                     desc = style(description).red(),
-                    exp = expression,
+                    exp = style(expression).red(),
                 ),
             _ => unimplemented!()
         }
