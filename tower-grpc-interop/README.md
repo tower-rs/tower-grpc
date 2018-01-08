@@ -82,3 +82,9 @@ Run the test server (currently not yet implemented):
 ```bash
 $ cargo run -p tower-grpc-interop --bin server
 ```
+
+The `docker-compose.yml` in this directory can also be used to run the `tower-grpc` test client against `grpc-go`'s test server. From the repository root directory:
+
+```bash
+$ docker-compose --file=tower-grpc-interop/docker-compose.yml up --exit-code-from client-tower
+```
