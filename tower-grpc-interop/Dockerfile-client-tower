@@ -5,4 +5,4 @@ COPY . /usr/src/tower-grpc/
 WORKDIR /usr/src/tower-grpc
 
 RUN cargo build -p tower-grpc-interop
-ENTRYPOINT ["/usr/src/tower-grpc/target/debug/interop-client"]
+ENTRYPOINT ["/usr/src/tower-grpc/target/debug/client"]
