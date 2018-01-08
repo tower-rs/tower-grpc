@@ -5,4 +5,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-server-go
-    entrypoint: ["server"]
+    ports: 
+    - "10000:10000"
+
+  client-tower:
+    build:
+      context: ..
+      dockerfile: tower-grpc-examples/Dockerfile-interop-client
+    command: --test_case=empty_unary --server_host="server-go" # this is the only one that works
+    depends_on:
+    - server-go
