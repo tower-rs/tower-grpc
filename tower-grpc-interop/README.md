@@ -7,11 +7,11 @@ The [gRPC interoperability test cases](https://github.com/grpc/grpc/blob/master/
 Note that currently, only the interop test client is implemented. The `docker-compose.yml` in this directory will run the `tower-grpc` interop client against the test server from `grpc-go`.
 
 - [x] `empty_unary`: implemented in client
-- [ ] `cacheable_unary`: requires request context implementation to set cacheable flag
+- [ ] `cacheable_unary`: started, requires request context implementation to set cacheable flag
 - [x] `large_unary`: implemented in client, broken due to [#14](https://github.com/tower-rs/tower-grpc/issues/14)
-- [x] `client_compressed_unary`: implemented in client, broken due to [#16](https://github.com/tower-rs/tower-grpc/issues/16)
+- [ ] `client_compressed_unary`
 - [ ] `server_compressed_unary`
-- [ ] `client_streaming`
+- [x] `client_streaming`: implemented in client, broken due to [#16](https://github.com/tower-rs/tower-grpc/issues/16)
 - [ ] `client_compressed_streaming`
 - [ ] `server_streaming`
 - [ ] `server_compressed_streaming`
