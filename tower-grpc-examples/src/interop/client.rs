@@ -2,6 +2,7 @@
 extern crate console;
 #[macro_use]
 extern crate clap;
+extern crate domain;
 extern crate env_logger;
 extern crate http;
 extern crate futures;
@@ -20,10 +21,12 @@ use std::io::Error as IoError;
 use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
-
+use std::str::FromStr;
+use std::sync::Arc;
 use http::header::HeaderValue;
+use http::uri::{self, Uri};
 use futures::{future, Future, stream, Stream};
-use tokio_core::reactor::Core;
+use tokio_core::reactor;
 use tokio_core::net::TcpStream;
 use tower_grpc::{Request, Response};
 use tower_h2::client::Connection;
@@ -97,6 +100,51 @@ macro_rules! test_assert {
     }; 
 }
 
+#[derive(Debug)]
+enum ClientError {
+    InvalidArgument(clap::Error),
+    InvalidUri(uri::InvalidUri),
+    Dns(DnsError),
+}
+
+#[derive(Debug)]
+enum DnsError {
+    ResolveError(domain::resolv::error::Error),
+    NoHosts,
+}
+
+impl ClientError {
+    fn exit(&self) -> ! {
+        match *self {
+            ClientError::InvalidArgument(ref clap_error) => clap_error.exit(),
+            _ => unimplemented!()
+        }
+    }
+}
+
+impl From<clap::Error> for ClientError {
+    fn from(clap_error: clap::Error) -> Self {
+        ClientError::InvalidArgument(clap_error)
+    }
+}
+
+impl From<uri::InvalidUri> for ClientError {
+    fn from(invalid_uri: uri::InvalidUri) -> Self {
+        ClientError::InvalidUri(invalid_uri)
+    }
+}
+
+impl<T> From<T> for ClientError where DnsError: From<T> {
+    fn from(t: T) -> Self {
+        ClientError::Dns(DnsError::from(t))
+    }
+}
+
+impl From<domain::resolv::error::Error> for DnsError {
+    fn from(dns: domain::resolv::error::Error) -> Self {
+        DnsError::ResolveError(dns)
+    }
+}
 // pub struct TestResults {
 //     name: String, 
 //     assertions: Vec<TestAssertion>,
@@ -323,38 +371,67 @@ impl fmt::Display for TestAssertion {
 
 struct ServerInfo {
     addr: SocketAddr,
-    uri: http::Uri,
+    uri: Uri,
     hostname_override: Option<String>,
 }
 
-impl<'a> From<&'a clap::ArgMatches<'a>> for ServerInfo {
-    fn from(matches: &'a clap::ArgMatches<'a>) -> Self {
-        let ip = value_t!(matches, "server_host", IpAddr)
-            .unwrap_or_else(|e| e.exit());
-        let port = value_t!(matches, "server_port", u16)
-            .unwrap_or_else(|e| e.exit());
+impl ServerInfo {
+    fn from_args<'a>(matches: &clap::ArgMatches<'a>, 
+                     core: &mut reactor::Core,) 
+                    -> Result<Self, ClientError>
+    {
+        use domain::bits::DNameBuf;
+        use domain::resolv::Resolver;
+        use domain::resolv::lookup::lookup_host;
 
-        let addr = SocketAddr::new(ip, port);
-        info!("server_address={:?};", addr);
-
-        let ip_str = matches
-            .value_of("server_host")
-            .expect("server_host was None unexpected!")
-            ;
-        let port_str = matches
-            .value_of("server_port")
-            .expect("server_port was None unexpectedly!")
-            ;
-        let uri: http::Uri = format!("http://{}:{}", ip_str, port_str)
-            .parse()
-            .expect("invalid uri")
-            ;
-
-        ServerInfo {
-            addr,
-            uri,
-            hostname_override: None, // unimplemented
-        }
+        let handle = core.handle();
+        // XXX this could probably look neater if only the DNS query was run in 
+        //     a future...
+        let ip_future = future::result(value_t!(matches, "server_host", IpAddr))
+            .from_err::<ClientError>()
+            .or_else(|_| {
+                future::result(value_t!(
+                    matches,
+                    "server_host",
+                    DNameBuf
+                ))
+                .from_err::<ClientError>()
+                .and_then(move |name| {
+                    let resolver = Resolver::new(&handle);
+                    lookup_host(resolver, name)
+                        .from_err::<ClientError>()
+                        .and_then(|response| {
+                            response.iter()
+                                .next()
+                                .ok_or(ClientError::from(DnsError::NoHosts))
+                        })
+                })
+                .from_err::<ClientError>()
+            })
+            .from_err::<ClientError>();
+        let info = ip_future.and_then(move |ip| {
+            future::result(value_t!(matches, "server_port", u16))
+                .from_err::<ClientError>()
+                .and_then(move |port| {
+                    let addr = SocketAddr::new(ip, port);
+                    info!("server_address={:?};", addr);
+                    let host = matches.value_of("server_host")
+                        .expect("`server_host` argument was not present, clap \
+                                 should have already validated it was present.")
+                        ;
+                    future::result(
+                        Uri::from_str(&format!("http://{}:{}", host, port))
+                    )
+                        .from_err::<ClientError>()
+                        .map(move |uri| ServerInfo {
+                            addr,
+                            uri,
+                            hostname_override: None, // unimplemented
+                        })
+                })
+                .from_err::<ClientError>()
+        });
+        core.run(info)
     }
 }
 
@@ -473,12 +550,18 @@ fn main() {
         unimplemented!("tower-grpc does not currently support GCE auth.");
     }
 
-    let server = ServerInfo::from(&matches);
+    let mut core = reactor::Core::new()
+        .expect("could not create reactor core!");
+
+    let server = ServerInfo::from_args(&matches, &mut core)
+        .unwrap_or_else(|e| e.exit())
+    ;
+
+    let handle = core.handle();
+
     let test_cases = values_t!(matches, "test_case", Testcase)
         .unwrap_or_else(|e| e.exit());
 
-    let mut core = Core::new().expect("could not create reactor core!");
-    
     for test in test_cases {
         println!("{:?}:", test);
         let test_results = test
