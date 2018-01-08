@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = [
   "Carl Lerche <me@carllerche.com>",
   "Sean McArthur <sean@seanmonstar.com>",
+  "Eliza Weisman <eliza@buoyant.io>",
 ]
 
 [features]
@@ -14,6 +15,7 @@ protobuf = ["prost"]
 members = [
   "tower-grpc-build",
   "tower-grpc-examples",
+  "tower-grpc-interop",
 ]
 
 [dependencies]

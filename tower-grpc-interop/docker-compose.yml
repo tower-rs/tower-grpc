@@ -11,7 +11,7 @@ services:
   client-tower:
     build:
       context: ..
-      dockerfile: tower-grpc-examples/Dockerfile-interop-client
+      dockerfile: tower-grpc-interop/Dockerfile-client-tower
     command: --test_case=empty_unary --server_host="server-go" # this is the only one that works
     depends_on:
     - server-go
