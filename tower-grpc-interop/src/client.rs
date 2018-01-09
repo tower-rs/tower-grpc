@@ -80,7 +80,7 @@ macro_rules! test_assert {
         if $assertion {
             TestAssertion::Passed { description: $description }
         } else {
-            TestAssertion::Failed { 
+            TestAssertion::Failed {
                 description: $description,
                 expression: stringify!($assertion),
                 why: None
@@ -91,13 +91,13 @@ macro_rules! test_assert {
         if $assertion {
             TestAssertion::Passed { description: $description }
         } else {
-            TestAssertion::Failed { 
+            TestAssertion::Failed {
                 description: $description,
                 expression: stringify!($assertion),
                 why: Some($why)
             }
         }
-    }; 
+    };
 }
 
 #[derive(Debug)]
@@ -146,7 +146,7 @@ impl From<domain::resolv::error::Error> for DnsError {
     }
 }
 // pub struct TestResults {
-//     name: String, 
+//     name: String,
 //     assertions: Vec<TestAssertion>,
 // }
 
@@ -161,12 +161,12 @@ impl From<domain::resolv::error::Error> for DnsError {
 //         use console::{Emoji, style};
 //         let passed = self.is_passed();
 //         write!(f, "{check} {name}\n",
-//             check = if passed { 
+//             check = if passed {
 //                 style(Emoji("✔", "+")).green()
 //             } else {
 //                 style(Emoji("✖", "x")).red()
 //             },
-//             name = if passed { 
+//             name = if passed {
 //                 style(self.name).green()
 //             } else {
 //                 style(self.name).red()
@@ -179,9 +179,9 @@ impl From<domain::resolv::error::Error> for DnsError {
 // }
 
 impl Testcase {
-    fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core) 
+    fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core)
            -> Result<Vec<TestAssertion>, Box<Error>> {
-        
+
         let reactor = core.handle();
         let mut client = core.run(
             TcpStream::connect(&server.addr, &reactor)
@@ -195,7 +195,7 @@ impl Testcase {
                         .expect("TestService::new"))
                 })
         ).expect("client");
-            
+
         match *self {
             Testcase::empty_unary => {
                 use pb::Empty;
@@ -241,7 +241,7 @@ impl Testcase {
                             assertions.push(test_assert!(
                             "body must be 314159 bytes",
                             mem::size_of_val(&body) == LARGE_RSP_SIZE as usize,
-                            format!("mem::size_of_val(&body)={:?}", 
+                            format!("mem::size_of_val(&body)={:?}",
                                 mem::size_of_val(&body))
                             ));
                         }
@@ -262,7 +262,7 @@ impl Testcase {
                 req.headers_mut()
                     .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
                 // core.run(client.unary_call(req)
-                //     .then(|result| { 
+                //     .then(|result| {
                 //         unimplemented!()
                 //     })
                 // )
@@ -289,7 +289,7 @@ impl Testcase {
                                 assertions.push(test_assert!(
                                 "aggregated payload size must be 74922 bytes",
                                 response.aggregated_payload_size == 74922,
-                                format!("aggregated_payload_size={:?}", 
+                                format!("aggregated_payload_size={:?}",
                                     response.aggregated_payload_size
                                 )));
                             }
@@ -297,17 +297,31 @@ impl Testcase {
                         })
                 )
             },
-            Testcase::compute_engine_creds | Testcase::jwt_token_creds | 
-                Testcase::oauth2_auth_token | Testcase::per_rpc_creds => 
-                unimplemented!("test case unimplemented: tower-grpc does not currently support auth."),        
+            Testcase::compute_engine_creds
+            | Testcase::jwt_token_creds
+            | Testcase::oauth2_auth_token
+            | Testcase::per_rpc_creds =>
+                unimplemented!(
+                    "test case unimplemented: tower-grpc does not \
+                     currently support gRPC authorization."
+                ),
+            Testcase::client_compressed_unary
+            | Testcase::server_compressed_unary
+            | Testcase::client_compressed_streaming
+            | Testcase::server_compressed_streaming =>
+                unimplemented!(
+                    "test case unimplemented: tower-grpc does not \
+                     currently support gRPC compression."
+                ),
+
             _ => unimplemented!()
         }
     }
 }
 enum TestAssertion {
     Passed { description: &'static str },
-    Failed { description: &'static str, 
-             expression: &'static str, 
+    Failed { description: &'static str,
+             expression: &'static str,
              why: Option<String> },
     Errored { description: &'static str, error: Box<Error> }
 }
@@ -327,11 +341,11 @@ impl fmt::Display for TestAssertion {
         use console::{Emoji, style};
         match *self {
             TestAssertion::Passed { ref description } =>
-                write!(f, "{check} {desc}", 
+                write!(f, "{check} {desc}",
                     check = style(Emoji("✔", "+")).green(),
                     desc = style(description).green(),
                 ),
-            TestAssertion::Failed { 
+            TestAssertion::Failed {
                 ref description,
                 ref expression,
                 why: Some(ref why),
@@ -342,7 +356,7 @@ impl fmt::Display for TestAssertion {
                     exp = style(expression).red(),
                     why = style(why).red(),
                 ),
-            TestAssertion::Failed { 
+            TestAssertion::Failed {
                 ref description,
                 ref expression,
                 why: None,
@@ -354,7 +368,7 @@ impl fmt::Display for TestAssertion {
                 ),
             _ => unimplemented!()
         }
-        
+
     }
 }
 
@@ -365,15 +379,15 @@ struct ServerInfo {
 }
 
 impl ServerInfo {
-    fn from_args<'a>(matches: &clap::ArgMatches<'a>, 
-                     core: &mut reactor::Core,) 
+    fn from_args<'a>(matches: &clap::ArgMatches<'a>,
+                     core: &mut reactor::Core,)
                     -> Result<Self, ClientError>
     {
         use domain::bits::DNameBuf;
         use domain::resolv::{Resolver, lookup};
 
         let handle = core.handle();
-        // XXX this could probably look neater if only the DNS query was run in 
+        // XXX this could probably look neater if only the DNS query was run in
         //     a future...
         let ip_future = future::result(value_t!(matches, "server_host", IpAddr))
             .from_err::<ClientError>()
@@ -427,7 +441,7 @@ fn main() {
     use clap::{Arg, App};
     let _ = ::env_logger::init();
 
-    let matches = 
+    let matches =
         App::new("interop-client")
             .author("Eliza Weisman <eliza@buoyant.io>")
             .arg(Arg::with_name("server_host")
@@ -453,7 +467,7 @@ fn main() {
             .arg(Arg::with_name("test_case")
                 .long("test_case")
                 .value_name("TESTCASE")
-                .help("The name of the test case to execute. For example, 
+                .help("The name of the test case to execute. For example,
                 \"empty_unary\".")
                 .possible_values(&Testcase::variants())
                 .default_value("large_unary")
@@ -468,9 +482,9 @@ fn main() {
                 .value_name("BOOLEAN")
                 .possible_values(&["true", "false"])
                 .default_value("false")
-                .validator(|s| 
-                    // use a Clap validator for unimplemented flags so we get a 
-                    // nicer error message than the panic from 
+                .validator(|s|
+                    // use a Clap validator for unimplemented flags so we get a
+                    // nicer error message than the panic from
                     // `unimplemented!()`.
                     if s == "true" {
                         // unsupported, always error for now.
@@ -480,7 +494,7 @@ fn main() {
                     } else {
                         Ok(())
                     }
-   
+
                 )
             )
             .arg(Arg::with_name("use_test_ca")
@@ -499,7 +513,7 @@ fn main() {
                 .value_name("SCOPE")
                 .help("The scope for OAuth2 tokens. For example, \"https://www.googleapis.com/auth/xapi.zoo\".")
                 .takes_value(true)
-                .validator(|_| 
+                .validator(|_|
                     // unsupported, always error for now.
                     Err(String::from(
                         "tower-grpc does not currently support GCE auth."
@@ -511,7 +525,7 @@ fn main() {
                 .value_name("ACCOUNT_EMAIL")
                 .help("Email of the GCE default service account.")
                 .takes_value(true)
-                .validator(|_| 
+                .validator(|_|
                     // unsupported, always error for now.
                     Err(String::from(
                         "tower-grpc does not currently support GCE auth."
@@ -523,7 +537,7 @@ fn main() {
                 .value_name("PATH")
                 .help("The path to the service account JSON key file generated from GCE developer console.")
                 .takes_value(true)
-                .validator(|_| 
+                .validator(|_|
                     // unsupported, always error for now.
                     Err(String::from(
                         "tower-grpc does not currently support GCE auth."
@@ -532,7 +546,7 @@ fn main() {
             )
             .get_matches();
 
-    if matches.is_present("oauth_scope") || 
+    if matches.is_present("oauth_scope") ||
        matches.is_present("default_service_account") ||
        matches.is_present("service_account_key_file") {
         unimplemented!("tower-grpc does not currently support GCE auth.");
