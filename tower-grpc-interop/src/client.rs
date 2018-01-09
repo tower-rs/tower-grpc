@@ -17,18 +17,17 @@ extern crate tower;
 extern crate tower_h2;
 extern crate tower_grpc;
 
-use std::io::Error as IoError;
 use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use std::sync::Arc;
+
 use http::header::HeaderValue;
 use http::uri::{self, Uri};
-use futures::{future, Future, stream, Stream};
+use futures::{future, Future, stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
-use tower_grpc::{Request, Response};
+use tower_grpc::Request;
 use tower_h2::client::Connection;
 
 use pb::SimpleRequest;
@@ -37,6 +36,7 @@ use pb::client::TestService;
 
 mod pb {
     #![allow(dead_code)]
+    #![allow(unused_imports)]
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
@@ -358,17 +358,6 @@ impl fmt::Display for TestAssertion {
     }
 }
 
-// impl Testcase {
-//     fn future<S>(self, client: &mut pb::client::TestService<S>) -> TestFuture
-//     where 
-//         S: tower_h2::HttpService,
-//         S::Future: Future,
-//     {
-
-//     }
-        
-// }
-
 struct ServerInfo {
     addr: SocketAddr,
     uri: Uri,
@@ -381,8 +370,7 @@ impl ServerInfo {
                     -> Result<Self, ClientError>
     {
         use domain::bits::DNameBuf;
-        use domain::resolv::Resolver;
-        use domain::resolv::lookup::lookup_host;
+        use domain::resolv::{Resolver, lookup};
 
         let handle = core.handle();
         // XXX this could probably look neater if only the DNS query was run in 
@@ -398,7 +386,7 @@ impl ServerInfo {
                 .from_err::<ClientError>()
                 .and_then(move |name| {
                     let resolver = Resolver::new(&handle);
-                    lookup_host(resolver, name)
+                    lookup::lookup_host(resolver, name)
                         .from_err::<ClientError>()
                         .and_then(|response| {
                             response.iter()
@@ -557,8 +545,6 @@ fn main() {
         .unwrap_or_else(|e| e.exit())
     ;
 
-    let handle = core.handle();
-
     let test_cases = values_t!(matches, "test_case", Testcase)
         .unwrap_or_else(|e| e.exit());
 
@@ -571,86 +557,4 @@ fn main() {
             println!("  {}", result);
         }
     }
-
-    
-
-    // match test_case {
-    //     Testcase::empty_unary => {
-    //         let test = 
-    //         core.run(test).expect("run test");
-    //     },
-    //     // cacheable_unary => {                
-    //     //     let test = 
-    //     //         TcpStream::connect(&addr, &reactor)
-    //     //             .and_then(move |socket| {
-    //     //                 // Bind the HTTP/2.0 connection
-    //     //                 Connection::handshake(socket, reactor)
-    //     //                     .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-    //     //             })
-    //     //             .and_then(move |conn| {
-    //     //                 use testing::client::TestService;
-    //     //                 let client = TestService::new(conn, uri)
-    //     //                     .expect("TestService::new");
-    //     //                 Ok(client)
-    //     //             })
-    //     //             .and_then(|mut client| {
-    //     //                 use testing::SimpleRequest;
-
-    //     //                 client.cacheable_unary(Request::new(SimpleRequest {
-                            
-    //     //                 }))
-    //     //                     .map_err(|e| panic!("gRPC request failed; err={:?}", e))
-    //     //             })
-    //     //             .and_then(|response| {
-    //     //                 println!("RESPONSE = {:?}", response);
-    //     //                 Ok(())
-    //     //             })
-    //     //             .map_err(|e| {
-    //     //                 println!("ERR = {:?}", e);
-    //     //             });
-    //     //     core.run(test).expect("run test");
-
-    //     // },
-    //     Testcase::large_unary => {
-    //         let test = 
-    //             TcpStream::connect(&addr, &reactor)
-    //                 .and_then(move |socket| {
-    //                     // Bind the HTTP/2.0 connection
-    //                     Connection::handshake(socket, reactor)
-    //                         .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-    //                 })
-    //                 .and_then(move |conn| {
-    //                     use pb::client::TestService;
-    //                     let client = TestService::new(conn, uri)
-    //                         .expect("TestService::new");
-    //                     Ok(client)
-    //                 })
-    //                 .and_then(|mut client| {
-    //                     use pb::SimpleRequest;
-    //                     let payload = util::client_payload(
-    //                         pb::PayloadType::Compressable,
-    //                         LARGE_REQ_SIZE,
-    //                     );
-    //                     let req = SimpleRequest {
-    //                         response_type: pb::PayloadType::Compressable as i32,
-    //                         response_size: LARGE_RSP_SIZE,
-    //                         payload: Some(payload),
-    //                         ..Default::default()
-    //                     };
-    //                     client.unary_call(Request::new(req))
-    //                         .map_err(|e| panic!("gRPC request failed; err={:?}", e))
-    //                 })
-    //                 .and_then(|response| {
-    //                     println!("RESPONSE = {:?}", response);
-    //                     Ok(())
-    //                 })
-    //                 .map_err(|e| {
-    //                     println!("ERR = {:?}", e);
-    //                 });
-    //         core.run(test).expect("run test");
-    //     },
-    //     t => unimplemented!("test case {:?} is not yet implemented.", t),
-    // };
-
-
 }
