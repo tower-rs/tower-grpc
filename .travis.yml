@@ -6,7 +6,8 @@ cache: cargo
 matrix:
   include:
     - rust: stable
-    - rust: beta
+    - rust: nightly
+  allow_failures:
     - rust: nightly
 
 script:
@@ -14,4 +15,4 @@ script:
 
 notifications:
   email:
-on_success: never
+    on_success: never
