@@ -8,19 +8,19 @@ pub struct ServiceGenerator;
 
 impl ServiceGenerator {
     /// Generate the gRPC server code
-    pub fn generate(&self, service: &prost_build::Service, buf: &mut String) -> fmt::Result {
-        let scope = self.define(service);
-        let mut fmt = codegen::Formatter::new(buf);
-
-        scope.fmt(&mut fmt)
+    pub fn generate(&self,
+                    service: &prost_build::Service,
+                    scope: &mut codegen::Scope) {
+        self.define(service, scope);
     }
 
-    fn define(&self, service: &prost_build::Service) -> codegen::Scope {
+    fn define(&self, 
+              service: &prost_build::Service,
+              scope: &mut codegen::Scope) 
+    {
         // Create scope that contains the generated server code.
-        let mut scope = codegen::Scope::new();
-
         {
-            let module = scope.new_module("server")
+            let module = scope.get_or_new_module("server")
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 ;
@@ -69,11 +69,12 @@ macro_rules! try_ready {
                 self.define_service_method(service, method, methods);
             }
         }
-
-        scope
     }
 
-    fn define_service_trait(&self, service: &prost_build::Service, scope: &mut codegen::Scope) {
+    fn define_service_trait(&self, 
+                            service: &prost_build::Service, 
+                            scope: &mut codegen::Scope) 
+    {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
             .parent("Clone")
@@ -130,7 +131,10 @@ macro_rules! try_ready {
         scope.push_trait(service_trait);
     }
 
-    fn define_server_struct(&self, service: &prost_build::Service, scope: &mut codegen::Scope) {
+    fn define_server_struct(&self, 
+                            service: &prost_build::Service, 
+                            scope: &mut codegen::Scope)                        
+    {
         let name = format!("{}Server", service.name);
         let lower_name = ::lower_name(&service.name);
 
