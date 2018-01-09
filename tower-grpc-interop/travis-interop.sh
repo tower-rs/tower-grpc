@@ -10,7 +10,7 @@ SERVER_ZIP_URL="https://github.com/tower-rs/tower-grpc/files/1616271/interop-ser
 if ! [ -e "${SERVER}" ] ; then
     echo ":; downloading grpc-go test server"
     wget -O "${SERVER}.zip" "${SERVER_ZIP_URL}"
-    tar xf "${SERVER}.zip"
+    unzip "${SERVER}.zip"
 fi
 
 # run the test server 
