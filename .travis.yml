@@ -15,7 +15,7 @@ matrix:
 script:
   - cargo test
   # run interop tests
-  - docker-compose --file=tower-grpc-interop/docker-compose.yml up --exit-code-from client-tower
+  - ./tower-grpc-interop/travis-interop.sh
 
 notifications:
   email:
