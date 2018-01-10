@@ -86,8 +86,8 @@ impl Config {
 impl prost_build::ServiceGenerator for ServiceGenerator {
 
     fn generate(&self, service: prost_build::Service, _buf: &mut String) {
-        // Note that neither this implementation of `generate` nor the
-        // implementations for `client::ServiceGenerator` and
+        // Note that neither this implementation of `generate` nor the 
+        // implementations for `client::ServiceGenerator` and 
         // `server::ServiceGenerator` will actually output any code to the
         // buffer; all code is written out in the implementation of the
         // `ServiceGenerator::finalize` function on this type.
