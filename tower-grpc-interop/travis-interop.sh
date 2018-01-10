@@ -24,4 +24,6 @@ trap 'echo ":; killing test server"; kill ${SERVER_PID};' EXIT
 
 # run the interop test client against the server.
 cargo run -p tower-grpc-interop --bin client -- \
-    --test_case=empty_unary     # this is the only working test case...
+    # Add comma separated test cases
+    --test_case=empty_unary, \
+                large_unary
