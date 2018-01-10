@@ -126,7 +126,7 @@ pub struct DecodeBuf<'a> {
 
 #[derive(Debug)]
 pub struct BytesList {
-    bufs: VecDeque<Data>,
+    bufs: VecDeque<Bytes>,
 }
 
 // ===== impl Encode =====
@@ -300,7 +300,7 @@ where T: Decoder,
             let chunk = try_ready!(self.inner.poll_data());
 
             if let Some(data) = chunk {
-                self.bufs.bufs.push_back(data);
+                self.bufs.bufs.push_back(data.into());
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
@@ -362,7 +362,13 @@ impl<'a> Buf for DecodeBuf<'a> {
 
     #[inline]
     fn bytes(&self) -> &[u8] {
-        &self.bufs.bytes()[..self.len]
+        let ret = self.bufs.bytes();
+
+        if ret.len() > self.len {
+            &ret[..self.len]
+        } else {
+            ret
+        }
     }
 
     #[inline]
@@ -388,7 +394,7 @@ impl Buf for BytesList {
     #[inline]
     fn remaining(&self) -> usize {
         self.bufs.iter()
-            .map(|buf| buf.remaining())
+            .map(|buf| buf.len())
             .sum()
     }
 
@@ -397,7 +403,7 @@ impl Buf for BytesList {
         if self.bufs.is_empty() {
             &[]
         } else {
-            &self.bufs[0].bytes()
+            &self.bufs[0][..]
         }
     }
 
@@ -406,11 +412,11 @@ impl Buf for BytesList {
         while cnt > 0 {
             {
                 let front = &mut self.bufs[0];
-                if front.remaining() > cnt {
+                if front.len() > cnt {
                     front.advance(cnt);
                     return;
                 } else {
-                    cnt -= front.remaining();
+                    cnt -= front.len();
                 }
             }
             self.bufs.pop_front();
