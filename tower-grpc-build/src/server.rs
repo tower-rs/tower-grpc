@@ -16,8 +16,7 @@ impl ServiceGenerator {
 
     fn define(&self, 
               service: &prost_build::Service,
-              scope: &mut codegen::Scope) 
-    {
+              scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
         {
             let module = scope.get_or_new_module("server")

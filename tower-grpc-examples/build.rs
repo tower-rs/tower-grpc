@@ -6,12 +6,12 @@ fn main() {
         .enable_server(true)
         .enable_client(true)
         .build(&["proto/helloworld/helloworld.proto"], &["proto/helloworld"])
-        .unwrap();
+        .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
 
     // Build routeguide
     tower_grpc_build::Config::new()
         .enable_server(true)
         .enable_client(true)
         .build(&["proto/routeguide/route_guide.proto"], &["proto/routeguide"])
-        .unwrap();
+        .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
 }

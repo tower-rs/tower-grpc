@@ -1,0 +1,32 @@
+[package]
+name = "tower-grpc-interop"
+version = "0.0.1"
+authors = ["Eliza Weisman <eliza@buoyant.io>"]
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[dependencies]
+futures = "0.1"
+bytes = "0.4"
+env_logger = "0.4"
+log = "0.3"
+http = "0.1"
+prost = { git = "https://github.com/danburkert/prost" }
+prost-derive = { git = "https://github.com/danburkert/prost" }
+tokio-core = "0.1"
+tower = { git = "https://github.com/tower-rs/tower" }
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-grpc = { path = "../" }
+
+clap = "~2.29"
+console = "0.5.0"
+rustls = "0.11.0"
+domain = "0.2.2"
+
+[build-dependencies]
+tower-grpc-build = { path = "../tower-grpc-build" }
+
+[patch.crates-io]
+http = { git = "http://github.com/hyperium/http", rev = "5f362a32278891672f428d570d46387fe6896a5d" }

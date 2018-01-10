@@ -1,0 +1,8 @@
+FROM rust:1.23.0
+
+COPY Cargo.toml Cargo.lock /usr/src/tower-grpc/
+COPY . /usr/src/tower-grpc/
+WORKDIR /usr/src/tower-grpc
+
+RUN cargo build -p tower-grpc-interop
+ENTRYPOINT ["/usr/src/tower-grpc/target/debug/client"]

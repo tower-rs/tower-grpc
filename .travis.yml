@@ -12,6 +12,8 @@ matrix:
 
 script:
   - cargo test
+  # run interop tests
+  - ./tower-grpc-interop/travis-interop.sh
 
 notifications:
   email:
