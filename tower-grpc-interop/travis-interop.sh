@@ -23,7 +23,4 @@ echo ":; started grpc-go test server."
 trap 'echo ":; killing test server"; kill ${SERVER_PID};' EXIT
 
 # run the interop test client against the server.
-cargo run -p tower-grpc-interop --bin client -- \
-    # Add comma separated test cases
-    --test_case=empty_unary, \
-                large_unary
+cargo run -p tower-grpc-interop --bin client
