@@ -229,7 +229,6 @@ impl Testcase {
                 };
                 core.run(client.unary_call(Request::new(req))
                     .then(|result| {
-                        println!("received {:?}", result);
                     let mut assertions = vec![
                             test_assert!(
                                 "call must be successful",
@@ -238,9 +237,13 @@ impl Testcase {
                             )
                     ];
                         if let Ok(body) = result.map(|r| r.into_inner()) {
+                            let payload_len = body.payload.as_ref()
+                                .map(|p| p.body.len())
+                                .unwrap_or(0);
+
                             assertions.push(test_assert!(
                             "body must be 314159 bytes",
-                            mem::size_of_val(&body) == LARGE_RSP_SIZE as usize,
+                            payload_len == LARGE_RSP_SIZE as usize,
                             format!("mem::size_of_val(&body)={:?}",
                                 mem::size_of_val(&body))
                             ));
