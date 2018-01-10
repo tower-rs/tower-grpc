@@ -5,4 +5,4 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 
 [dependencies]
 codegen = { git = "https://github.com/carllerche/codegen" }
-prost-build = "0.2"
+prost-build = { git = "https://github.com/danburkert/prost" }
