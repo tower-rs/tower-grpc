@@ -95,26 +95,13 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
         let mut root = self.root_scope.borrow_mut();
 
         if inner.build_client {
-            self.client.generate(&service, &mut state.root);
+            self.client.generate(&service, &mut root);
         }
 
         if inner.build_server {
-            self.server.generate(&service, &mut state.root);
+            self.server.generate(&service, &mut root);
         }
-
-        // generate the code for this service into a _new_ String and then
-        // append it to the buffer provided to us by `prost_build`, so we can
-        // record the length of the code we generate  so that the next service
-        // generated --- if there is one --- can clobber it to prevent
-        // duplication.
-        // XXX rewrite to use `ServiceGenerator::finalize` from `prost-build`.
-        let mut code = String::new();
-        {
-            let mut fmt = codegen::Formatter::new(&mut code);
-            state.root.fmt(&mut fmt).unwrap();
-        }
-        state.last_gen_length = code.len();
-        buf.push_str(&code[..]);
+    }
 
     fn finalize(&self, buf: &mut String) {
         // Rather than outputting each service to the buffer as it's generated,
