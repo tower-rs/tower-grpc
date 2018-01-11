@@ -14,7 +14,7 @@ impl ServiceGenerator {
         self.define(service, scope);
     }
 
-    fn define(&self, 
+    fn define(&self,
               service: &prost_build::Service,
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated client code.
@@ -30,9 +30,9 @@ impl ServiceGenerator {
         self.define_client_impl(service, scope);
     }
 
-    fn import_message_types(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope) 
+    fn import_message_types(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         for method in &service.methods {
             let (input_path, input_type) = ::super_import(&method.input_type, 1);
@@ -43,9 +43,9 @@ impl ServiceGenerator {
         }
     }
 
-    fn define_client_struct(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope) 
+    fn define_client_struct(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         scope.new_struct(&service.name)
             .vis("pub")
@@ -55,9 +55,9 @@ impl ServiceGenerator {
             ;
     }
 
-    fn define_client_impl(&self, 
+    fn define_client_impl(&self,
                           service: &prost_build::Service,
-                          scope: &mut codegen::Scope) 
+                          scope: &mut codegen::Scope)
     {
         let imp = scope.new_impl(&service.name)
             .generic("T")

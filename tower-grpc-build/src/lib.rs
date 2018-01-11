@@ -86,8 +86,8 @@ impl Config {
 impl prost_build::ServiceGenerator for ServiceGenerator {
 
     fn generate(&self, service: prost_build::Service, _buf: &mut String) {
-        // Note that neither this implementation of `generate` nor the 
-        // implementations for `client::ServiceGenerator` and 
+        // Note that neither this implementation of `generate` nor the
+        // implementations for `client::ServiceGenerator` and
         // `server::ServiceGenerator` will actually output any code to the
         // buffer; all code is written out in the implementation of the
         // `ServiceGenerator::finalize` function on this type.
@@ -117,7 +117,13 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
         let mut fmt = codegen::Formatter::new(buf);
         self.root_scope.borrow()
             .fmt(&mut fmt)
-            .expect("formatting root scope failed!")
+            .expect("formatting root scope failed!");
+
+        // reset the root scope so that the service generator is ready to
+        // generate another file. this prevents the code generated for *this*
+        // file being present in the next file.
+        *self.root_scope.borrow_mut() = codegen::Scope::new();
+
     }
 }
 
