@@ -28,11 +28,11 @@ impl ServiceGenerator {
         self.import_message_types(service, scope);
         self.define_client_struct(service, scope);
         self.define_client_impl(service, scope);
+    }
 
     fn import_message_types(&self,
                             service: &prost_build::Service,
                             scope: &mut codegen::Scope)
-    }
     {
         for method in &service.methods {
             let (input_path, input_type) = ::super_import(&method.input_type, 1);
