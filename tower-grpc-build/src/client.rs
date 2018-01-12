@@ -28,16 +28,16 @@ impl ServiceGenerator {
         self.import_message_types(service, scope);
         self.define_client_struct(service, scope);
         self.define_client_impl(service, scope);
-    }
 
     fn import_message_types(&self,
                             service: &prost_build::Service,
                             scope: &mut codegen::Scope)
+    }
     {
         for method in &service.methods {
             let (input_path, input_type) = ::super_import(&method.input_type, 1);
             let (output_path, output_type) = ::super_import(&method.output_type, 1);
-
+            println!("input_type={}; output_type={}", input_type, output_type);
             scope.import(&input_path, &input_type);
             scope.import(&output_path, &output_type);
         }
