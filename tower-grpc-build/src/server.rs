@@ -2,6 +2,7 @@ use codegen;
 use prost_build;
 
 use std::fmt;
+use std::collections::HashMap;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -36,8 +37,26 @@ macro_rules! try_ready {
         Err(e) => return Err(From::from(e)),
     })
 }");
+            // determine imports for server root module.
+            let mut names = HashMap::new();
 
-            self.define_service_trait(service, module.scope());
+            for method in &service.methods {
+                let input_type = ::super_import(
+                    &method.input_type,
+                    1,
+                    module.scope()
+                );
+                names.insert(method.input_type.to_string(), input_type);
+
+                let output_type = ::super_import(
+                    &method.output_type,
+                    1,
+                    module.scope()
+                );
+                names.insert(method.output_type.to_string(), output_type);
+            }
+
+            self.define_service_trait(service, module.scope(), &names);
             self.define_server_struct(service, module.scope());
 
             let support = module.new_module(&::lower_name(&service.name))
@@ -58,21 +77,25 @@ macro_rules! try_ready {
                 ;
 
             // Define service modules
+            let mut methods_names = HashMap::new();
             for method in &service.methods {
-                let (input_path, input_type) = ::super_import(&method.input_type, 2);
-                let (output_path, output_type) = ::super_import(&method.output_type, 2);
+                let input_type = ::super_import(&method.input_type, 3,
+                    methods.scope()
+                );
+                methods_names.insert(method.input_type.to_string(), input_type);
 
-                methods.import(&input_path, &input_type);
-                methods.import(&output_path, &output_type);
+                let output_type = ::super_import(&method.output_type, 3, methods.scope());
+                methods_names.insert(method.output_type.to_string(), output_type);
 
-                self.define_service_method(service, method, methods);
+                self.define_service_method(service, method, methods, &methods_names);
             }
         }
     }
 
     fn define_service_trait(&self,
                             service: &prost_build::Service,
-                            scope: &mut codegen::Scope)
+                            scope: &mut codegen::Scope,
+                            names: &HashMap<String, String>)
     {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
@@ -83,12 +106,22 @@ macro_rules! try_ready {
             let name = ::lower_name(&method.proto_name);
 
             let future_bound;
+            let input_type = names.get(&method.input_type)
+               .unwrap_or_else(|| {
+                    panic!("no entry in names for method.output_type='{}'!",
+                        &method.input_type)
+                });
+            let output_type = names.get(&method.output_type)
+               .unwrap_or_else(|| {
+                    panic!("no entry in names for method.output_type='{}'!",
+                        &method.output_type)
+                });
 
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &method.proto_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Error>",
-                    ::unqualified(&method.output_type));
+                    output_type);
 
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Error>",
@@ -99,7 +132,7 @@ macro_rules! try_ready {
             } else {
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<{}>, Error = grpc::Error>",
-                    ::unqualified(&method.output_type));
+                    output_type);
             }
 
             let future_name = format!("{}Future", &method.proto_name);
@@ -107,12 +140,6 @@ macro_rules! try_ready {
             service_trait.associated_type(&future_name)
                 .bound(&future_bound)
                 ;
-
-            let (input_path, input_type) = ::super_import(&method.input_type, 1);
-            let (output_path, output_type) = ::super_import(&method.output_type, 1);
-
-            scope.import(&input_path, &input_type);
-            scope.import(&output_path, &output_type);
 
             let response_type = if method.client_streaming {
                 format!("grpc::Request<grpc::Streaming<{}>>", input_type)
@@ -422,7 +449,8 @@ macro_rules! try_ready {
     fn define_service_method(&self,
                              service: &prost_build::Service,
                              method: &prost_build::Method,
-                             module: &mut codegen::Module)
+                             module: &mut codegen::Module,
+                             names: &HashMap<String, String>)
     {
         module.new_struct(&method.proto_name)
             .vis("pub")
@@ -432,20 +460,30 @@ macro_rules! try_ready {
 
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type));
+        let input_type = names.get(&method.input_type)
+            .unwrap_or_else(|| {
+                panic!("no entry in names for method.output_type='{}'!",
+                    &method.input_type)
+            });
+        let output_type = names.get(&method.output_type)
+            .unwrap_or_else(|| {
+                panic!("no entry in names for method.output_type='{}'!",
+                    &method.output_type)
+            });
+        let request_stream = format!("grpc::Streaming<{}>", input_type);
         let response_stream = format!("T::{}Stream", method.proto_name);
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                request.generic(::unqualified(&method.input_type));
-                response.generic(::unqualified(&method.output_type));
+                request.generic(input_type);
+                response.generic(output_type);
             }
             (false, true) => {
-                request.generic(::unqualified(&method.input_type));
+                request.generic(input_type);
                 response.generic(&response_stream);
             }
             (true, false) => {
-                response.generic(::unqualified(&method.output_type));
+                response.generic(output_type);
                 request.generic(&request_stream);
             }
             (true, true) => {
