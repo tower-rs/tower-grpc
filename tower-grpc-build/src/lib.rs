@@ -155,15 +155,14 @@ fn lower_name(name: &str) -> String {
 }
 
 fn super_import(ty: &str, level: usize) -> (String, &str) {
-    let mut v: Vec<&str> = ty.split("::").collect();
+    let mut v: Vec<&str> = vec![];
 
     for _ in 0..level {
         v.insert(0, "super");
     }
 
-    let last = v.pop().unwrap_or(ty);
 
-    (v.join("::"), last)
+    (v.join("::"), ty)
 }
 
 fn unqualified(ty: &str) -> &str {
