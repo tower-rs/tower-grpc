@@ -161,9 +161,9 @@ fn super_import(ty: &str, level: usize) -> (String, String) {
         v.insert(0, "super");
     }
 
-    let last = &v[v.len()-2..].join("::");
+    let last = v[v.len()-2..].join("::");
 
-    (&v[v.len()-2..].join("::"), last)
+    (v[v.len()-2..].join("::"), last)
 }
 
 fn unqualified(ty: &str) -> &str {

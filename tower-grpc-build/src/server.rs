@@ -14,7 +14,7 @@ impl ServiceGenerator {
         self.define(service, scope);
     }
 
-    fn define(&self, 
+    fn define(&self,
               service: &prost_build::Service,
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
@@ -62,17 +62,17 @@ macro_rules! try_ready {
                 let (input_path, input_type) = ::super_import(&method.input_type, 2);
                 let (output_path, output_type) = ::super_import(&method.output_type, 2);
 
-                methods.import(&input_path, input_type);
-                methods.import(&output_path, output_type);
+                methods.import(&input_path, &input_type);
+                methods.import(&output_path, &output_type);
 
                 self.define_service_method(service, method, methods);
             }
         }
     }
 
-    fn define_service_trait(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope) 
+    fn define_service_trait(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
@@ -111,8 +111,8 @@ macro_rules! try_ready {
             let (input_path, input_type) = ::super_import(&method.input_type, 1);
             let (output_path, output_type) = ::super_import(&method.output_type, 1);
 
-            scope.import(&input_path, input_type);
-            scope.import(&output_path, output_type);
+            scope.import(&input_path, &input_type);
+            scope.import(&output_path, &output_type);
 
             let response_type = if method.client_streaming {
                 format!("grpc::Request<grpc::Streaming<{}>>", input_type)
@@ -130,9 +130,9 @@ macro_rules! try_ready {
         scope.push_trait(service_trait);
     }
 
-    fn define_server_struct(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope)                        
+    fn define_server_struct(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         let name = format!("{}Server", service.name);
         let lower_name = ::lower_name(&service.name);
