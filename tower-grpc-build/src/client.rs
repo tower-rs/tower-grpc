@@ -2,6 +2,7 @@ use codegen;
 use prost_build;
 use std::fmt;
 use std::collections::HashMap;
+use super::names::Names;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -26,27 +27,10 @@ impl ServiceGenerator {
             .scope()
             ;
 
-        let names = self.import_message_types(service, scope);
+        let mut names = Names::new(1);
+        names.import_message_types(service, scope);
         self.define_client_struct(service, scope);
-        self.define_client_impl(service, scope, names);
-    }
-
-    fn import_message_types(&self,
-                            service: &prost_build::Service,
-                            scope: &mut codegen::Scope)
-                            -> HashMap<String, String>
-    {
-        let mut names = HashMap::new();
-
-        for method in &service.methods {
-            let input_type = ::super_import(&method.input_type, 1, scope);
-            names.insert(method.input_type.to_string(), input_type);
-
-            let output_type = ::super_import(&method.output_type, 1, scope);
-            names.insert(method.output_type.to_string(), output_type);
-        }
-
-        names
+        self.define_client_impl(service, scope, &names);
     }
 
     fn define_client_struct(&self,
@@ -64,7 +48,7 @@ impl ServiceGenerator {
     fn define_client_impl(&self,
                           service: &prost_build::Service,
                           scope: &mut codegen::Scope,
-                          names: HashMap<String, String>)
+                          names: &Names)
     {
         let imp = scope.new_impl(&service.name)
             .generic("T")
@@ -94,16 +78,7 @@ impl ServiceGenerator {
         for method in &service.methods {
             let name = ::lower_name(&method.proto_name);
             let path = ::method_path(service, method);
-            let input_type = names.get(&method.input_type)
-                .unwrap_or_else(|| {
-                    panic!("no entry in names for method.input_type='{}'!",
-                        &method.input_type)
-                });
-            let output_type = names.get(&method.output_type)
-               .unwrap_or_else(|| {
-                    panic!("no entry in names for method.output_type='{}'!",
-                        &method.output_type)
-                });
+            let (input_type, output_type) = names.for_method(&method);
 
             let func = imp.new_fn(&name)
                 .vis("pub")

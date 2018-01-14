@@ -3,6 +3,7 @@ extern crate prost_build;
 
 mod client;
 mod server;
+mod names;
 
 use std::io;
 use std::cell::RefCell;
