@@ -27,8 +27,8 @@ impl ServiceGenerator {
             .scope()
             ;
 
-        let mut names = Names::new(1);
-        names.import_message_types(service, scope);
+        let names = Names::from(service);
+        names.import_into(scope);
         self.define_client_struct(service, scope);
         self.define_client_impl(service, scope, &names);
     }
