@@ -13,7 +13,7 @@ if ! [ -e "${SERVER}" ] ; then
     unzip "${SERVER}.zip"
 fi
 
-# run the test server 
+# run the test server
 ./"${SERVER}" &
 SERVER_PID=$!
 echo ":; started grpc-go test server."

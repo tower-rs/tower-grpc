@@ -14,7 +14,7 @@ impl ServiceGenerator {
         self.define(service, scope);
     }
 
-    fn define(&self, 
+    fn define(&self,
               service: &prost_build::Service,
               scope: &mut codegen::Scope) {
         // Create scope that contains the generated server code.
@@ -70,9 +70,9 @@ macro_rules! try_ready {
         }
     }
 
-    fn define_service_trait(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope) 
+    fn define_service_trait(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
@@ -130,9 +130,9 @@ macro_rules! try_ready {
         scope.push_trait(service_trait);
     }
 
-    fn define_server_struct(&self, 
-                            service: &prost_build::Service, 
-                            scope: &mut codegen::Scope)                        
+    fn define_server_struct(&self,
+                            service: &prost_build::Service,
+                            scope: &mut codegen::Scope)
     {
         let name = format!("{}Server", service.name);
         let lower_name = ::lower_name(&service.name);
