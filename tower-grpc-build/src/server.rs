@@ -2,7 +2,8 @@ use codegen;
 use prost_build;
 
 use std::fmt;
-use std::collections::HashMap;
+
+use super::names::Names;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -38,32 +39,19 @@ macro_rules! try_ready {
     })
 }");
             // determine imports for server root module.
-            let mut names = HashMap::new();
-
-            for method in &service.methods {
-                let input_type = ::super_import(
-                    &method.input_type,
-                    1,
-                    module.scope()
-                );
-                names.insert(method.input_type.to_string(), input_type);
-
-                let output_type = ::super_import(
-                    &method.output_type,
-                    1,
-                    module.scope()
-                );
-                names.insert(method.output_type.to_string(), output_type);
-            }
+            let names = Names::from(service);
+            names.import_into(module.scope());
 
             self.define_service_trait(service, module.scope(), &names);
             self.define_server_struct(service, module.scope());
 
+            // determine imports for support root module.
             let support = module.new_module(&::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 .import("super", &service.proto_name)
                 ;
+            let support_names = names.submodule();
 
             self.define_response_future(service, support);
             self.define_response_body(service, support);
@@ -77,17 +65,16 @@ macro_rules! try_ready {
                 ;
 
             // Define service modules
-            let mut methods_names = HashMap::new();
+            let methods_names = support_names.submodule();
+            methods_names.import_into(methods.scope());
+
             for method in &service.methods {
-                let input_type = ::super_import(&method.input_type, 3,
-                    methods.scope()
+                self.define_service_method(
+                    service,
+                    method,
+                    methods,
+                    &methods_names,
                 );
-                methods_names.insert(method.input_type.to_string(), input_type);
-
-                let output_type = ::super_import(&method.output_type, 3, methods.scope());
-                methods_names.insert(method.output_type.to_string(), output_type);
-
-                self.define_service_method(service, method, methods, &methods_names);
             }
         }
     }
@@ -95,7 +82,7 @@ macro_rules! try_ready {
     fn define_service_trait(&self,
                             service: &prost_build::Service,
                             scope: &mut codegen::Scope,
-                            names: &HashMap<String, String>)
+                            names: &Names)
     {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
@@ -106,16 +93,7 @@ macro_rules! try_ready {
             let name = ::lower_name(&method.proto_name);
 
             let future_bound;
-            let input_type = names.get(&method.input_type)
-               .unwrap_or_else(|| {
-                    panic!("no entry in names for method.output_type='{}'!",
-                        &method.input_type)
-                });
-            let output_type = names.get(&method.output_type)
-               .unwrap_or_else(|| {
-                    panic!("no entry in names for method.output_type='{}'!",
-                        &method.output_type)
-                });
+            let (input_type, output_type) = names.for_method(&method);
 
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &method.proto_name);
@@ -450,7 +428,7 @@ macro_rules! try_ready {
                              service: &prost_build::Service,
                              method: &prost_build::Method,
                              module: &mut codegen::Module,
-                             names: &HashMap<String, String>)
+                             names: &Names)
     {
         module.new_struct(&method.proto_name)
             .vis("pub")
@@ -460,16 +438,9 @@ macro_rules! try_ready {
 
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let input_type = names.get(&method.input_type)
-            .unwrap_or_else(|| {
-                panic!("no entry in names for method.output_type='{}'!",
-                    &method.input_type)
-            });
-        let output_type = names.get(&method.output_type)
-            .unwrap_or_else(|| {
-                panic!("no entry in names for method.output_type='{}'!",
-                    &method.output_type)
-            });
+
+        let (input_type, output_type) = names.for_method(&method);
+
         let request_stream = format!("grpc::Streaming<{}>", input_type);
         let response_stream = format!("T::{}Stream", method.proto_name);
 

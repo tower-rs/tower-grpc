@@ -3,6 +3,7 @@ use std::ops::Index;
 use prost_build;
 use codegen;
 
+
 #[derive(Debug)]
 pub struct Names {
     names: HashMap<String, Name>,
@@ -50,7 +51,7 @@ impl Names {
             let input_type = Name::super_import(&method.input_type, self.level);
             self.names.insert(method.input_type.to_string(), input_type);
 
-            let output_type = Name::super_import(&method.input_type, self.level);
+            let output_type = Name::super_import(&method.output_type, self.level);
             self.names.insert(method.output_type.to_string(), output_type);
         }
 
@@ -65,6 +66,17 @@ impl Names {
         }
     }
 
+    pub fn submodule(&self) -> Self {
+        let names: HashMap<String, Name> =
+            self.names.iter()
+                .map(|(k, v)| (k.clone(), v.deepen()))
+                .collect();
+        Names {
+            names,
+            level: self.level + 1,
+        }
+    }
+}
 
 impl<'a> From<&'a prost_build::Service> for Names {
     fn from(svc: &'a prost_build::Service) -> Self {
@@ -124,5 +136,16 @@ impl Name {
         }
     }
 
+    // TODO: this could probably be optimized...
+    fn deepen(&self) -> Self {
+        match *self {
+            Name::Importable { ref name, ref path } =>
+                Name::Importable {
+                    name: name.clone(),
+                    path: format!("super::{}", path),
+                },
+            Name::NotImportable(ref name ) =>
+                Name::NotImportable(format!("super::{}", name)),
+        }
     }
 }
