@@ -154,18 +154,46 @@ fn lower_name(name: &str) -> String {
     ret
 }
 
-fn super_import(ty: &str, level: usize) -> (String, &str) {
+fn super_import(ty: &str, mut level: usize) -> (String, String) {
     let mut v: Vec<&str> = ty.split("::").collect();
+
+    let full_import = v.len() == 1;
+
+    if !full_import {
+        if level > 1 {
+            // proto modules get imported at the root of `client` and `server`,
+            // so if `level` is greater than 1, we want to reference the import
+            // instead of the actual module.
+            level -= 1;
+        }
+    }
 
     for _ in 0..level {
         v.insert(0, "super");
     }
 
-    let last = v.pop().unwrap_or(ty);
+    let ty = v.pop().unwrap_or(ty);
 
-    (v.join("::"), last)
+    if full_import {
+        (v.join("::"), ty.to_string())
+    } else {
+        let module = v.pop().unwrap();
+
+        (v.join("::"), [module, ty].join("::"))
+    }
 }
 
-fn unqualified(ty: &str) -> &str {
-    ty.rsplit("::").next().unwrap_or(ty)
+fn unqualified(ty: &str) -> String {
+    let mut v: Vec<&str> = ty.split("::").collect();
+
+    let full_import = v.len() == 1;
+
+    if full_import {
+        ty.to_string()
+    } else {
+        let ty = v.pop().unwrap();
+        let module = v.pop().unwrap();
+
+        [module, ty].join("::")
+    }
 }

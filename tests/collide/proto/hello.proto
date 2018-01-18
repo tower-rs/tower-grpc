@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package hello;
+
+import "common.proto";
+
+// A different HelloRequest
+message HelloRequest {
+  string name = 2;
+}
+
+// The greeting service definition.
+service Hello {
+  // Sends a greeting
+  rpc SayHello (common.HelloRequest) returns (common.HelloReply) {}
+
+  rpc SayHello2 (HelloRequest) returns (common.HelloReply) {}
+}

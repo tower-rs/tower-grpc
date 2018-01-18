@@ -1,0 +1,14 @@
+[package]
+name = "collide"
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+publish = false
+
+[dependencies]
+bytes = "0.4"
+prost = { git = "https://github.com/danburkert/prost" }
+prost-derive = { git = "https://github.com/danburkert/prost" }
+tower-grpc = { path = "../../" }
+
+[build-dependencies]
+tower-grpc-build = { path = "../../tower-grpc-build" }
