@@ -1,3 +1,4 @@
+---
 language: rust
 sudo: false
 
@@ -5,8 +6,9 @@ cache: cargo
 
 matrix:
   include:
-    - rust: stable
-    - rust: nightly
+  - rust: nightly
+  - rust: stable
+    before_deploy: cargo doc --no-deps
   allow_failures:
     - rust: nightly
 
@@ -14,6 +16,21 @@ script:
   - cargo test
   # run interop tests
   - ./tower-grpc-interop/travis-interop.sh
+
+deploy:
+  provider:  pages
+  skip_cleanup: true
+  github_token: $GH_TOKEN
+  target_branch: gh-pages
+  local_dir: target/doc
+  on:
+    branch: master
+    repo: tower-rs/tower-grpc
+    rust: stable
+
+env:
+  global:
+    secure: gEJMZkeE3BnKvKl4kN7YTvxBWJ2YyKqLjPf1qMUZ2ONsnsNRWHhxUambupWXoiql6Pvtr8D8uSuwNt46Ry9tH8EZq5FBh/zPt7s79d3prJMNQtICc8VLDrZQ52hYrmVoKkSQtfXL6KskCsM9IeyLUaZyOsJAjM524C2OfAlS4DBgWz/G9mBSCBvxc5GATpCl1X4kt4a8fd+q5ERjr5qIxxRiLtjH3nv/QW6IfSgbDyFt3eJa2cuYHNp6YLIikAqa6dhVKRavJEuPdQ0Z6vCX4NmYW/ncxc1FF43EPdwkD/UaF7okPhmfWaw0Lu5vauKV45xfake1dppY3b7Qfeh8uy1Pn7JEwp40chKdetOvReehS7o1Ehwzw0YOy03PYfk54WSs/SI7syrlU+0rF8wDf2lbgk61hSHVqdYbv2J6i7YdC8l1l8ouZ6X7dkuJ8T4jQx7d4CBsejbipICi8cMvu9nm8zbvL97hu2SBYM/mLS+zwz0EDEaNqQ3fh5PwtKQrSRvjL+h1sfm51akhC8/P8chwT694E4OgrRMHsq0COvz4WkoSN1+aOg4kO9iAjrvFhgOxTBsuiPkCb1u6tCnQDwJ8mst91GLmiZFIcpW8n1SmGxk7CN/d2SpscSHiAZMDsY0C2NIfWWKXE3lkuACOHHt1W3usEdp4QJrOzdjYCxI=
 
 notifications:
   email:
