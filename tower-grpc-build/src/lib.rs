@@ -7,7 +7,6 @@ mod names;
 
 use std::io;
 use std::cell::RefCell;
-use std::fmt::Write;
 use std::path::Path;
 use std::rc::Rc;
 use std::ascii::AsciiExt;
@@ -153,41 +152,4 @@ fn lower_name(name: &str) -> String {
     }
 
     ret
-}
-
-fn super_import(ty: &str, level: usize, scope: &mut codegen::Scope) -> String {
-    let mut v: Vec<&str> = ty.split("::").collect();
-    for _ in 0..level {
-        v.insert(0, "super");
-    }
-
-    // index of the first path element in `ty` that concretely names an item
-    // (i.e., isn't super). a `use` statement may only end with a concrete name;
-    // you can't `use super::super::super;`.
-    let first_concrete_name = v.iter()
-        .position(|s| s != &"super")
-        .expect("got a type name that was just a string of \"::super\"s!");
-
-    if first_concrete_name == v.len() - 1 {
-        // the first concrete name in the path is the actual type name.
-        // in this case, we can't come up with a reasonable `use` statement for
-        // it, since if we import the name directly, it may clash with names
-        // defined in this namespace, but we can't import its containing
-        // namespace, because the containing namespace is `super`, and `use`
-        // statements have to end in a concrete name.
-        // println!("cargo:warning={:?} does not need super", v);
-        v.join("::")
-    } else {
-
-        // println!("cargo:warning={:?} needs super; fcn={}", v, first_concrete_name);
-        let last = v[v.len()-2..].join("::");
-        let path = v[..v.len()-2].join("::");
-        scope.import(&path, &last);
-        last
-    }
-
-}
-
-fn unqualified(ty: &str) -> &str {
-    ty.rsplit("::").next().unwrap_or(ty)
 }

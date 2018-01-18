@@ -119,16 +119,6 @@ impl Name {
         }
     }
 
-    /// Returns true if this `Name` can be imported with a `use` statement.
-    ///
-    /// Otherwise, it must be used in full.
-    fn can_import(&self) -> bool {
-        match *self {
-            Name::Importable { .. } => true,
-            _ => false,
-        }
-    }
-
     fn name(&self) -> &str {
         match *self {
             Name::Importable { ref name, .. } => name,
