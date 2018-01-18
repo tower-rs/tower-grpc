@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package world;
+
+// A basic message
+message WorldRequest {
+  string name = 1;
+}
+
+// The response
+message WorldReply {
+  string message = 1;
+}
+
+// The greeting service definition.
+service World {
+  // Sends a greeting
+  rpc SayWorld (WorldRequest) returns (WorldReply) {}
+}
