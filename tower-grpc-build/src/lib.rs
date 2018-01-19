@@ -154,19 +154,16 @@ fn lower_name(name: &str) -> String {
     ret
 }
 
-fn super_import(ty: &str, mut level: usize) -> (String, String) {
+fn is_imported_type(ty: &str) -> bool {
+    ty.split("::")
+        .map(|t| t == "super")
+        .next().unwrap()
+}
+
+fn super_import(ty: &str, level: usize) -> (String, String) {
     let mut v: Vec<&str> = ty.split("::").collect();
 
-    let full_import = v.len() == 1;
-
-    if !full_import {
-        if level > 1 {
-            // proto modules get imported at the root of `client` and `server`,
-            // so if `level` is greater than 1, we want to reference the import
-            // instead of the actual module.
-            level -= 1;
-        }
-    }
+    assert!(!is_imported_type(ty));
 
     for _ in 0..level {
         v.insert(0, "super");
@@ -174,26 +171,19 @@ fn super_import(ty: &str, mut level: usize) -> (String, String) {
 
     let ty = v.pop().unwrap_or(ty);
 
-    if full_import {
-        (v.join("::"), ty.to_string())
-    } else {
-        let module = v.pop().unwrap();
-
-        (v.join("::"), [module, ty].join("::"))
-    }
+    (v.join("::"), ty.to_string())
 }
 
-fn unqualified(ty: &str) -> String {
+fn unqualified(ty: &str, level: usize) -> String {
+    if !is_imported_type(ty) {
+        return ty.to_string();
+    }
+
     let mut v: Vec<&str> = ty.split("::").collect();
 
-    let full_import = v.len() == 1;
-
-    if full_import {
-        ty.to_string()
-    } else {
-        let ty = v.pop().unwrap();
-        let module = v.pop().unwrap();
-
-        [module, ty].join("::")
+    for _ in 0..level {
+        v.insert(0, "super");
     }
+
+    v.join("::")
 }

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package hello;
+package hello.nested;
 
 import "common/common.proto";
 import "common/nested.proto";
@@ -16,6 +16,4 @@ service Hello {
   rpc SayHello (common.HelloRequest) returns (common.nested.HelloReply) {}
 
   rpc SayHello2 (HelloRequest) returns (common.nested.HelloReply) {}
-
-  rpc NameOnly (common.HelloRequest.Name) returns (common.HelloRequest.Name) {}
 }

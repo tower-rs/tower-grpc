@@ -59,11 +59,13 @@ macro_rules! try_ready {
 
             // Define service modules
             for method in &service.methods {
-                let (input_path, input_type) = ::super_import(&method.input_type, 2);
-                let (output_path, output_type) = ::super_import(&method.output_type, 2);
+                for &ty in [&method.input_type, &method.output_type].iter() {
+                    if !::is_imported_type(ty) {
+                        let (path, ty) = ::super_import(ty, 2);
 
-                methods.import(&input_path, &input_type);
-                methods.import(&output_path, &output_type);
+                        methods.import(&path, &ty);
+                    }
+                }
 
                 self.define_service_method(service, method, methods);
             }
@@ -88,7 +90,7 @@ macro_rules! try_ready {
                 let stream_name = format!("{}Stream", &method.proto_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Error>",
-                    ::unqualified(&method.output_type));
+                    ::unqualified(&method.output_type, 1));
 
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Error>",
@@ -99,7 +101,7 @@ macro_rules! try_ready {
             } else {
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<{}>, Error = grpc::Error>",
-                    ::unqualified(&method.output_type));
+                    ::unqualified(&method.output_type, 1));
             }
 
             let future_name = format!("{}Future", &method.proto_name);
@@ -108,11 +110,15 @@ macro_rules! try_ready {
                 .bound(&future_bound)
                 ;
 
-            let (input_path, input_type) = ::super_import(&method.input_type, 1);
-            let (output_path, output_type) = ::super_import(&method.output_type, 1);
+            for &ty in [&method.input_type, &method.output_type].iter() {
+                if !::is_imported_type(ty) {
+                    let (path, ty) = ::super_import(ty, 1);
 
-            scope.import(&input_path, &input_type);
-            scope.import(&output_path, &output_type);
+                    scope.import(&path, &ty);
+                }
+            }
+
+            let input_type = ::unqualified(&method.input_type, 1);
 
             let response_type = if method.client_streaming {
                 format!("grpc::Request<grpc::Streaming<{}>>", input_type)
@@ -432,20 +438,20 @@ macro_rules! try_ready {
 
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type));
+        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, 3));
         let response_stream = format!("T::{}Stream", method.proto_name);
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                request.generic(::unqualified(&method.input_type));
-                response.generic(::unqualified(&method.output_type));
+                request.generic(::unqualified(&method.input_type, 3));
+                response.generic(::unqualified(&method.output_type, 3));
             }
             (false, true) => {
-                request.generic(::unqualified(&method.input_type));
+                request.generic(::unqualified(&method.input_type, 3));
                 response.generic(&response_stream);
             }
             (true, false) => {
-                response.generic(::unqualified(&method.output_type));
+                response.generic(::unqualified(&method.output_type, 3));
                 request.generic(&request_stream);
             }
             (true, true) => {

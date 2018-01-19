@@ -1,11 +1,6 @@
 syntax = "proto3";
 
-package common;
-
-// A basic message
-message HelloRequest {
-  string name = 1;
-}
+package common.nested;
 
 // The response
 message HelloReply {

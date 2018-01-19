@@ -35,11 +35,13 @@ impl ServiceGenerator {
                             scope: &mut codegen::Scope)
     {
         for method in &service.methods {
-            let (input_path, input_type) = ::super_import(&method.input_type, 1);
-            let (output_path, output_type) = ::super_import(&method.output_type, 1);
+            for &ty in [&method.input_type, &method.output_type].iter() {
+                if !::is_imported_type(ty) {
+                    let (path, ty) = ::super_import(ty, 1);
 
-            scope.import(&input_path, &input_type);
-            scope.import(&output_path, &output_type);
+                    scope.import(&path, &ty);
+                }
+            }
         }
     }
 
@@ -87,8 +89,8 @@ impl ServiceGenerator {
         for method in &service.methods {
             let name = ::lower_name(&method.proto_name);
             let path = ::method_path(service, method);
-            let input_type = ::unqualified(&method.input_type);
-            let output_type = ::unqualified(&method.output_type);
+            let input_type = ::unqualified(&method.input_type, 1);
+            let output_type = ::unqualified(&method.output_type, 1);
 
             let func = imp.new_fn(&name)
                 .vis("pub")
