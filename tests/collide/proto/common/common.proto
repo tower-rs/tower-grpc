@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package common;
+
+// A basic message
+message HelloRequest {
+  message Name {
+    string name = 1;
+  }
+
+  Name name = 1;
+}
