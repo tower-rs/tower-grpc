@@ -38,8 +38,8 @@ impl ServiceGenerator {
             let (input_path, input_type) = ::super_import(&method.input_type, 1);
             let (output_path, output_type) = ::super_import(&method.output_type, 1);
 
-            scope.import(&input_path, input_type);
-            scope.import(&output_path, output_type);
+            scope.import(&input_path, &input_type);
+            scope.import(&output_path, &output_type);
         }
     }
 
@@ -104,7 +104,7 @@ impl ServiceGenerator {
                         "grpc::unary::ResponseFuture<{}, T::Future, T::ResponseBody>",
                         output_type);
 
-                    request.generic(input_type);
+                    request.generic(&input_type);
 
                     func.ret(ret)
                         .line("self.inner.unary(request, path)")
@@ -117,7 +117,7 @@ impl ServiceGenerator {
                         "grpc::server_streaming::ResponseFuture<{}, T::Future>",
                         output_type);
 
-                    request.generic(input_type);
+                    request.generic(&input_type);
 
                     func.generic("B")
                         .ret(ret)
