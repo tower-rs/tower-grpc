@@ -8,6 +8,7 @@ publish = false
 bytes = "0.4"
 prost = { git = "https://github.com/danburkert/prost" }
 prost-derive = { git = "https://github.com/danburkert/prost" }
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-grpc = { path = "../../" }
 
 [build-dependencies]

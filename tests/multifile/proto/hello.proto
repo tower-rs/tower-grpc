@@ -16,4 +16,7 @@ message HelloReply {
 service Hello {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
+
+  // Receive a streaming response
+  rpc SayHello2 (HelloRequest) returns (stream HelloReply) {}
 }

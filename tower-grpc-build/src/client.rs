@@ -121,8 +121,7 @@ impl ServiceGenerator {
 
                     request.generic(&input_type);
 
-                    func.generic("B")
-                        .ret(ret)
+                    func.ret(ret)
                         .line("self.inner.server_streaming(request, path)")
                         ;
 
