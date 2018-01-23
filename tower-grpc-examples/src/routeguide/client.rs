@@ -12,6 +12,7 @@ extern crate prost_derive;
 extern crate tokio_core;
 extern crate tower;
 extern crate tower_h2;
+extern crate tower_http;
 extern crate tower_grpc;
 
 extern crate serde;
@@ -48,9 +49,16 @@ pub fn main() {
                 Connection::handshake(socket, reactor)
                     .map_err(|_| panic!("failed HTTP/2.0 handshake"))
             })
-            .and_then(move |conn| {
+            .map(move |conn| {
                 use routeguide::client::RouteGuide;
-                Ok(RouteGuide::new(conn, uri).unwrap())
+                use tower_http::add_origin;
+
+                let conn = add_origin::Builder::new()
+                    .uri(uri)
+                    .build(conn)
+                    .unwrap();
+
+                RouteGuide::new(conn)
             })
     }).unwrap();
 

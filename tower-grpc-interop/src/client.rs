@@ -14,6 +14,7 @@ extern crate prost_derive;
 extern crate tokio_core;
 extern crate rustls;
 extern crate tower;
+extern crate tower_http;
 extern crate tower_h2;
 extern crate tower_grpc;
 
@@ -190,9 +191,15 @@ impl Testcase {
                     Connection::handshake(socket, reactor)
                         .map_err(|_| panic!("failed HTTP/2.0 handshake"))
                 })
-                .and_then(move |conn| {
-                Ok(TestService::new(conn, server.uri.clone())
-                        .expect("TestService::new"))
+                .map(move |conn| {
+                    use tower_http::add_origin;
+
+                    let conn = add_origin::Builder::new()
+                        .uri(server.uri.clone())
+                        .build(conn)
+                        .unwrap();
+
+                    TestService::new(conn)
                 })
         ).expect("client");
 
