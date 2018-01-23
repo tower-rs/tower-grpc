@@ -30,6 +30,7 @@ prost-derive = { git = "https://github.com/danburkert/prost" }
 tokio-core = "0.1"
 tower = { git = "https://github.com/tower-rs/tower" }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../" }
 
 # For the routeguide example

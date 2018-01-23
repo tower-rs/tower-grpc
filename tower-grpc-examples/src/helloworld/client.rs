@@ -8,6 +8,7 @@ extern crate prost;
 extern crate prost_derive;
 extern crate tokio_core;
 extern crate tower_h2;
+extern crate tower_http;
 extern crate tower_grpc;
 
 use futures::Future;
@@ -35,9 +36,16 @@ pub fn main() {
             Connection::handshake(socket, reactor)
                 .map_err(|_| panic!("failed HTTP/2.0 handshake"))
         })
-        .and_then(move |conn| {
+        .map(move |conn| {
             use hello_world::client::Greeter;
-            Ok(Greeter::new(conn, uri).unwrap())
+            use tower_http::add_origin;
+
+            let conn = add_origin::Builder::new()
+                .uri(uri)
+                .build(conn)
+                .unwrap();
+
+            Greeter::new(conn)
         })
         .and_then(|mut client| {
             use hello_world::HelloRequest;

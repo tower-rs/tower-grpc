@@ -14,23 +14,6 @@ use tower_h2::{HttpService, BoxBody};
 pub struct Grpc<T> {
     /// The inner HTTP/2.0 service.
     inner: T,
-
-    /// The service's scheme.
-    scheme: uri::Scheme,
-
-    /// The service's authority.
-    authority: uri::Authority,
-}
-
-#[derive(Debug, Default)]
-pub struct Builder {
-    /// The service's URI
-    uri: Option<uri::Uri>,
-}
-
-#[derive(Debug)]
-pub struct BuilderError {
-    _p: (),
 }
 
 /// Convert a stream of protobuf messages to an HTTP body payload.
@@ -45,6 +28,11 @@ pub trait Encodable<T> {
 impl<T> Grpc<T>
 where T: HttpService,
 {
+    /// Create a new `Grpc` instance backed by the given HTTP service.
+    pub fn new(inner: T) -> Self {
+        Grpc { inner }
+    }
+
     pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
         self.inner.poll_ready()
             .map_err(::Error::Inner)
@@ -102,8 +90,6 @@ where T: HttpService,
 
         // Get the gRPC's method URI
         let mut parts = uri::Parts::default();
-        parts.scheme = Some(self.scheme.clone());
-        parts.authority = Some(self.authority.clone());
         parts.path_and_query = Some(path);
 
         // Get the URI;
@@ -133,53 +119,6 @@ where T: HttpService,
         let response = self.inner.call(request);
 
         streaming::ResponseFuture::new(response)
-    }
-}
-
-// ===== impl Builder =====
-
-impl Builder {
-    /// Return a new client builder
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn uri(&mut self, value: uri::Uri) -> &mut Self {
-        // TODO: Validate that the path is empty. Doing this is waiting for
-        // hyper/http#149.
-
-        self.uri = Some(value);
-        self
-    }
-
-    pub fn build<T>(&mut self, inner: T) -> Result<Grpc<T>, BuilderError>
-    where T: HttpService,
-    {
-        let uri = self.uri.as_mut().expect("service URI is required");
-
-        let scheme = match uri.scheme_part() {
-            Some(scheme) => scheme.clone(),
-            None => return Err(BuilderError::new()),
-        };
-
-        let authority = match uri.authority_part() {
-            Some(authority) => authority.clone(),
-            None => return Err(BuilderError::new()),
-        };
-
-        Ok(Grpc {
-            inner,
-            scheme,
-            authority,
-        })
-    }
-}
-
-// ===== impl BuilderError =====
-
-impl BuilderError {
-    fn new() -> Self {
-        BuilderError { _p: () }
     }
 }
 
