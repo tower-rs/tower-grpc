@@ -5,56 +5,33 @@ mod client;
 mod server;
 
 use std::io;
-use std::cell::RefCell;
-use std::fmt::Write;
 use std::path::Path;
-use std::rc::Rc;
-use std::ascii::AsciiExt;
 
 /// Code generation configuration
 pub struct Config {
     prost: prost_build::Config,
-    inner: Rc<RefCell<Inner>>,
-}
-
-struct Inner {
     build_client: bool,
     build_server: bool,
 }
 
 struct ServiceGenerator {
-    client: client::ServiceGenerator,
-    server: server::ServiceGenerator,
-    inner: Rc<RefCell<Inner>>,
-    root_scope: RefCell<codegen::Scope>,
+    client: Option<client::ServiceGenerator>,
+    server: Option<server::ServiceGenerator>,
+    root_scope: codegen::Scope,
 }
 
 impl Config {
     /// Returns a new `Config` with pre-configured prost.
     ///
     /// You can tweak the configuration how the proto buffers are generated and use this config.
-    pub fn from_prost(mut prost: prost_build::Config) -> Self {
-        let inner = Rc::new(RefCell::new(Inner {
+    pub fn from_prost(prost: prost_build::Config) -> Self {
+        Config {
+            prost,
             // Enable client code gen by default
             build_client: true,
 
             // Disable server code gen by default
             build_server: false,
-        }));
-
-        let root_scope = RefCell::new(codegen::Scope::new());
-
-        // Set the service generator
-        prost.service_generator(Box::new(ServiceGenerator {
-            client: client::ServiceGenerator,
-            server: server::ServiceGenerator,
-            inner: inner.clone(),
-            root_scope,
-        }));
-
-        Config {
-            prost,
-            inner,
         }
     }
 
@@ -65,45 +42,59 @@ impl Config {
 
     /// Enable gRPC client code generation
     pub fn enable_client(&mut self, enable: bool) -> &mut Self {
-        self.inner.borrow_mut().build_client = enable;
+        self.build_client = enable;
         self
     }
 
     /// Enable gRPC server code generation
     pub fn enable_server(&mut self, enable: bool) -> &mut Self {
-        self.inner.borrow_mut().build_server = enable;
+        self.build_server = enable;
         self
     }
 
     /// Generate code
-    pub fn build<P>(&self, protos: &[P], includes: &[P]) -> io::Result<()>
+    pub fn build<P>(&mut self, protos: &[P], includes: &[P]) -> io::Result<()>
     where P: AsRef<Path>,
     {
+        let client = if self.build_client {
+            Some(client::ServiceGenerator)
+        } else {
+            None
+        };
+        let server = if self.build_server {
+            Some(server::ServiceGenerator)
+        } else {
+            None
+        };
+
+        // Set or reset the service generator.
+        self.prost.service_generator(Box::new(ServiceGenerator {
+            client,
+            server,
+            root_scope: codegen::Scope::new(),
+        }));
+
         self.prost.compile_protos(protos, includes)
     }
 }
 
 impl prost_build::ServiceGenerator for ServiceGenerator {
 
-    fn generate(&self, service: prost_build::Service, _buf: &mut String) {
+    fn generate(&mut self, service: prost_build::Service, _buf: &mut String) {
         // Note that neither this implementation of `generate` nor the
         // implementations for `client::ServiceGenerator` and
         // `server::ServiceGenerator` will actually output any code to the
         // buffer; all code is written out in the implementation of the
         // `ServiceGenerator::finalize` function on this type.
-        let inner = self.inner.borrow();
-        let mut root = self.root_scope.borrow_mut();
-
-        if inner.build_client {
-            self.client.generate(&service, &mut root);
+        if let Some(ref mut client_generator) = self.client {
+            client_generator.generate(&service, &mut self.root_scope);
         }
-
-        if inner.build_server {
-            self.server.generate(&service, &mut root);
+        if let Some(ref mut server_generator) = self.server {
+            server_generator.generate(&service, &mut self.root_scope);
         }
     }
 
-    fn finalize(&self, buf: &mut String) {
+    fn finalize(&mut self, buf: &mut String) {
         // Rather than outputting each service to the buffer as it's generated,
         // we generate the code in our root `codegen::Scope`, which is shared
         // between the generation of each service in the proto file. Unlike a
@@ -115,15 +106,9 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
         // we wait until all the services have been generated before actually
         // outputting to the buffer.
         let mut fmt = codegen::Formatter::new(buf);
-        self.root_scope.borrow()
+        self.root_scope
             .fmt(&mut fmt)
             .expect("formatting root scope failed!");
-
-        // reset the root scope so that the service generator is ready to
-        // generate another file. this prevents the code generated for *this*
-        // file being present in the next file.
-        *self.root_scope.borrow_mut() = codegen::Scope::new();
-
     }
 }
 

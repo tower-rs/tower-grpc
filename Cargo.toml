@@ -32,7 +32,7 @@ tower = { git = "https://github.com/tower-rs/tower" }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 
 # For protobuf
-prost = { git = "https://github.com/danburkert/prost", optional = true }
+prost = { version = "0.3", optional = true }
 
 [dev-dependencies]
 env_logger = "0.4"
@@ -40,8 +40,8 @@ tokio-connect = { git = "https://github.com/carllerche/tokio-connect" }
 tokio-core = "0.1"
 
 # For examples
-prost = { git = "https://github.com/danburkert/prost" }
-prost-derive = { git = "https://github.com/danburkert/prost" }
+prost = "0.3"
+prost-derive = "0.3"
 
 [patch.crates-io]
 http = { git = "http://github.com/hyperium/http", rev = "5f362a32278891672f428d570d46387fe6896a5d" }

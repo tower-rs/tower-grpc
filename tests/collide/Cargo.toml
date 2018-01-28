@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 bytes = "0.4"
-prost = { git = "https://github.com/danburkert/prost" }
-prost-derive = { git = "https://github.com/danburkert/prost" }
+prost = "0.3"
+prost-derive = "0.3"
 tower-grpc = { path = "../../" }
 
 [build-dependencies]
