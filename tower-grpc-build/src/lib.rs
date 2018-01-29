@@ -109,6 +109,10 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
         self.root_scope
             .fmt(&mut fmt)
             .expect("formatting root scope failed!");
+        // Reset the root scope so that the service generator is ready to
+        // generate another file. this prevents the code generated for *this*
+        // file being present in the next file.
+        self.root_scope = codegen::Scope::new();
     }
 }
 
