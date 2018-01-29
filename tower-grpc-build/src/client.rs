@@ -1,6 +1,5 @@
 use codegen;
 use prost_build;
-use std::fmt;
 
 /// Generates service code
 pub struct ServiceGenerator;
