@@ -40,6 +40,14 @@ mod pb {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
+impl pb::ResponseParameters {
+    fn with_size(size: i32) -> Self {
+        pb::ResponseParameters {
+            size,
+            ..Default::default()
+        }
+    }
+}
 mod util;
 
 const LARGE_REQ_SIZE: usize = 271828;
@@ -306,6 +314,32 @@ impl Testcase {
                         })
                 )
             },
+            Testcase::server_streaming => {
+                use pb::ResponseParameters;
+                let req = pb::StreamingOutputCallRequest {
+                    response_parameters: vec![
+                        ResponseParameters::with_size(31415),
+                        ResponseParameters::with_size(9),
+                        ResponseParameters::with_size(2653),
+                        ResponseParameters::with_size(58979),
+                    ],
+                    ..Default::default()
+                };
+                let req = Request::new(req);
+                let future =
+                    client.streaming_output_call(req)
+                        .then(|result| {
+                            let mut assertions = vec![
+                                    test_assert!(
+                                        "call must be successful",
+                                        result.is_ok(),
+                                        format!("result={:?}", result)
+                                    )
+                            ];
+                            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                        });
+                core.run(future)
+            }
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
