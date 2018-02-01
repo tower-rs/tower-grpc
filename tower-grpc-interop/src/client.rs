@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use http::header::HeaderValue;
 use http::uri::{self, Uri};
-use futures::{future, Future, stream};
+use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
 use tower_grpc::Request;
@@ -326,7 +326,7 @@ impl Testcase {
                     ..Default::default()
                 };
                 let req = Request::new(req);
-                let future =
+                core.run(
                     client.streaming_output_call(req)
                         .then(|result| {
                             let mut assertions = vec![
@@ -336,9 +336,20 @@ impl Testcase {
                                         format!("result={:?}", result)
                                     )
                             ];
+                            println!("got call");
+                            if let Ok(response) = result.map(|r| r.into_inner()) {
+                                // response.for_each(|i| println!("got item {:?}", i));
+                                debug!("response = {:?}", response);
+                                response.fold(Vec::new(), |mut items, item| {
+                                    items.push(item);
+                                    println!("response.fold(): items.len()={:?};",
+                                         items.len());
+                                    future::ok::<_, ()>(items)
+                                }).wait().unwrap();
+                            }
                             future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                        });
-                core.run(future)
+                        })
+                )
             }
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
