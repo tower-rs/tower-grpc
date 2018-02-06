@@ -3,11 +3,12 @@ extern crate console;
 #[macro_use]
 extern crate clap;
 extern crate domain;
-extern crate env_logger;
+extern crate pretty_env_logger;
 extern crate http;
 extern crate futures;
 #[macro_use]
 extern crate log;
+extern crate futures_log;
 extern crate prost;
 #[macro_use]
 extern crate prost_derive;
@@ -25,6 +26,7 @@ use std::str::FromStr;
 use http::header::HeaderValue;
 use http::uri::{self, Uri};
 use futures::{future, Future, stream, Stream};
+use futures_log::Trace;
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
 use tower_grpc::Request;
@@ -338,6 +340,7 @@ impl Testcase {
                             ];
                             println!("got call");
                             if let Ok(response) = result.map(|r| r.into_inner()) {
+                                let response = Trace::from(response).named("response");
                                 // response.for_each(|i| println!("got item {:?}", i));
                                 debug!("response = {:?}", response);
                                 response.fold(Vec::new(), |mut items, item| {
@@ -493,7 +496,7 @@ impl ServerInfo {
 
 fn main() {
     use clap::{Arg, App};
-    let _ = ::env_logger::init();
+    let _ = ::pretty_env_logger::init();
 
     let matches =
         App::new("interop-client")
