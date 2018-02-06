@@ -41,7 +41,7 @@ macro_rules! try_ready {
             let support = module.new_module(&::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
-                .import("super", &service.proto_name)
+                .import("super", &service.name)
                 ;
 
             self.define_response_future(service, support);
@@ -80,12 +80,12 @@ macro_rules! try_ready {
             ;
 
         for method in &service.methods {
-            let name = ::lower_name(&method.proto_name);
-
+            let name = &method.name;
+            let upper_name = ::to_upper_camel(&method.proto_name);
             let future_bound;
 
             if method.server_streaming {
-                let stream_name = format!("{}Stream", &method.proto_name);
+                let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Error>",
                     ::unqualified(&method.output_type, 1));
@@ -102,7 +102,7 @@ macro_rules! try_ready {
                     ::unqualified(&method.output_type, 1));
             }
 
-            let future_name = format!("{}Future", &method.proto_name);
+            let future_name = format!("{}Future", &upper_name);
 
             service_trait.associated_type(&future_name)
                 .bound(&future_bound)
@@ -127,7 +127,7 @@ macro_rules! try_ready {
             service_trait.new_fn(&name)
                 .arg_mut_self()
                 .arg("request", &response_type)
-                .ret(&format!("Self::{}Future", method.proto_name))
+                .ret(&format!("Self::{}Future", &upper_name))
                 ;
         }
 
@@ -171,7 +171,7 @@ macro_rules! try_ready {
         service_impl.impl_trait("tower::Service")
             .generic("T")
             .target_generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
@@ -196,6 +196,8 @@ macro_rules! try_ready {
             let mut route_block = codegen::Block::new("match request.uri().path()");
 
             for method in &service.methods {
+                let upper_name = ::to_upper_camel(&method.proto_name);
+
                 // The service method path.
                 let match_line = format!("{} =>", ::method_path(service, method));
 
@@ -207,28 +209,28 @@ macro_rules! try_ready {
                     (false, false) => {
                         handle.line(&format!(
                                 "let service = {}::methods::{}(self.{}.clone());",
-                                lower_name, method.proto_name, lower_name));
+                                lower_name, &upper_name, lower_name));
 
                         handle.line("let response = grpc::Grpc::unary(service, request);");
                     }
                     (false, true) => {
                         handle.line(&format!(
                                 "let service = {}::methods::{}(self.{}.clone());",
-                                lower_name, method.proto_name, lower_name));
+                                lower_name, &upper_name, lower_name));
 
                         handle.line("let response = grpc::Grpc::server_streaming(service, request);");
                     }
                     (true, false) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
-                                lower_name, method.proto_name, lower_name));
+                                lower_name, &upper_name, lower_name));
 
                         handle.line("let response = grpc::Grpc::client_streaming(&mut service, request);");
                     }
                     (true, true) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
-                                lower_name, method.proto_name, lower_name));
+                                lower_name, &upper_name, lower_name));
 
                         handle.line("let response = grpc::Grpc::streaming(&mut service, request);");
                     }
@@ -236,7 +238,7 @@ macro_rules! try_ready {
 
                 handle.line(&format!(
                         "{}::ResponseFuture {{ kind: Ok({}(response)) }}",
-                        lower_name, method.proto_name));
+                        lower_name, &upper_name));
 
                 route_block.push_block(handle);
             }
@@ -256,7 +258,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("tower::NewService")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
@@ -280,7 +282,7 @@ macro_rules! try_ready {
 
         module.new_struct("ResponseFuture")
             .generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .vis("pub")
             .field("pub(super) kind", ty)
             ;
@@ -289,7 +291,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("futures::Future")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Item", "http::Response<ResponseBody<T>>")
             .associate_type("Error", "h2::Error")
             .new_fn("poll")
@@ -301,13 +303,17 @@ macro_rules! try_ready {
                 let mut match_kind = codegen::Block::new("match self.kind");
 
                 for method in &service.methods {
-                    let match_line = format!("Ok({}(ref mut fut)) =>", method.proto_name);
+                    let upper_name = ::to_upper_camel(&method.proto_name);
+
+                    let match_line = format!(
+                        "Ok({}(ref mut fut)) =>", &upper_name
+                    );
 
                     let mut blk = codegen::Block::new(&match_line);
                     blk
                         .line("let response = try_ready!(fut.poll());")
                         .line("let (head, body) = response.into_parts();")
-                        .line(&format!("let body = ResponseBody {{ kind: Ok({}(body)) }};", method.proto_name))
+                        .line(&format!("let body = ResponseBody {{ kind: Ok({}(body)) }};", &upper_name))
                         .line("let response = http::Response::from_parts(head, body);")
                         .line("Ok(response.into())")
                         ;
@@ -338,7 +344,7 @@ macro_rules! try_ready {
 
         module.new_struct("ResponseBody")
             .generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .vis("pub")
             .field("pub(super) kind", ty)
             ;
@@ -347,7 +353,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("tower_h2::Body")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Data", "bytes::Bytes")
             ;
 
@@ -356,14 +362,25 @@ macro_rules! try_ready {
         let mut poll_trailers_block = codegen::Block::new("match self.kind");
 
         for method in &service.methods {
+            let upper_name = ::to_upper_camel(&method.proto_name);
+
             is_end_stream_block
-                .line(&format!("Ok({}(ref v)) => v.is_end_stream(),", method.proto_name));
+                .line(&format!(
+                    "Ok({}(ref v)) => v.is_end_stream(),",
+                    &upper_name
+                ));
 
             poll_data_block
-                .line(&format!("Ok({}(ref mut v)) => v.poll_data(),", method.proto_name));
+                .line(&format!(
+                    "Ok({}(ref mut v)) => v.poll_data(),",
+                     &upper_name
+                ));
 
             poll_trailers_block
-                .line(&format!("Ok({}(ref mut v)) => v.poll_trailers(),", method.proto_name));
+                .line(&format!(
+                    "Ok({}(ref mut v)) => v.poll_trailers(),",
+                     &upper_name
+                ));
         }
 
         is_end_stream_block.line("Err(_) => true,");
@@ -416,9 +433,11 @@ macro_rules! try_ready {
             ;
 
         for method in &service.methods {
-            kind_enum.generic(&method.proto_name);
-            kind_enum.new_variant(&method.proto_name)
-                .tuple(&method.proto_name)
+
+            let upper_name = ::to_upper_camel(&method.proto_name);
+            kind_enum.generic(&upper_name);
+            kind_enum.new_variant(&upper_name)
+                .tuple(&upper_name)
                 ;
         }
     }
@@ -428,7 +447,9 @@ macro_rules! try_ready {
                              method: &prost_build::Method,
                              module: &mut codegen::Module)
     {
-        module.new_struct(&method.proto_name)
+        let upper_name = ::to_upper_camel(&method.proto_name);
+
+        module.new_struct(&upper_name)
             .vis("pub")
             .generic("T")
             .tuple_field("pub T")
@@ -437,7 +458,7 @@ macro_rules! try_ready {
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
         let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, 3));
-        let response_stream = format!("T::{}Stream", method.proto_name);
+        let response_stream = format!("T::{}Stream", &upper_name);
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
@@ -458,15 +479,15 @@ macro_rules! try_ready {
             }
         }
 
-        module.new_impl(&method.proto_name)
+        module.new_impl(&upper_name)
             .generic("T")
             .target_generic("T")
             .impl_trait("tower::ReadyService")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", request)
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Error")
-            .associate_type("Future", &format!("T::{}Future", method.proto_name))
+            .associate_type("Future", &format!("T::{}Future", &upper_name))
             .new_fn("call")
             .arg_mut_self()
             .arg("request", "Self::Request")
@@ -490,22 +511,24 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
 
     // grpc::unary::ResponseFuture<methods::SayHello<T>, tower_h2::RecvBody>
     for method in &service.methods {
+        let upper_name = ::to_upper_camel(&method.proto_name);
+
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(&mut ret, "    grpc::unary::ResponseFuture<methods::{}<T>, tower_h2::RecvBody>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::server_streaming::ResponseFuture<methods::{}<T>, tower_h2::RecvBody>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (true, false) => {
                 write!(&mut ret, "    grpc::client_streaming::ResponseFuture<methods::{}<T>>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (true, true) => {
                 write!(&mut ret, "    grpc::streaming::ResponseFuture<methods::{}<T>>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
         }
     }
@@ -526,22 +549,24 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 
     // grpc::Encode<grpc::unary::Once<<methods::SayHello<T> as grpc::UnaryService>::Response>>
     for method in &service.methods {
+        let upper_name = ::to_upper_camel(&method.proto_name);
+
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::UnaryService>::Response>>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::ServerStreamingService>::ResponseStream>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (true, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService>::Response>>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
             (true, true) => {
                 write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService>::ResponseStream>,\n",
-                                 method.proto_name).unwrap();
+                                 &upper_name).unwrap();
             }
         }
     }

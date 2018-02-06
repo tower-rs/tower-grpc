@@ -20,6 +20,7 @@ members = [
   # For tests
   "tests/multifile",
   "tests/collide",
+  "tests/name-case",
 ]
 
 [dependencies]

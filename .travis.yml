@@ -13,10 +13,10 @@ matrix:
     - rust: nightly
 
 script:
-  - cargo test
   # build test crates
-  - cargo build -p multifile
-  - cargo build -p collide
+  - cargo build --all
+  # run unit tests
+  - cargo test
   # run interop tests
   - ./tower-grpc-interop/travis-interop.sh
 

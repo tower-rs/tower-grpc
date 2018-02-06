@@ -82,7 +82,7 @@ impl ServiceGenerator {
             ;
 
         for method in &service.methods {
-            let name = ::lower_name(&method.proto_name);
+            let name = &method.name;
             let path = ::method_path(service, method);
             let input_type = ::unqualified(&method.input_type, 1);
             let output_type = ::unqualified(&method.output_type, 1);

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package hello;
+
+// A different HelloRequest
+message HelloAPIRequest {
+  string name = 2;
+}
+
+// The response message containing the greetings
+message HellogRPCResponse {
+    string message = 1;
+  }
+
+
+// The greeting service definition.
+service HelloAPI {
+  // Sends a greeting
+  rpc SayHello (HelloAPIRequest) returns (HellogRPCResponse) {}
+
+  rpc HelloAPICall (HelloAPIRequest) returns (HellogRPCResponse) {}
+}

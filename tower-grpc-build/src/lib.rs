@@ -1,11 +1,14 @@
 extern crate codegen;
 extern crate prost_build;
+extern crate heck;
 
 mod client;
 mod server;
 
 use std::io;
 use std::path::Path;
+
+use heck::CamelCase;
 
 /// Code generation configuration
 pub struct Config {
@@ -175,4 +178,26 @@ fn unqualified(ty: &str, level: usize) -> String {
     }
 
     v.join("::")
+}
+
+
+/// Converts a `snake_case` identifier to an `UpperCamel` case Rust type
+/// identifier.
+///
+/// This is identical to the same [function] in `prost-build`, however, we
+/// reproduce it here as `prost` does not publically export it.
+///
+/// We need this as `prost-build` will only give us the snake-case transformed
+/// names for gRPC methods, but we need to use method names in types as well.
+///
+/// [function]: https://github.com/danburkert/prost/blob/d3b971ccd90df35d16069753d52289c0c85014e4/prost-build/src/ident.rs#L28-L38
+fn to_upper_camel(s: &str) -> String {
+    let mut ident = s.to_camel_case();
+
+    // Add a trailing underscore if the identifier matches a Rust keyword
+    // (https://doc.rust-lang.org/grammar.html#keywords).
+    if ident == "Self" {
+        ident.push('_');
+    }
+    ident
 }
