@@ -80,7 +80,7 @@ macro_rules! try_ready {
             ;
 
         for method in &service.methods {
-            let name = ::lower_name(&method.proto_name);
+            let name = &method.name;
 
             let future_bound;
 

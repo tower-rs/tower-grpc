@@ -18,5 +18,5 @@ service HelloAPI {
   // Sends a greeting
   rpc SayHello (HelloAPIRequest) returns (HellogRPCResponse) {}
 
-  rpc HelloAPI (HelloAPIRequest) returns (HellogRPCResponse) {}
+  rpc HelloAPICall (HelloAPIRequest) returns (HellogRPCResponse) {}
 }
