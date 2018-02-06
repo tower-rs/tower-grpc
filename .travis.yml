@@ -17,6 +17,7 @@ script:
   # build test crates
   - cargo build -p multifile
   - cargo build -p collide
+  - cargo build -p name-case
   # run interop tests
   - ./tower-grpc-interop/travis-interop.sh
 
