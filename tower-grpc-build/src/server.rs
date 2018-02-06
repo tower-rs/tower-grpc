@@ -41,7 +41,7 @@ macro_rules! try_ready {
             let support = module.new_module(&::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
-                .import("super", &service.proto_name)
+                .import("super", &service.name)
                 ;
 
             self.define_response_future(service, support);
@@ -171,7 +171,7 @@ macro_rules! try_ready {
         service_impl.impl_trait("tower::Service")
             .generic("T")
             .target_generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
@@ -256,7 +256,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("tower::NewService")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
@@ -280,7 +280,7 @@ macro_rules! try_ready {
 
         module.new_struct("ResponseFuture")
             .generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .vis("pub")
             .field("pub(super) kind", ty)
             ;
@@ -289,7 +289,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("futures::Future")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Item", "http::Response<ResponseBody<T>>")
             .associate_type("Error", "h2::Error")
             .new_fn("poll")
@@ -338,7 +338,7 @@ macro_rules! try_ready {
 
         module.new_struct("ResponseBody")
             .generic("T")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .vis("pub")
             .field("pub(super) kind", ty)
             ;
@@ -347,7 +347,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("tower_h2::Body")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Data", "bytes::Bytes")
             ;
 
@@ -462,7 +462,7 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("tower::ReadyService")
-            .bound("T", &service.proto_name)
+            .bound("T", &service.name)
             .associate_type("Request", request)
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Error")
