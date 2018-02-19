@@ -10,7 +10,7 @@ pub use self::grpc::Grpc;
 use {Request, Response};
 
 use futures::{Future, Stream};
-use tower::ReadyService;
+use tower_ready_service::ReadyService;
 
 /// A specialization of tower::Service.
 ///
