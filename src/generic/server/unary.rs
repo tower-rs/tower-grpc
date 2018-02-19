@@ -5,7 +5,7 @@ use generic::server::UnaryService;
 
 use {h2, http};
 use futures::{Future, Stream, Poll};
-use tower::ReadyService;
+use tower_ready_service::ReadyService;
 
 use std::fmt;
 
