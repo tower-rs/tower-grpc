@@ -22,8 +22,8 @@ path = "src/routeguide/client.rs"
 [dependencies]
 futures = "0.1"
 bytes = "0.4"
-env_logger = "0.4"
-log = "0.3"
+env_logger = { version = "0.5", default-features = false }
+log = "0.4"
 http = "0.1"
 prost = "0.3"
 prost-derive = "0.3"
