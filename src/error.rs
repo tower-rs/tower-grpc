@@ -1,8 +1,10 @@
+use prost::DecodeError;
 use h2;
 
 #[derive(Debug)]
 pub enum Error<T = ()> {
     Grpc(::Status),
+    DecodeError(DecodeError),
     Inner(T),
 }
 
