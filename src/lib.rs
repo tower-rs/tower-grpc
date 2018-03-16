@@ -23,7 +23,7 @@ mod request;
 mod response;
 mod status;
 
-pub use error::Error;
+pub use error::{Error, ProtocolError};
 pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
