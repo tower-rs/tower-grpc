@@ -5,6 +5,7 @@ use futures::{Future, Stream, Poll};
 use http::{response, Response};
 use prost::Message;
 use tower_h2::{Body, Data};
+use error::ProtocolError;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, U, B> {
@@ -46,17 +47,16 @@ where T: Message + Default,
                 }
                 WaitMessage { ref mut head, ref mut stream } => {
                     let res = stream.poll()
-                        .map_err(|e| {
-                            match e {
-                                ::Error::Grpc(s) => ::Error::Grpc(s),
-                                _ => ::Error::Grpc(::Status::INTERNAL),
-                            }
+                        .map_err(|e| match e {
+                            ::Error::Protocol(p) => ::Error::Protocol(p),
+                            ::Error::Inner(()) => ::Error::Protocol(ProtocolError::Internal),
+                            ::Error::Decode(e) => ::Error::Decode(e),
+                            ::Error::Grpc(s, h) => ::Error::Grpc(s, h),
                         });
 
                     let message = match try_ready!(res) {
                         Some(message) => message,
-                        // TODO: handle missing message
-                        None => unimplemented!(),
+                        None => return Err(::Error::Protocol(ProtocolError::MissingMessage)),
                     };
 
                     let head = head.take().unwrap();

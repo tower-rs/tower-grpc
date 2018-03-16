@@ -1,13 +1,22 @@
 use prost::DecodeError;
-use http::response::Parts;
+use http::HeaderMap;
 use h2;
 
 #[derive(Debug)]
 pub enum Error<T = ()> {
-    Grpc(::Status),
-    Rpc(::Status, Parts),
-    DecodeError(DecodeError),
+    Grpc(::Status, HeaderMap),
+    Protocol(ProtocolError),
+    Decode(DecodeError),
     Inner(T),
+}
+
+#[derive(Debug)]
+pub enum ProtocolError {
+    MissingTrailers,
+    MissingMessage,
+    UnexpectedEof,
+    Internal,
+    Unsupported(&'static str),
 }
 
 impl<T> From<T> for Error<T> {
