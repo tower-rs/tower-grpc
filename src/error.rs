@@ -1,9 +1,11 @@
 use prost::DecodeError;
+use http::response::Parts;
 use h2;
 
 #[derive(Debug)]
 pub enum Error<T = ()> {
     Grpc(::Status),
+    Rpc(::Status, Parts),
     DecodeError(DecodeError),
     Inner(T),
 }
