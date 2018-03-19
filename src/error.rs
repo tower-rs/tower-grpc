@@ -16,7 +16,7 @@ pub enum ProtocolError {
     MissingMessage,
     UnexpectedEof,
     Internal,
-    Unsupported(&'static str),
+    UnsupportedCompressionFlag(u8),
 }
 
 impl<T> From<T> for Error<T> {

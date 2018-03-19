@@ -241,11 +241,11 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Error::Protocol(ProtocolError::Unsupported("compression not supported yet")));
+                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(1)));
                 },
-                _ => {
+                f => {
                     trace!("unexpected compression flag");
-                    return Err(::Error::Protocol(ProtocolError::Unsupported("unexpected compression flag")));
+                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(f)));
                 }
             };
             let len = self.bufs.get_u32::<BigEndian>() as usize;
