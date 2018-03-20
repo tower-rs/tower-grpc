@@ -8,6 +8,8 @@ use tower_h2::{self, Body, Data};
 
 use std::collections::VecDeque;
 
+use error::ProtocolError;
+
 /// Encodes and decodes gRPC message types
 pub trait Codec {
     /// The content-type header for messages using this encoding.
@@ -229,7 +231,7 @@ where T: Decoder,
         }
     }
 
-    fn decode(&mut self) -> Result<Option<T::Item>, Status> {
+    fn decode(&mut self) -> Result<Option<T::Item>, ::Error> {
         if let State::ReadHeader = self.state {
             if self.bufs.remaining() < 5 {
                 return Ok(None);
@@ -239,11 +241,11 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(Status::UNIMPLEMENTED);
+                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(1)));
                 },
-                _ => {
+                f => {
                     trace!("unexpected compression flag");
-                    return Err(Status::UNKNOWN);
+                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(f)));
                 }
             };
             let len = self.bufs.get_u32::<BigEndian>() as usize;
@@ -268,8 +270,7 @@ where T: Decoder,
                     return Ok(Some(msg));
                 },
                 Err(e) => {
-                    debug!("decoder error; err={:?}", e);
-                    return Err(Status::UNKNOWN);
+                    return Err(e);
                 }
             }
         }
@@ -291,10 +292,9 @@ where T: Decoder,
                 break;
             }
 
-            match self.decode() {
-                Ok(Some(val)) => return Ok(Async::Ready(Some(val))),
-                Ok(None) => (),
-                Err(status) => return Err(::Error::Grpc(status)),
+            match self.decode()? {
+                Some(val) => return Ok(Async::Ready(Some(val))),
+                None => (),
             }
 
             let chunk = try_ready!(self.inner.poll_data());
@@ -304,7 +304,7 @@ where T: Decoder,
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Error::Grpc(Status::UNKNOWN))
+                    return Err(::Error::Protocol(ProtocolError::UnexpectedEof))
                 } else {
                     self.state = State::Done;
                     break;
@@ -314,11 +314,11 @@ where T: Decoder,
 
         if self.expect_trailers {
             if let Some(trailers) = try_ready!(self.inner.poll_trailers()) {
-                grpc_status(&trailers).map_err(::Error::Grpc)?;
+                grpc_status(trailers)?;
                 Ok(Async::Ready(None))
             } else {
                 trace!("receive body ended without trailers");
-                Err(::Error::Grpc(Status::UNKNOWN))
+                Err(::Error::Protocol(ProtocolError::MissingTrailers))
             }
         } else {
             Ok(Async::Ready(None))
@@ -430,16 +430,16 @@ fn h2_err() -> h2::Error {
     unimplemented!("EncodingBody map_err")
 }
 
-fn grpc_status(trailers: &HeaderMap) -> Result<(), Status> {
-    if let Some(status) = trailers.get("grpc-status") {
+fn grpc_status(mut trailers: HeaderMap) -> Result<(), ::Error> {
+    if let Some(status) = trailers.remove("grpc-status") {
         let status = Status::from_bytes(status.as_ref());
         if status.code() == ::Code::OK {
             Ok(())
         } else {
-            Err(status)
+            Err(::Error::Grpc(status, trailers))
         }
     } else {
         trace!("trailers missing grpc-status");
-        Err(Status::UNKNOWN)
+        Err(::Error::Protocol(ProtocolError::MissingTrailers))
     }
 }

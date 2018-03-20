@@ -42,7 +42,7 @@ where T: Future<Item = Response<S>,
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(e) => {
                 match e {
-                    ::Error::Grpc(status) => {
+                    ::Error::Grpc(status, _) => {
                         let response = Response::new(Encode::error(status));
                         return Ok(response.into_http().into());
                     }

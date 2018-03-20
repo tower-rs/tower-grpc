@@ -120,7 +120,7 @@ where T: Message + Default,
 
     fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, ::Error> {
         Message::decode(buf)
-            .map_err(|_| unimplemented!())
+            .map_err(::Error::Decode)
     }
 }
 

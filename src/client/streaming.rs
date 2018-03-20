@@ -45,7 +45,7 @@ where T: Message + Default,
         let (head, body) = response.into_parts();
 
         if let Some(status) = super::check_grpc_status(&head.headers) {
-            return Err(::Error::Grpc(status));
+            return Err(::Error::Grpc(status, head.headers));
         }
 
         let body = Streaming::new(Decoder::new(), body, true);

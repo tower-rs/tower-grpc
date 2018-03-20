@@ -1,9 +1,22 @@
+use prost::DecodeError;
+use http::HeaderMap;
 use h2;
 
 #[derive(Debug)]
 pub enum Error<T = ()> {
-    Grpc(::Status),
+    Grpc(::Status, HeaderMap),
+    Protocol(ProtocolError),
+    Decode(DecodeError),
     Inner(T),
+}
+
+#[derive(Debug)]
+pub enum ProtocolError {
+    MissingTrailers,
+    MissingMessage,
+    UnexpectedEof,
+    Internal,
+    UnsupportedCompressionFlag(u8),
 }
 
 impl<T> From<T> for Error<T> {
