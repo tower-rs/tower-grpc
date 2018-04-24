@@ -1,5 +1,6 @@
 use codegen;
 use prost_build;
+use super::ImportType;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -34,13 +35,11 @@ impl ServiceGenerator {
                             scope: &mut codegen::Scope)
     {
         for method in &service.methods {
-            for &ty in [&method.input_type, &method.output_type].iter() {
-                if !::is_imported_type(ty) {
-                    let (path, ty) = ::super_import(ty, 1);
-
-                    scope.import(&path, &ty);
-                }
+            if !method.client_streaming {
+                scope.import_type(&method.input_type, 1);
             }
+
+            scope.import_type(&method.output_type, 1);
         }
     }
 
