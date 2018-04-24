@@ -49,20 +49,26 @@ macro_rules! try_ready {
             self.define_kind(service, support);
 
             // Define methods module
-            let methods = support.new_module("methods")
+            let mut methods = support.new_module("methods")
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 .import("super::super", &service.name)
                 ;
 
+            let import_ty = |ty, methods: &mut codegen::Module| {
+                if !::is_imported_type(ty) {
+                    let (path, ty) = ::super_import(ty, 2);
+
+                    methods.import(&path, &ty);
+                }
+            };
+
             // Define service modules
             for method in &service.methods {
-                for &ty in [&method.input_type, &method.output_type].iter() {
-                    if !::is_imported_type(ty) {
-                        let (path, ty) = ::super_import(ty, 2);
+                import_ty(&method.input_type, &mut methods);
 
-                        methods.import(&path, &ty);
-                    }
+                if !method.server_streaming {
+                    import_ty(&method.output_type, &mut methods);
                 }
 
                 self.define_service_method(service, method, methods);
