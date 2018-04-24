@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package hello;
+package client_streaming;
 
 // A basic message
 message HelloRequest {
@@ -14,7 +14,5 @@ message HelloReply {
 
 // The greeting service definition.
 service Hello {
-
-  // Receive a streaming response
-  rpc SayHello2 (HelloRequest) returns (stream HelloReply) {}
+  rpc SayHello (stream HelloRequest) returns (HelloReply) {}
 }

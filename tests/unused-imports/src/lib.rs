@@ -8,8 +8,14 @@ extern crate prost_derive;
 extern crate tower_h2;
 extern crate tower_grpc;
 
-pub mod hello {
-    include!(concat!(env!("OUT_DIR"), "/hello.rs"));
+pub mod server_streaming {
+    include!(concat!(env!("OUT_DIR"), "/server_streaming.rs"));
+}
+pub mod client_streaming {
+    include!(concat!(env!("OUT_DIR"), "/client_streaming.rs"));
+}
+pub mod bidi {
+    include!(concat!(env!("OUT_DIR"), "/bidi.rs"));
 }
 
 #[cfg(test)]
@@ -18,25 +24,8 @@ mod tests {
 
     #[test]
     fn types_are_present() {
-        mem::size_of::<::hello::HelloRequest>();
-    }
-
-    #[test]
-    fn can_call() {
-        use ::hello::{HelloRequest};
-        use ::hello::client::Hello;
-        use ::tower_h2::BoxBody;
-        use ::tower_grpc::codegen::client::*;
-
-        #[allow(dead_code)]
-        fn zomg<T>(client: &mut Hello<T>)
-        where T: tower_h2::HttpService<RequestBody = BoxBody>,
-        {
-            let request = HelloRequest {
-                name: "hello".to_string(),
-            };
-
-            let _ = client.say_hello(grpc::Request::new(request.clone()));
-        }
+        mem::size_of::<::server_streaming::HelloRequest>();
+        mem::size_of::<::client_streaming::HelloRequest>();
+        mem::size_of::<::bidi::HelloRequest>();
     }
 }
