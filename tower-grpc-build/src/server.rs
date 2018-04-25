@@ -1,5 +1,6 @@
 use codegen;
 use prost_build;
+use super::ImportType;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -57,12 +58,10 @@ macro_rules! try_ready {
 
             // Define service modules
             for method in &service.methods {
-                for &ty in [&method.input_type, &method.output_type].iter() {
-                    if !::is_imported_type(ty) {
-                        let (path, ty) = ::super_import(ty, 2);
+                methods.import_type(&method.input_type, 2);
 
-                        methods.import(&path, &ty);
-                    }
+                if !method.server_streaming {
+                    methods.import_type(&method.output_type, 2);
                 }
 
                 self.define_service_method(service, method, methods);

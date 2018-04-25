@@ -119,6 +119,29 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
     }
 }
 
+/// Extension trait for importing generated types into `codegen::Scope`s.
+trait ImportType {
+    fn import_type(&mut self, ty: &str, level: usize);
+}
+
+// ===== impl ImportType =====
+
+impl ImportType for codegen::Scope {
+    fn import_type(&mut self, ty: &str, level: usize) {
+        if !is_imported_type(ty) {
+            let (path, ty) = super_import(ty, level);
+
+            self.import(&path, &ty);
+        }
+    }
+}
+
+impl ImportType for codegen::Module {
+    fn import_type(&mut self, ty: &str, level: usize) {
+        self.scope().import_type(ty, level);
+    }
+}
+
 // ===== utility fns =====
 
 fn method_path(service: &prost_build::Service, method: &prost_build::Method) -> String {

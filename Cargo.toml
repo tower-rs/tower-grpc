@@ -21,6 +21,7 @@ members = [
   "tests/multifile",
   "tests/collide",
   "tests/name-case",
+  "tests/unused-imports",
 ]
 
 [dependencies]

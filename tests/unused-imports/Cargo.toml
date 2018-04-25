@@ -1,0 +1,15 @@
+[package]
+name = "unused-imports"
+version = "0.1.0"
+authors = ["Eliza Weisman <eliza@buoyant.io>"]
+publish = false
+
+[dependencies]
+bytes = "0.4"
+prost = "0.3"
+prost-derive = "0.3"
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-grpc = { path = "../../" }
+
+[build-dependencies]
+tower-grpc-build = { path = "../../tower-grpc-build" }
