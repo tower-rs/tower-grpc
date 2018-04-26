@@ -50,8 +50,7 @@ pub mod server {
 
     /// Re-exported types from the `tower` crate.
     pub mod tower {
-        pub use ::tower::{Service, NewService};
-        pub use ::tower_ready_service::ReadyService;
+        pub use ::tower_service::{Service, NewService};
     }
 }
 

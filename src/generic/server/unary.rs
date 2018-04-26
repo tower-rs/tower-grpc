@@ -5,7 +5,7 @@ use generic::server::UnaryService;
 
 use {h2, http};
 use futures::{Future, Stream, Poll};
-use tower_ready_service::ReadyService;
+use tower_service::Service;
 
 use std::fmt;
 
@@ -56,13 +56,17 @@ where T: UnaryService<Request = S::Item, Response = E::Item>,
 
 // ===== impl Inner =====
 
-impl<T> ReadyService for Inner<T>
+impl<T> Service for Inner<T>
 where T: UnaryService,
 {
     type Request = Request<T::Request>;
     type Response = Response<Once<T::Response>>;
     type Error = ::Error;
     type Future = InnerFuture<T::Future>;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(().into())
+    }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
         let inner = self.0.call(request);

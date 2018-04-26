@@ -478,16 +478,24 @@ macro_rules! try_ready {
             }
         }
 
-        module.new_impl(&upper_name)
+        let imp = module.new_impl(&upper_name)
             .generic("T")
             .target_generic("T")
-            .impl_trait("tower::ReadyService")
+            .impl_trait("tower::Service")
             .bound("T", &service.name)
             .associate_type("Request", request)
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Error")
             .associate_type("Future", &format!("T::{}Future", &upper_name))
-            .new_fn("call")
+            ;
+
+        imp.new_fn("poll_ready")
+            .arg_mut_self()
+            .ret("futures::Poll<(), Self::Error>")
+            .line("Ok(futures::Async::Ready(()))")
+            ;
+
+        imp.new_fn("call")
             .arg_mut_self()
             .arg("request", "Self::Request")
             .ret("Self::Future")
