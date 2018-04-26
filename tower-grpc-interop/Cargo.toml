@@ -16,10 +16,10 @@ http = "0.1"
 prost = "0.3"
 prost-derive = "0.3"
 tokio-core = "0.1"
-tower = { git = "https://github.com/tower-rs/tower" }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../" }
+tower-service = { git = "https://github.com/tower-rs/tower" }
 
 clap = "~2.29"
 console = "0.5.0"

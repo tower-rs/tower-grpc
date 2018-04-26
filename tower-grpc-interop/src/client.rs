@@ -13,7 +13,6 @@ extern crate prost;
 extern crate prost_derive;
 extern crate tokio_core;
 extern crate rustls;
-extern crate tower;
 extern crate tower_http;
 extern crate tower_h2;
 extern crate tower_grpc;

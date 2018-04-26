@@ -8,9 +8,8 @@ extern crate http;
 extern crate h2;
 #[macro_use]
 extern crate log;
-extern crate tower;
-extern crate tower_ready_service;
 extern crate tower_h2;
+extern crate tower_service;
 
 #[cfg(feature = "protobuf")]
 extern crate prost;

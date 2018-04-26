@@ -10,11 +10,11 @@ pub use self::grpc::Grpc;
 use {Request, Response};
 
 use futures::{Future, Stream};
-use tower_ready_service::ReadyService;
+use tower_service::Service;
 
-/// A specialization of tower::Service.
+/// A specialization of tower_service::Service.
 ///
-/// Existing tower::Service implementations with the correct form will
+/// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
 pub trait StreamingService {
     /// Protobuf request message type
@@ -37,9 +37,9 @@ pub trait StreamingService {
 }
 
 impl<T, S1, S2> StreamingService for T
-where T: ReadyService<Request = Request<S1>,
-                     Response = Response<S2>,
-                        Error = ::Error>,
+where T: Service<Request = Request<S1>,
+                Response = Response<S2>,
+                   Error = ::Error>,
       S1: Stream<Error = ::Error>,
       S2: Stream<Error = ::Error>,
 {
@@ -50,13 +50,13 @@ where T: ReadyService<Request = Request<S1>,
     type Future = T::Future;
 
     fn call(&mut self, request: T::Request) -> Self::Future {
-        ReadyService::call(self, request)
+        Service::call(self, request)
     }
 }
 
-/// A specialization of tower::Service.
+/// A specialization of tower_service::Service.
 ///
-/// Existing tower::Service implementations with the correct form will
+/// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
 pub trait UnaryService {
     /// Protobuf request message type
@@ -73,22 +73,22 @@ pub trait UnaryService {
 }
 
 impl<T, M1, M2> UnaryService for T
-where T: ReadyService<Request = Request<M1>,
-                     Response = Response<M2>,
-                        Error = ::Error>,
+where T: Service<Request = Request<M1>,
+                Response = Response<M2>,
+                   Error = ::Error>,
 {
     type Request = M1;
     type Response = M2;
     type Future = T::Future;
 
     fn call(&mut self, request: T::Request) -> Self::Future {
-        ReadyService::call(self, request)
+        Service::call(self, request)
     }
 }
 
-/// A specialization of tower::Service.
+/// A specialization of tower_service::Service.
 ///
-/// Existing tower::Service implementations with the correct form will
+/// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
 pub trait ClientStreamingService {
     /// Protobuf request message type
@@ -108,9 +108,9 @@ pub trait ClientStreamingService {
 }
 
 impl<T, M, S> ClientStreamingService for T
-where T: ReadyService<Request = Request<S>,
-                     Response = Response<M>,
-                        Error = ::Error>,
+where T: Service<Request = Request<S>,
+                Response = Response<M>,
+                   Error = ::Error>,
       S: Stream<Error = ::Error>,
 {
     type Request = S::Item;
@@ -119,13 +119,13 @@ where T: ReadyService<Request = Request<S>,
     type Future = T::Future;
 
     fn call(&mut self, request: T::Request) -> Self::Future {
-        ReadyService::call(self, request)
+        Service::call(self, request)
     }
 }
 
-/// A specialization of tower::Service.
+/// A specialization of tower_service::Service.
 ///
-/// Existing tower::Service implementations with the correct form will
+/// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
 pub trait ServerStreamingService {
     /// Protobuf request message type
@@ -145,9 +145,9 @@ pub trait ServerStreamingService {
 }
 
 impl<T, M, S> ServerStreamingService for T
-where T: ReadyService<Request = Request<M>,
-                     Response = Response<S>,
-                        Error = ::Error>,
+where T: Service<Request = Request<M>,
+                Response = Response<S>,
+                   Error = ::Error>,
       S: Stream<Error = ::Error>,
 {
     type Request = M;
@@ -156,6 +156,6 @@ where T: ReadyService<Request = Request<M>,
     type Future = T::Future;
 
     fn call(&mut self, request: T::Request) -> Self::Future {
-        ReadyService::call(self, request)
+        Service::call(self, request)
     }
 }

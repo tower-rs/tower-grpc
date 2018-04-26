@@ -30,9 +30,8 @@ futures = "0.1"
 http = "0.1"
 h2 = "0.1"
 log = "0.4"
-tower = { git = "https://github.com/tower-rs/tower" }
-tower-ready-service = { git = "https://github.com/tower-rs/tower" }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-service = { git = "https://github.com/tower-rs/tower" }
 
 # For protobuf
 prost = { version = "0.3", optional = true }
