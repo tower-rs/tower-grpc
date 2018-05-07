@@ -1,6 +1,6 @@
 use Status;
 
-use bytes::{Buf, BufMut, BytesMut, Bytes, BigEndian};
+use bytes::{Buf, BufMut, BytesMut, Bytes};
 use futures::{Stream, Poll, Async};
 use h2;
 use http::HeaderMap;
@@ -182,7 +182,7 @@ where T: Encoder<Item = U::Item>,
                     {
                         let mut cursor = ::std::io::Cursor::new(&mut self.buf[..5]);
                         cursor.put_u8(0); // byte must be 0, reserve doesn't auto-zero
-                        cursor.put_u32::<BigEndian>(len as u32);
+                        cursor.put_u32_be(len as u32);
                     }
 
                     Ok(Async::Ready(Some(self.buf.split_to(len + 5).freeze())))
@@ -248,7 +248,7 @@ where T: Decoder,
                     return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(f)));
                 }
             };
-            let len = self.bufs.get_u32::<BigEndian>() as usize;
+            let len = self.bufs.get_u32_be() as usize;
 
             self.state = State::ReadBody {
                 compression: is_compressed,
