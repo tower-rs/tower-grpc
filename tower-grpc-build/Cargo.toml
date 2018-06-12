@@ -2,6 +2,7 @@
 name = "tower-grpc-build"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
 
 [dependencies]
 codegen = { git = "https://github.com/carllerche/codegen" }
