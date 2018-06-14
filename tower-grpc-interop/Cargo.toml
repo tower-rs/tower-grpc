@@ -14,8 +14,8 @@ bytes = "0.4"
 env_logger = { version = "0.5", default-features = false }
 log = "0.4"
 http = "0.1"
-prost = "0.3"
-prost-derive = "0.3"
+prost = "0.4"
+prost-derive = "0.4"
 tokio-core = "0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-http = { git = "https://github.com/tower-rs/tower-http" }
