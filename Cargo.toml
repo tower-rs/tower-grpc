@@ -35,7 +35,7 @@ tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-service = { git = "https://github.com/tower-rs/tower" }
 
 # For protobuf
-prost = { version = "0.3", optional = true }
+prost = { version = "0.4", optional = true }
 
 [dev-dependencies]
 env_logger = { version = "0.5", default-features = false }
@@ -43,5 +43,5 @@ tokio-connect = { git = "https://github.com/carllerche/tokio-connect" }
 tokio-core = "0.1"
 
 # For examples
-prost = "0.3"
-prost-derive = "0.3"
+prost = "0.4"
+prost-derive = "0.4"
