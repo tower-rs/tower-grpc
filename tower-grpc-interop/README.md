@@ -8,10 +8,10 @@ Note that currently, only the interop test client is implemented. The `docker-co
 
 - [x] `empty_unary`: implemented in client
 - [ ] `cacheable_unary`: started, requires request context implementation to set cacheable flag
-- [x] `large_unary`: implemented in client, broken due to [#14](https://github.com/tower-rs/tower-grpc/issues/14)
+- [x] `large_unary`: implemented in client
 - [ ] ~`client_compressed_unary`~: requires gRPC compression, NYI
 - [ ] ~`server_compressed_unary`~: requires gRPC compression, NYI
-- [x] `client_streaming`: implemented in client, broken due to [#16](https://github.com/tower-rs/tower-grpc/issues/16)
+- [x] `client_streaming`: implemented in client
 - [ ] ~`client_compressed_streaming`~: requires gRPC compression, NYI
 - [ ] `server_streaming`
 - [ ] ~`server_compressed_streaming`~: requires gRPC compression, NYI
