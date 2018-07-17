@@ -3,7 +3,7 @@ extern crate console;
 #[macro_use]
 extern crate clap;
 extern crate domain;
-extern crate env_logger;
+extern crate pretty_env_logger;
 extern crate http;
 extern crate futures;
 #[macro_use]
@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use http::header::HeaderValue;
 use http::uri::{self, Uri};
-use futures::{future, Future, stream};
+use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
 use tower_grpc::Request;
@@ -41,6 +41,14 @@ mod pb {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
+impl pb::ResponseParameters {
+    fn with_size(size: i32) -> Self {
+        pb::ResponseParameters {
+            size,
+            ..Default::default()
+        }
+    }
+}
 mod util;
 
 const LARGE_REQ_SIZE: usize = 271828;
@@ -308,6 +316,61 @@ impl Testcase {
                         })
                 )
             },
+            Testcase::server_streaming => {
+                const RESPONSE_LENGTHS: &'static [i32] = &[31415, 9, 2653, 58979];
+                use pb::ResponseParameters;
+                let req = pb::StreamingOutputCallRequest {
+                    response_parameters: RESPONSE_LENGTHS.iter().map(|len| {
+                        ResponseParameters::with_size(*len)
+                    }).collect(),
+                    ..Default::default()
+                };
+                let req = Request::new(req);
+                core.run(
+                    client.streaming_output_call(req)
+                        .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
+                            Box::new(tower_err)
+                        })
+                        .and_then(|response_stream| {
+                            // Convert the stream into a plain Vec
+                            response_stream.into_inner()
+                                .collect()
+                                .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
+                                    Box::new(tower_err)
+                                })
+                        })
+                        .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                            let actual_response_lengths: Vec<i32> =
+                                responses.iter().map(|ref item| {
+                                    match &item.payload {
+                                        Some(ref payload) => payload.body.len() as i32,
+                                        None => 0,
+                                    }
+                                }).collect();
+                            vec![
+                                test_assert!(
+                                    "there should be four responses",
+                                    responses.len() == 4,
+                                    format!("responses.len()={:?}", responses.len())
+                                ),
+                                test_assert!(
+                                    "the response payload sizes should match input",
+                                    RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                                    format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
+                                ),
+                            ]
+                        })
+                        .or_else(|error: Box<Error>| {
+                            future::ok(vec![
+                                test_assert!(
+                                    "call must be successful",
+                                    false,
+                                    format!("error={:?}", error)
+                                )
+                            ])
+                        })
+                )
+            }
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
@@ -450,7 +513,7 @@ impl ServerInfo {
 
 fn main() {
     use clap::{Arg, App};
-    let _ = ::env_logger::init();
+    let _ = ::pretty_env_logger::init();
 
     let matches =
         App::new("interop-client")
