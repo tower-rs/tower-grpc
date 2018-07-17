@@ -3,7 +3,7 @@ use std::fmt;
 use h2;
 use http::header::HeaderValue;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Status {
     code: Code,
 }
@@ -154,6 +154,10 @@ impl Status {
     fn parse_err() -> Status {
         trace!("error parsing grpc-status");
         Status::UNKNOWN
+    }
+
+    pub fn ok(&self) -> bool {
+        *self == Status::OK
     }
 }
 

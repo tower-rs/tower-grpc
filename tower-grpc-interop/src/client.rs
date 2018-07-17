@@ -370,7 +370,40 @@ impl Testcase {
                             ])
                         })
                 )
-            }
+            },
+            Testcase::empty_stream => {
+                let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
+                core.run(client.full_duplex_call(Request::new(stream))
+                    .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
+                        Box::new(tower_err)
+                    })
+                    .and_then(|response_stream| {
+                        // Convert the stream into a plain Vec
+                        response_stream.into_inner()
+                            .collect()
+                            .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
+                                Box::new(tower_err)
+                            })
+                    })
+                    .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                        vec![
+                            test_assert!(
+                                "there should be no responses",
+                                responses.len() == 0,
+                                format!("responses.len()={:?}", responses.len())
+                            ),
+                        ]
+                    })
+                    .or_else(|error: Box<Error>| {
+                        future::ok(vec![
+                            test_assert!(
+                                "call must be successful",
+                                false,
+                                format!("error={:?}", error)
+                            )
+                        ])
+                    }))
+            },
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token

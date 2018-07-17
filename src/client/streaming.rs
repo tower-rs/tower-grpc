@@ -44,11 +44,15 @@ where T: Message + Default,
         // Destructure into the head / body
         let (head, body) = response.into_parts();
 
-        if let Some(status) = super::check_grpc_status(&head.headers) {
-            return Err(::Error::Grpc(status, head.headers));
+        let trailers_only_status = super::check_grpc_status(&head.headers);
+        let expect_additional_trailers = trailers_only_status.is_none();
+        if let Some(status) = trailers_only_status {
+            if !status.ok() {
+                return Err(::Error::Grpc(status, head.headers));
+            }
         }
 
-        let body = Streaming::new(Decoder::new(), body, true);
+        let body = Streaming::new(Decoder::new(), body, expect_additional_trailers);
         let response = Response::from_parts(head, body);
 
         Ok(::Response::from_http(response).into())
