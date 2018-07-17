@@ -236,13 +236,13 @@ impl Testcase {
                 };
                 core.run(client.unary_call(Request::new(req))
                     .then(|result| {
-                    let mut assertions = vec![
+                        let mut assertions = vec![
                             test_assert!(
                                 "call must be successful",
                                 result.is_ok(),
                                 format!("result={:?}", result)
                             )
-                    ];
+                        ];
                         if let Ok(body) = result.map(|r| r.into_inner()) {
                             let payload_len = body.payload.as_ref()
                                 .map(|p| p.body.len())
