@@ -244,7 +244,8 @@ impl Testcase {
         match *self {
             Testcase::empty_unary => {
                 use pb::Empty;
-                core.run(client.empty_call(Request::new(Empty {}))
+                core.run(client
+                    .empty_call(Request::new(Empty {}))
                     .then(|result| {
                         let mut assertions = vec![
                             test_assert!(
@@ -272,7 +273,8 @@ impl Testcase {
                     payload: Some(payload),
                     ..Default::default()
                 };
-                core.run(client.unary_call(Request::new(req))
+                core.run(client
+                    .unary_call(Request::new(req))
                     .then(|result| {
                         let mut assertions = vec![
                             test_assert!(
@@ -324,26 +326,26 @@ impl Testcase {
                         ..Default::default()
                     });
                 let stream = stream::iter_ok(requests);
-                core.run(
-                    client.streaming_input_call(Request::new(stream))
-                        .then(|result| {
-                            let mut assertions = vec![
-                                    test_assert!(
-                                        "call must be successful",
-                                        result.is_ok(),
-                                        format!("result={:?}", result)
-                                    )
-                            ];
-                            if let Ok(response) = result.map(|r| r.into_inner()) {
-                                assertions.push(test_assert!(
-                                "aggregated payload size must be 74922 bytes",
-                                response.aggregated_payload_size == 74922,
-                                format!("aggregated_payload_size={:?}",
-                                    response.aggregated_payload_size
-                                )));
-                            }
-                            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                        })
+                core.run(client
+                    .streaming_input_call(Request::new(stream))
+                    .then(|result| {
+                        let mut assertions = vec![
+                            test_assert!(
+                                "call must be successful",
+                                result.is_ok(),
+                                format!("result={:?}", result)
+                            )
+                        ];
+                        if let Ok(response) = result.map(|r| r.into_inner()) {
+                            assertions.push(test_assert!(
+                            "aggregated payload size must be 74922 bytes",
+                            response.aggregated_payload_size == 74922,
+                            format!("aggregated_payload_size={:?}",
+                                response.aggregated_payload_size
+                            )));
+                        }
+                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+                    })
                 )
             },
             Testcase::server_streaming => {
@@ -355,35 +357,34 @@ impl Testcase {
                     ..Default::default()
                 };
                 let req = Request::new(req);
-                core.run(
-                    client.streaming_output_call(req)
-                        .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
-                            Box::new(tower_err)
-                        })
-                        .and_then(|response_stream| {
-                            // Convert the stream into a plain Vec
-                            response_stream.into_inner()
-                                .collect()
-                                .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
-                                    Box::new(tower_err)
-                                })
-                        })
-                        .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
-                            vec![
-                                test_assert!(
-                                    "there should be four responses",
-                                    responses.len() == 4,
-                                    format!("responses.len()={:?}", responses.len())
-                                ),
-                                test_assert!(
-                                    "the response payload sizes should match input",
-                                    RESPONSE_LENGTHS == response_lengths(&responses).as_slice(),
-                                    format!("{:?}={:?}", RESPONSE_LENGTHS, response_lengths(&responses))
-                                ),
-                            ]
-                        })
-                        .then(&assert_success)
-                )
+                core.run(client
+                    .streaming_output_call(req)
+                    .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
+                        Box::new(tower_err)
+                    })
+                    .and_then(|response_stream| {
+                        // Convert the stream into a plain Vec
+                        response_stream.into_inner()
+                            .collect()
+                            .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
+                                Box::new(tower_err)
+                            })
+                    })
+                    .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                        vec![
+                            test_assert!(
+                                "there should be four responses",
+                                responses.len() == 4,
+                                format!("responses.len()={:?}", responses.len())
+                            ),
+                            test_assert!(
+                                "the response payload sizes should match input",
+                                RESPONSE_LENGTHS == response_lengths(&responses).as_slice(),
+                                format!("{:?}={:?}", RESPONSE_LENGTHS, response_lengths(&responses))
+                            ),
+                        ]
+                    })
+                    .then(&assert_success))
             },
             Testcase::ping_pong => {
                 fn make_req(idx: usize) -> pb::StreamingOutputCallRequest {
