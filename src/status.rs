@@ -156,7 +156,7 @@ impl Status {
         Status::UNKNOWN
     }
 
-    pub fn ok(&self) -> bool {
+    pub fn is_ok(&self) -> bool {
         *self == Status::OK
     }
 }

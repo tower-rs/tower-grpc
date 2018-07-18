@@ -47,7 +47,7 @@ where T: Message + Default,
         let trailers_only_status = super::check_grpc_status(&head.headers);
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
-            if !status.ok() {
+            if !status.is_ok() {
                 return Err(::Error::Grpc(status, head.headers));
             }
         }
