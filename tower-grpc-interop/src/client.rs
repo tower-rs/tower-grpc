@@ -200,6 +200,23 @@ fn response_lengths(responses: &Vec<pb::StreamingOutputCallResponse>) -> Vec<i32
     responses.iter().map(&response_length).collect()
 }
 
+/// Helper function that can be used with .then to assert that the RPC performed
+/// in a test was successful.
+fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
+        -> future::FutureResult<Vec<TestAssertion>, Box<Error>> {
+    let assertion = test_assert!(
+        "call must be successful",
+        result.is_ok(),
+        format!("result={:?}", result)
+    );
+    future::ok(if let Ok(mut assertions) = result {
+        assertions.push(assertion);
+        assertions
+    } else {
+        vec![assertion]
+    })
+}
+
 impl Testcase {
     fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core)
            -> Result<Vec<TestAssertion>, Box<Error>> {
@@ -365,15 +382,7 @@ impl Testcase {
                                 ),
                             ]
                         })
-                        .or_else(|error: Box<Error>| {
-                            future::ok(vec![
-                                test_assert!(
-                                    "call must be successful",
-                                    false,
-                                    format!("error={:?}", error)
-                                )
-                            ])
-                        })
+                        .then(&assert_success)
                 )
             },
             Testcase::ping_pong => {
@@ -485,19 +494,7 @@ impl Testcase {
                         ));
                         assertions
                     })
-                    .then(|result| {
-                        let assertion = test_assert!(
-                            "call must be successful",
-                            result.is_ok(),
-                            format!("result={:?}", result)
-                        );
-                        future::ok(if let Ok(mut assertions) = result {
-                            assertions.push(assertion);
-                            assertions
-                        } else {
-                            vec![assertion]
-                        })
-                    }))
+                    .then(&assert_success))
             },
             Testcase::empty_stream => {
                 let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
@@ -522,15 +519,7 @@ impl Testcase {
                             ),
                         ]
                     })
-                    .or_else(|error: Box<Error>| {
-                        future::ok(vec![
-                            test_assert!(
-                                "call must be successful",
-                                false,
-                                format!("error={:?}", error)
-                            )
-                        ])
-                    }))
+                    .then(&assert_success))
             },
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
