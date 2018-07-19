@@ -31,6 +31,7 @@ use tower_grpc::Request;
 use tower_h2::client::Connection;
 
 use pb::SimpleRequest;
+use pb::StreamingInputCallRequest;
 use pb::client::TestService;
 
 
@@ -278,12 +279,13 @@ impl Testcase {
                 unimplemented!()
             },
             Testcase::client_streaming => {
-                let stream = stream::iter_ok(vec![
-                    util::client_payload(27182),
-                    util::client_payload(8),
-                    util::client_payload(1828),
-                    util::client_payload(45904),
-                ]);
+                let requests = vec![27182, 8, 1828, 45904]
+                    .into_iter()
+                    .map(|len| StreamingInputCallRequest {
+                        payload: Some(util::client_payload(len as usize)),
+                        ..Default::default()
+                    });
+                let stream = stream::iter_ok(requests);
                 core.run(
                     client.streaming_input_call(Request::new(stream))
                         .then(|result| {
