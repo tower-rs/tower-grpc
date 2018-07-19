@@ -25,13 +25,13 @@ impl<T> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Grpc(ref _status, ref _header_map) =>
-                write!(f, "gRPC error"),
+                f.pad("gRPC error"),
             Error::Protocol(ref _protocol_error) =>
-                write!(f, "Protocol error"),
+                f.pad("protocol error"),
             Error::Decode(ref _decode_error) =>
-                write!(f, "Message decode error"),
+                f.pad("message decode error"),
             Error::Inner(ref _inner) =>
-                write!(f, "Inner error"),
+                f.pad("inner error"),
         }
     }
 }
@@ -40,34 +40,20 @@ impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ProtocolError::MissingTrailers =>
-                write!(f, "Missing trailers"),
+                f.pad("missing trailers"),
             ProtocolError::MissingMessage =>
-                write!(f, "Missing message"),
+                f.pad("missing message"),
             ProtocolError::UnexpectedEof =>
-                write!(f, "Unexpected EOF"),
+                f.pad("unexpected EOF"),
             ProtocolError::Internal =>
-                write!(f, "Internal"),
+                f.pad("internal"),
             ProtocolError::UnsupportedCompressionFlag(flag) =>
-                write!(f, "Unsupported compression flag: {}", flag),
+                write!(f, "unsupported compression flag: {}", flag),
         }
     }
 }
 
 impl std::error::Error for ProtocolError {
-    fn description(&self) -> &str {
-        match *self {
-            ProtocolError::MissingTrailers =>
-                "Missing trailers",
-            ProtocolError::MissingMessage =>
-                "Missing message",
-            ProtocolError::UnexpectedEof =>
-                "Unexpected EOF",
-            ProtocolError::Internal =>
-                "Internal",
-            ProtocolError::UnsupportedCompressionFlag(_) =>
-                "Unsupported compression flag",
-        }
-    }
 }
 
 impl<T> std::error::Error for Error<T> where T : fmt::Debug {

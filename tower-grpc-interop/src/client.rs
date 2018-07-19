@@ -359,18 +359,19 @@ impl Testcase {
                 let req = Request::new(req);
                 core.run(client
                     .streaming_output_call(req)
-                    .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
-                        Box::new(tower_err)
+                    .map_err(|tower_error| -> Box<Error> {
+                        Box::new(tower_error)
                     })
                     .and_then(|response_stream| {
                         // Convert the stream into a plain Vec
                         response_stream.into_inner()
                             .collect()
-                            .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
-                                Box::new(tower_err)
+                            .map_err(|tower_error| -> Box<Error> {
+                                Box::new(tower_error)
                             })
                     })
                     .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                        let actual_response_lengths = response_lengths(&responses);
                         vec![
                             test_assert!(
                                 "there should be four responses",
@@ -379,8 +380,8 @@ impl Testcase {
                             ),
                             test_assert!(
                                 "the response payload sizes should match input",
-                                RESPONSE_LENGTHS == response_lengths(&responses).as_slice(),
-                                format!("{:?}={:?}", RESPONSE_LENGTHS, response_lengths(&responses))
+                                RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                                format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
                             ),
                         ]
                     })
@@ -416,8 +417,7 @@ impl Testcase {
                 /// responses from the server and assertions that were performed in
                 /// the process.
                 fn perform_ping_pong(state: State) -> ResponsesFuture {
-                    let (sender, stream, mut responses, mut assertions) =
-                        (state.sender, state.stream, state.responses, state.assertions);
+                    let State { sender, stream, mut responses, mut assertions } = state;
                     Box::new(stream
                         .into_future()  // Take one element from the stream.
                         .map_err(|(err, _stream)| -> Box<Error> {
@@ -483,6 +483,7 @@ impl Testcase {
                         })
                     })
                     .map(|(responses, mut assertions)| {
+                        let actual_response_lengths = response_lengths(&responses);
                         assertions.push(test_assert!(
                             "there should be four responses",
                             responses.len() == RESPONSE_LENGTHS.len(),
@@ -490,8 +491,8 @@ impl Testcase {
                         ));
                         assertions.push(test_assert!(
                             "the response payload sizes should match input",
-                            RESPONSE_LENGTHS == response_lengths(&responses).as_slice(),
-                            format!("{:?}={:?}", RESPONSE_LENGTHS, response_lengths(&responses))
+                            RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                            format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
                         ));
                         assertions
                     })
@@ -500,15 +501,15 @@ impl Testcase {
             Testcase::empty_stream => {
                 let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
                 core.run(client.full_duplex_call(Request::new(stream))
-                    .map_err(|tower_err: tower_grpc::Error<tower_h2::client::Error>| -> Box<Error> {
-                        Box::new(tower_err)
+                    .map_err(|tower_error| -> Box<Error> {
+                        Box::new(tower_error)
                     })
                     .and_then(|response_stream| {
                         // Convert the stream into a plain Vec
                         response_stream.into_inner()
                             .collect()
-                            .map_err(|tower_err: tower_grpc::Error<()>| -> Box<Error> {
-                                Box::new(tower_err)
+                            .map_err(|tower_error| -> Box<Error> {
+                                Box::new(tower_error)
                             })
                     })
                     .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
