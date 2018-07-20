@@ -221,10 +221,10 @@ type TestClient = pb::client::TestService<tower_http::AddOrigin<
     tower_h2::client::Connection<
         tokio_core::net::TcpStream, tokio_core::reactor::Handle, tower_h2::BoxBody>>>;
 
-fn empty_unary_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn empty_unary_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     use pb::Empty;
-    core.run(client
+    client
         .empty_call(Request::new(Empty {}))
         .then(|result| {
             let mut assertions = vec![
@@ -242,11 +242,11 @@ fn empty_unary_test(client: &mut TestClient, core: &mut tokio_core::reactor::Cor
                 ))
             }
             future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-        }))
+        })
 }
 
-fn large_unary_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn large_unary_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     use std::mem;
     let payload = util::client_payload(LARGE_REQ_SIZE);
     let req = SimpleRequest {
@@ -255,7 +255,7 @@ fn large_unary_test(client: &mut TestClient, core: &mut tokio_core::reactor::Cor
         payload: Some(payload),
         ..Default::default()
     };
-    core.run(client
+    client
         .unary_call(Request::new(req))
         .then(|result| {
             let mut assertions = vec![
@@ -278,11 +278,11 @@ fn large_unary_test(client: &mut TestClient, core: &mut tokio_core::reactor::Cor
                 ));
             }
             future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-        }))
+        })
 }
 
-fn cacheable_unary_test(_client: &mut TestClient, _core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn cacheable_unary_test(_client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     let payload = pb::Payload {
         type_: pb::PayloadType::Compressable as i32,
         body: format!("{:?}", std::time::Instant::now()).into_bytes(),
@@ -300,11 +300,13 @@ fn cacheable_unary_test(_client: &mut TestClient, _core: &mut tokio_core::reacto
     //         unimplemented!()
     //     })
     // )
-    unimplemented!()
+    unimplemented!();
+    // This line is just a hint for the type checker
+    future::ok::<Vec<TestAssertion>, Box<Error>>(vec![])
 }
 
-fn client_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn client_streaming_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     let requests = REQUEST_LENGTHS
         .iter()
         .map(|len| StreamingInputCallRequest {
@@ -312,7 +314,7 @@ fn client_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor
             ..Default::default()
         });
     let stream = stream::iter_ok(requests);
-    core.run(client
+    client
         .streaming_input_call(Request::new(stream))
         .then(|result| {
             let mut assertions = vec![
@@ -332,11 +334,10 @@ fn client_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor
             }
             future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
         })
-    )
 }
 
-fn server_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn server_streaming_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     use pb::ResponseParameters;
     let req = pb::StreamingOutputCallRequest {
         response_parameters: RESPONSE_LENGTHS.iter().map(|len| {
@@ -345,7 +346,7 @@ fn server_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor
         ..Default::default()
     };
     let req = Request::new(req);
-    core.run(client
+    client
         .streaming_output_call(req)
         .map_err(|tower_error| -> Box<Error> {
             Box::new(tower_error)
@@ -373,7 +374,7 @@ fn server_streaming_test(client: &mut TestClient, core: &mut tokio_core::reactor
                 ),
             ]
         })
-        .then(&assert_success))
+        .then(&assert_success)
 }
 
 fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
@@ -452,8 +453,8 @@ fn perform_ping_pong(state: PingPongState) -> PingPongResponsesFuture {
         }))
 }
 
-fn ping_pong_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn ping_pong_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     let (sender, receiver) = futures::sync::mpsc::unbounded::<
         pb::StreamingOutputCallRequest>();
 
@@ -461,7 +462,7 @@ fn ping_pong_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
     // even start responding.
     sender.unbounded_send(make_ping_pong_request(0)).unwrap();
 
-    core.run(client
+    client
         .full_duplex_call(Request::new(receiver
             .map_err(|_error| panic!("Receiver stream should not error!"))))
         .map_err(|tower_error| -> Box<Error> {
@@ -489,13 +490,13 @@ fn ping_pong_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
             ));
             assertions
         })
-        .then(&assert_success))
+        .then(&assert_success)
 }
 
-fn empty_stream_test(client: &mut TestClient, core: &mut tokio_core::reactor::Core)
-        -> Result<Vec<TestAssertion>, Box<Error>> {
+fn empty_stream_test(client: &mut TestClient)
+        -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
     let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
-    core.run(client.full_duplex_call(Request::new(stream))
+    client.full_duplex_call(Request::new(stream))
         .map_err(|tower_error| -> Box<Error> {
             Box::new(tower_error)
         })
@@ -516,7 +517,7 @@ fn empty_stream_test(client: &mut TestClient, core: &mut tokio_core::reactor::Co
                 ),
             ]
         })
-        .then(&assert_success))
+        .then(&assert_success)
 }
 
 impl Testcase {
@@ -545,19 +546,19 @@ impl Testcase {
 
         match *self {
             Testcase::empty_unary =>
-                empty_unary_test(&mut client, core),
+                core.run(empty_unary_test(&mut client)),
             Testcase::large_unary =>
-                large_unary_test(&mut client, core),
+                core.run(large_unary_test(&mut client)),
             Testcase::cacheable_unary =>
-                cacheable_unary_test(&mut client, core),
+                core.run(cacheable_unary_test(&mut client)),
             Testcase::client_streaming =>
-                client_streaming_test(&mut client, core),
+                core.run(client_streaming_test(&mut client)),
             Testcase::server_streaming =>
-                server_streaming_test(&mut client, core),
+                core.run(server_streaming_test(&mut client)),
             Testcase::ping_pong =>
-                ping_pong_test(&mut client, core),
+                core.run(ping_pong_test(&mut client)),
             Testcase::empty_stream =>
-                empty_stream_test(&mut client, core),
+                core.run(empty_stream_test(&mut client)),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
