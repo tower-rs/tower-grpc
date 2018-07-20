@@ -401,56 +401,59 @@ struct PingPongState {
 type PingPongResponsesFuture = Box<Future<
     Item=(Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>),
     Error=Box<Error>>>;
-/// Recursive function that takes the current PingPongState of the ping-pong
-/// operation and performs the rest of it. It returns a future of
-/// responses from the server and assertions that were performed in
-/// the process.
-fn perform_ping_pong(state: PingPongState) -> PingPongResponsesFuture {
-    let PingPongState { sender, stream, mut responses, mut assertions } = state;
-    Box::new(stream
-        .into_future()  // Take one element from the stream.
-        .map_err(|(err, _stream)| -> Box<Error> {
-            Box::new(err)
-        })
-        .and_then(|(resp, stream)| -> PingPongResponsesFuture {
-            if let Some(resp) = resp {
-                responses.push(resp);
-                if responses.len() == REQUEST_LENGTHS.len() {
-                    // Close the request stream. This tells the server that there
-                    // won't be any more requests.
-                    drop(sender);
-                    Box::new(stream
-                        .into_future()
-                        .map_err(|err| -> Box<Error> {
-                            Box::new(err.0)
-                        })
-                        .map(|(resp, _stream)| {
-                            assertions.push(test_assert!(
-                                "server should close stream after client closes it.",
-                                resp.is_none(),
-                                format!("resp={:?}", resp)
-                            ));
-                            (responses, assertions)
-                        }))
+
+impl PingPongState {
+    /// Recursive function that takes the current PingPongState of the ping-pong
+    /// operation and performs the rest of it. It returns a future of
+    /// responses from the server and assertions that were performed in
+    /// the process.
+    fn perform_ping_pong(self) -> PingPongResponsesFuture {
+        let PingPongState { sender, stream, mut responses, mut assertions } = self;
+        Box::new(stream
+            .into_future()  // Take one element from the stream.
+            .map_err(|(err, _stream)| -> Box<Error> {
+                Box::new(err)
+            })
+            .and_then(|(resp, stream)| -> PingPongResponsesFuture {
+                if let Some(resp) = resp {
+                    responses.push(resp);
+                    if responses.len() == REQUEST_LENGTHS.len() {
+                        // Close the request stream. This tells the server that there
+                        // won't be any more requests.
+                        drop(sender);
+                        Box::new(stream
+                            .into_future()
+                            .map_err(|err| -> Box<Error> {
+                                Box::new(err.0)
+                            })
+                            .map(|(resp, _stream)| {
+                                assertions.push(test_assert!(
+                                    "server should close stream after client closes it.",
+                                    resp.is_none(),
+                                    format!("resp={:?}", resp)
+                                ));
+                                (responses, assertions)
+                            }))
+                    } else {
+                        sender.unbounded_send(
+                            make_ping_pong_request(responses.len())).unwrap();
+                        PingPongState {
+                            sender,
+                            stream,
+                            responses,
+                            assertions,
+                        }.perform_ping_pong()
+                    }
                 } else {
-                    sender.unbounded_send(
-                        make_ping_pong_request(responses.len())).unwrap();
-                    perform_ping_pong(PingPongState {
-                        sender,
-                        stream,
-                        responses,
-                        assertions,
-                    })
+                    assertions.push(TestAssertion::Failed {
+                        description: "server should keep the stream open until the client closes it",
+                        expression: "Stream terminated unexpectedly early",
+                        why: None
+                    });
+                    Box::new(future::ok((responses, assertions)))
                 }
-            } else {
-                assertions.push(TestAssertion::Failed {
-                    description: "server should keep the stream open until the client closes it",
-                    expression: "Stream terminated unexpectedly early",
-                    why: None
-                });
-                Box::new(future::ok((responses, assertions)))
-            }
-        }))
+            }))
+    }
 }
 
 fn ping_pong_test(client: &mut TestClient)
@@ -469,12 +472,12 @@ fn ping_pong_test(client: &mut TestClient)
             Box::new(tower_error)
         })
         .and_then(|response_stream| {
-            perform_ping_pong(PingPongState {
+            PingPongState {
                 sender,
                 stream: Box::new(response_stream.into_inner()),
                 responses: vec![],
                 assertions: vec![],
-            })
+            }.perform_ping_pong()
         })
         .map(|(responses, mut assertions)| {
             let actual_response_lengths = response_lengths(&responses);
