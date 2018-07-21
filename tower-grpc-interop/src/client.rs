@@ -523,6 +523,25 @@ impl TestClient {
             })
             .then(&assert_success)
     }
+    fn unimplemented_method_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        use pb::Empty;
+        use tower_grpc::Error::Grpc;
+
+        self.0.unimplemented_call(Request::new(Empty {}))
+            .then(|result| {
+                let assertions = vec![test_assert!(
+                    "call must fail with unimplemented status code",
+                    match &result {
+                        Err(Grpc(status, _)) =>
+                            status.code() == tower_grpc::Status::UNIMPLEMENTED.code(),
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                )];
+                future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+            })
+    }
 }
 
 impl Testcase {
@@ -564,6 +583,8 @@ impl Testcase {
                 core.run(client.ping_pong_test()),
             Testcase::empty_stream =>
                 core.run(client.empty_stream_test()),
+            Testcase::unimplemented_method =>
+                core.run(client.unimplemented_method_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
