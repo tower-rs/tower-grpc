@@ -23,7 +23,7 @@ Note that currently, only the interop test client is implemented. The `docker-co
 - [ ] ~`per_rpc_creds`~ requires auth, NYI
 - [ ] `custom_metadata`
 - [ ] `status_code_and_message`
-- [ ] `unimplemented_method`
+- [x] `unimplemented_method`
 - [ ] `unimplemented_service`
 - [ ] `cancel_after_begin`
 - [ ] `cancel_after_first_response`
