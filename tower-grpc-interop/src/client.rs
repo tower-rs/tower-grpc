@@ -217,13 +217,14 @@ fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
     })
 }
 
-struct TestClient(
-    pb::client::TestService<tower_http::AddOrigin<
-        tower_h2::client::Connection<
-            tokio_core::net::TcpStream,
-            tokio_core::reactor::Handle,
-            tower_h2::BoxBody>>>
-);
+struct TestClients {
+    test_client:
+        pb::client::TestService<tower_http::AddOrigin<
+            tower_h2::client::Connection<
+                tokio_core::net::TcpStream,
+                tokio_core::reactor::Handle,
+                tower_h2::BoxBody>>>
+}
 
 fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
     let req_len = REQUEST_LENGTHS[idx];
@@ -305,11 +306,11 @@ impl PingPongState {
     }
 }
 
-impl TestClient {
+impl TestClients {
     fn empty_unary_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
-        self.0.empty_call(Request::new(Empty {}))
+        self.test_client.empty_call(Request::new(Empty {}))
             .then(|result| {
                 let mut assertions = vec![
                     test_assert!(
@@ -339,7 +340,7 @@ impl TestClient {
             payload: Some(payload),
             ..Default::default()
         };
-        self.0.unary_call(Request::new(req))
+        self.test_client.unary_call(Request::new(req))
             .then(|result| {
                 let mut assertions = vec![
                     test_assert!(
@@ -397,7 +398,7 @@ impl TestClient {
                 ..Default::default()
             });
         let stream = stream::iter_ok(requests);
-        self.0.streaming_input_call(Request::new(stream))
+        self.test_client.streaming_input_call(Request::new(stream))
             .then(|result| {
                 let mut assertions = vec![
                     test_assert!(
@@ -428,7 +429,7 @@ impl TestClient {
             ..Default::default()
         };
         let req = Request::new(req);
-        self.0.streaming_output_call(req)
+        self.test_client.streaming_output_call(req)
             .map_err(|tower_error| -> Box<Error> {
                 Box::new(tower_error)
             })
@@ -467,7 +468,7 @@ impl TestClient {
         // even start responding.
         sender.unbounded_send(make_ping_pong_request(0)).unwrap();
 
-        self.0.full_duplex_call(Request::new(receiver
+        self.test_client.full_duplex_call(Request::new(receiver
                 .map_err(|_error| panic!("Receiver stream should not error!"))))
             .map_err(|tower_error| -> Box<Error> {
                 Box::new(tower_error)
@@ -500,7 +501,7 @@ impl TestClient {
     fn empty_stream_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
-        self.0.full_duplex_call(Request::new(stream))
+        self.test_client.full_duplex_call(Request::new(stream))
             .map_err(|tower_error| -> Box<Error> {
                 Box::new(tower_error)
             })
@@ -528,7 +529,7 @@ impl TestClient {
         use pb::Empty;
         use tower_grpc::Error::Grpc;
 
-        self.0.unimplemented_call(Request::new(Empty {}))
+        self.test_client.unimplemented_call(Request::new(Empty {}))
             .then(|result| {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
@@ -549,42 +550,44 @@ impl Testcase {
            -> Result<Vec<TestAssertion>, Box<Error>> {
 
         let reactor = core.handle();
-        let mut client = TestClient(core.run(
-            TcpStream::connect(&server.addr, &reactor)
-                .and_then(move |socket| {
-                    // Bind the HTTP/2.0 connection
-                    Connection::handshake(socket, reactor)
-                        .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-                })
-                .map(move |conn| {
-                    use tower_http::add_origin;
+        let mut clients = TestClients {
+            test_client: core.run(
+                TcpStream::connect(&server.addr, &reactor)
+                    .and_then(move |socket| {
+                        // Bind the HTTP/2.0 connection
+                        Connection::handshake(socket, reactor)
+                            .map_err(|_| panic!("failed HTTP/2.0 handshake"))
+                    })
+                    .map(move |conn| {
+                        use tower_http::add_origin;
 
-                    let conn = add_origin::Builder::new()
-                        .uri(server.uri.clone())
-                        .build(conn)
-                        .unwrap();
+                        let conn = add_origin::Builder::new()
+                            .uri(server.uri.clone())
+                            .build(conn)
+                            .unwrap();
 
-                    TestService::new(conn)
-                })
-        ).expect("client"));
+                        TestService::new(conn)
+                    })
+            ).expect("client")
+        };
 
         match *self {
             Testcase::empty_unary =>
-                core.run(client.empty_unary_test()),
+                core.run(clients.empty_unary_test()),
             Testcase::large_unary =>
-                core.run(client.large_unary_test()),
+                core.run(clients.large_unary_test()),
             Testcase::cacheable_unary =>
-                core.run(client.cacheable_unary_test()),
+                core.run(clients.cacheable_unary_test()),
             Testcase::client_streaming =>
-                core.run(client.client_streaming_test()),
+                core.run(clients.client_streaming_test()),
             Testcase::server_streaming =>
-                core.run(client.server_streaming_test()),
+                core.run(clients.server_streaming_test()),
             Testcase::ping_pong =>
-                core.run(client.ping_pong_test()),
+                core.run(clients.ping_pong_test()),
             Testcase::empty_stream =>
-                core.run(client.empty_stream_test()),
+                core.run(clients.empty_stream_test()),
             Testcase::unimplemented_method =>
-                core.run(client.unimplemented_method_test()),
+                core.run(clients.unimplemented_method_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
