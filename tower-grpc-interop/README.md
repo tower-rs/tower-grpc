@@ -24,7 +24,7 @@ Note that currently, only the interop test client is implemented. The `docker-co
 - [ ] `custom_metadata`
 - [ ] `status_code_and_message`
 - [x] `unimplemented_method`
-- [ ] `unimplemented_service`
+- [x] `unimplemented_service`
 - [ ] `cancel_after_begin`
 - [ ] `cancel_after_first_response`
 - [ ] `timeout_on_sleeping_server`
