@@ -23,6 +23,7 @@ Note that currently, only the interop test client is implemented. The `docker-co
 - [ ] ~`per_rpc_creds`~ requires auth, NYI
 - [ ] `custom_metadata`
 - [ ] `status_code_and_message`
+- [ ] `special_status_message`
 - [x] `unimplemented_method`
 - [x] `unimplemented_service`
 - [ ] `cancel_after_begin`
@@ -71,8 +72,8 @@ OPTIONS:
             client_compressed_unary, server_compressed_unary, client_streaming, client_compressed_streaming,
             server_streaming, server_compressed_streaming, ping_pong, empty_stream, compute_engine_creds,
             jwt_token_creds, oauth2_auth_token, per_rpc_creds, custom_metadata, status_code_and_message,
-            unimplemented_method, unimplemented_service, cancel_after_begin, cancel_after_first_response,
-            timeout_on_sleeping_server, concurrent_large_unary]
+            special_status_message, unimplemented_method, unimplemented_service, cancel_after_begin,
+            cancel_after_first_response, timeout_on_sleeping_server, concurrent_large_unary]
         --use_tls <BOOLEAN>
             Whether to use a plaintext or encrypted connection. [default: false]  [values: true, false]
 ```
