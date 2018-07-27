@@ -33,6 +33,7 @@ use tower_h2::client::Connection;
 use pb::SimpleRequest;
 use pb::StreamingInputCallRequest;
 use pb::client::TestService;
+use pb::client::UnimplementedService;
 
 
 mod pb {
@@ -219,7 +220,14 @@ fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
 
 struct TestClients {
     test_client:
-        pb::client::TestService<tower_http::AddOrigin<
+        TestService<tower_http::AddOrigin<
+            tower_h2::client::Connection<
+                tokio_core::net::TcpStream,
+                tokio_core::reactor::Handle,
+                tower_h2::BoxBody>>>,
+
+    unimplemented_client:
+        UnimplementedService<tower_http::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
@@ -524,6 +532,7 @@ impl TestClients {
             })
             .then(&assert_success)
     }
+
     fn unimplemented_method_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
@@ -543,15 +552,35 @@ impl TestClients {
                 future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
             })
     }
+
+    fn unimplemented_service_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        use pb::Empty;
+        use tower_grpc::Error::Grpc;
+
+        self.unimplemented_client.unimplemented_call(Request::new(Empty {}))
+            .then(|result| {
+                let assertions = vec![test_assert!(
+                    "call must fail with unimplemented status code",
+                    match &result {
+                        Err(Grpc(status, _)) =>
+                            status.code() == tower_grpc::Status::UNIMPLEMENTED.code(),
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                )];
+                future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+            })
+    }
 }
 
 impl Testcase {
     fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core)
            -> Result<Vec<TestAssertion>, Box<Error>> {
-
-        let reactor = core.handle();
-        let mut clients = TestClients {
-            test_client: core.run(
+        let open_connection = |
+                core: &mut tokio_core::reactor::Core| {
+            let reactor = core.handle();
+            core.run(
                 TcpStream::connect(&server.addr, &reactor)
                     .and_then(move |socket| {
                         // Bind the HTTP/2.0 connection
@@ -561,14 +590,19 @@ impl Testcase {
                     .map(move |conn| {
                         use tower_http::add_origin;
 
-                        let conn = add_origin::Builder::new()
+                        add_origin::Builder::new()
                             .uri(server.uri.clone())
                             .build(conn)
-                            .unwrap();
-
-                        TestService::new(conn)
+                            .unwrap()
                     })
-            ).expect("client")
+            ).expect("connection")
+        };
+
+        // TODO(#42): This opens two separate TCP connections to the server. It
+        // would be better to open only one.
+        let mut clients = TestClients {
+            test_client: TestService::new(open_connection(core)),
+            unimplemented_client: UnimplementedService::new(open_connection(core))
         };
 
         match *self {
@@ -588,6 +622,8 @@ impl Testcase {
                 core.run(clients.empty_stream_test()),
             Testcase::unimplemented_method =>
                 core.run(clients.unimplemented_method_test()),
+            Testcase::unimplemented_service =>
+                core.run(clients.unimplemented_service_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
