@@ -22,7 +22,7 @@ Note that currently, only the interop test client is implemented. The `docker-co
 - [ ] ~`oauth2_auth_token`~ requires auth, NYI
 - [ ] ~`per_rpc_creds`~ requires auth, NYI
 - [ ] `custom_metadata`
-- [ ] `status_code_and_message`
+- [x] `status_code_and_message`
 - [ ] `special_status_message`
 - [x] `unimplemented_method`
 - [x] `unimplemented_service`

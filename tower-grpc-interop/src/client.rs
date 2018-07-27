@@ -27,6 +27,7 @@ use http::uri::{self, Uri};
 use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
+use tower_grpc::Error::Grpc;
 use tower_grpc::Request;
 use tower_h2::client::Connection;
 
@@ -56,6 +57,7 @@ const LARGE_REQ_SIZE: usize = 271828;
 const LARGE_RSP_SIZE: i32 = 314159;
 const REQUEST_LENGTHS: &'static [i32] = &[27182, 8, 1828, 45904];
 const RESPONSE_LENGTHS: &'static [i32] = &[31415, 9, 2653, 58979];
+const TEST_STATUS_MESSAGE: &'static str = "test status message";
 
 arg_enum!{
     #[derive(Debug, Copy, Clone)]
@@ -534,6 +536,63 @@ impl TestClients {
             .then(&assert_success)
     }
 
+    fn status_code_and_message_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        fn validate_response<T>(result: Result<T, tower_grpc::Error<tower_h2::client::Error>>)
+                -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
+            let assertions = vec![
+                test_assert!(
+                    "call must fail with unknown status code",
+                    match &result {
+                        Err(Grpc(status, _)) =>
+                            status.code() == tower_grpc::Status::UNKNOWN.code(),
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                ),
+                test_assert!(
+                    "call must repsond with expected status message",
+                    match &result {
+                        Err(Grpc(_, header_map)) =>
+                            header_map["grpc-message"] == TEST_STATUS_MESSAGE,
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                ),
+            ];
+            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+        }
+
+        let req = SimpleRequest {
+            response_status: Some(pb::EchoStatus {
+                code: 2,
+                message: TEST_STATUS_MESSAGE.to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let unary_call = self.test_client
+            .unary_call(Request::new(req.clone()))
+            .then(&validate_response);
+
+        let full_duplex_call = self.test_client
+            .full_duplex_call(Request::new(stream::iter_ok(vec![req])))
+            .and_then(|response_stream| {
+                // Convert the stream into a plain Vec
+                response_stream.into_inner()
+                    .map_err(|_error| panic!("Inner stream should not error!"))
+                    .collect()
+            })
+            .then(&validate_response);
+
+        unary_call.join(full_duplex_call)
+            .map(|(mut unary_assertions, mut streaming_assertions)| {
+                unary_assertions.append(&mut streaming_assertions);
+                unary_assertions
+            })
+    }
+
     fn unimplemented_method_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
@@ -557,7 +616,6 @@ impl TestClients {
     fn unimplemented_service_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
-        use tower_grpc::Error::Grpc;
 
         self.unimplemented_client.unimplemented_call(Request::new(Empty {}))
             .then(|result| {
@@ -621,6 +679,8 @@ impl Testcase {
                 core.run(clients.ping_pong_test()),
             Testcase::empty_stream =>
                 core.run(clients.empty_stream_test()),
+            Testcase::status_code_and_message =>
+                core.run(clients.status_code_and_message_test()),
             Testcase::unimplemented_method =>
                 core.run(clients.unimplemented_method_test()),
             Testcase::unimplemented_service =>
