@@ -167,11 +167,10 @@ macro_rules! try_ready {
 
         // Implement service trait
         let mut service_impl = codegen::Impl::new(&name);
-        service_impl.impl_trait("tower::Service")
+        service_impl.impl_trait("tower::Service<http::Request<tower_h2::RecvBody>>")
             .generic("T")
             .target_generic("T")
             .bound("T", &service.name)
-            .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
             .associate_type("Future", &format!("{}::ResponseFuture<T>", lower_name))
@@ -186,7 +185,7 @@ macro_rules! try_ready {
         {
             let call = service_impl.new_fn("call")
                 .arg_mut_self()
-                .arg("request", "Self::Request")
+                .arg("request", "http::Request<tower_h2::RecvBody>")
                 .ret("Self::Future")
                 .line(&format!("use self::{}::Kind::*;", lower_name))
                 .line("")
@@ -256,9 +255,8 @@ macro_rules! try_ready {
         scope.new_impl(&name)
             .generic("T")
             .target_generic("T")
-            .impl_trait("tower::NewService")
+            .impl_trait("tower::NewService<http::Request<tower_h2::RecvBody>>")
             .bound("T", &service.name)
-            .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
             .associate_type("Service", "Self")
@@ -453,7 +451,6 @@ macro_rules! try_ready {
             .generic("T")
             .tuple_field("pub T")
             ;
-
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
         let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, 3));
@@ -478,12 +475,14 @@ macro_rules! try_ready {
             }
         }
 
+        let mut req_str = String::new();
+        request.fmt(&mut codegen::Formatter::new(&mut req_str)).unwrap();
+
         let imp = module.new_impl(&upper_name)
             .generic("T")
             .target_generic("T")
-            .impl_trait("tower::Service")
+            .impl_trait(format!("tower::Service<{}>", req_str))
             .bound("T", &service.name)
-            .associate_type("Request", request)
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Error")
             .associate_type("Future", &format!("T::{}Future", &upper_name))
@@ -497,7 +496,7 @@ macro_rules! try_ready {
 
         imp.new_fn("call")
             .arg_mut_self()
-            .arg("request", "Self::Request")
+            .arg("request", &req_str)
             .ret("Self::Future")
             .line(&format!("self.0.{}(request)", method.name))
             ;
