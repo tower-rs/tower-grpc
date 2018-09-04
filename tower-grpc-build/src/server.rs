@@ -577,14 +577,20 @@ fn response_body_kind(service: &prost_build::Service) -> String {
             (true, false) => {
                 let mut request = codegen::Type::new("grpc::Streaming");
                 request.generic(::unqualified(&method.input_type, 2));
-                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}>>::Response>>,\n",
-                                 &upper_name, codegen_ty_to_string(&request)).unwrap();
+                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}, {}>>::Response>>,\n",
+                                 &upper_name,
+                                 ::unqualified(&method.input_type, 2),
+                                 codegen_ty_to_string(&request)
+                            ).unwrap();
             }
             (true, true) => {
                 let mut request = codegen::Type::new("grpc::Streaming");
                 request.generic(::unqualified(&method.input_type, 2));
-                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService<{}>>::ResponseStream>,\n",
-                                 &upper_name, codegen_ty_to_string(&request)).unwrap();
+                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService<{}, {}>>::ResponseStream>,\n",
+                                 &upper_name,
+                                 ::unqualified(&method.input_type, 2),
+                                 codegen_ty_to_string(&request),
+                            ).unwrap();
             }
         }
     }
