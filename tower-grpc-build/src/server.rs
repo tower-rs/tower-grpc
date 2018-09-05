@@ -460,7 +460,7 @@ macro_rules! try_ready {
             ;
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, 3));
+        let request_stream = streaming_input_type(&method, 3);
         let response_stream = format!("T::{}Stream", &upper_name);
 
         match (method.client_streaming, method.server_streaming) {
@@ -535,16 +535,14 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
                                  &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (true, false) => {
-                let mut request = codegen::Type::new("grpc::Streaming");
-                request.generic(::unqualified(&method.input_type, 2));
                 write!(&mut ret, "    grpc::client_streaming::ResponseFuture<methods::{}<T>, {}>,\n",
-                                 &upper_name, codegen_ty_to_string(&request)).unwrap();
+                                 &upper_name, streaming_input_type(&method, 2)).unwrap();
             }
             (true, true) => {
                 let mut request = codegen::Type::new("grpc::Streaming");
                 request.generic(::unqualified(&method.input_type, 2));
                 write!(&mut ret, "    grpc::streaming::ResponseFuture<methods::{}<T>, {}>,\n",
-                                 &upper_name, codegen_ty_to_string(&request)).unwrap();
+                                 &upper_name, streaming_input_type(&method, 2)).unwrap();
             }
         }
     }
@@ -577,19 +575,13 @@ fn response_body_kind(service: &prost_build::Service) -> String {
                                  &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (true, false) => {
-                let mut request = codegen::Type::new("grpc::Streaming");
-                request.generic(::unqualified(&method.input_type, 2));
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}>>::Response>>,\n",
-                                 &upper_name,
-                                 codegen_ty_to_string(&request)
+                                 &upper_name, streaming_input_type(&method, 2)
                             ).unwrap();
             }
             (true, true) => {
-                let mut request = codegen::Type::new("grpc::Streaming");
-                request.generic(::unqualified(&method.input_type, 2));
                 write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService<{}>>::ResponseStream>,\n",
-                                 &upper_name,
-                                 codegen_ty_to_string(&request),
+                                 &upper_name, streaming_input_type(&method, 2)
                             ).unwrap();
             }
         }
@@ -597,6 +589,10 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 
     ret.push_str(">");
     ret
+}
+
+fn streaming_input_type(method: &prost_build::Method, level: usize) -> String {
+    format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, level))
 }
 
 fn codegen_ty_to_string(ty: &codegen::Type) -> String {
