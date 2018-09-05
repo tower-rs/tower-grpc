@@ -18,7 +18,7 @@ prost = "0.4"
 prost-derive = "0.4"
 tokio-core = "0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", branch = "eliza/generic-service" }
-tower-http = { git = "https://github.com/tower-rs/tower-http", branch = "eliza/generic-service"  }
+tower-http = { git = "https://github.com/tower-rs/tower-http", branch = "eliza/generic-service" }
 tower-grpc = { path = "../" }
 tower-service = { git = "https://github.com/tower-rs/tower", branch = "eliza/generic-service" }
 

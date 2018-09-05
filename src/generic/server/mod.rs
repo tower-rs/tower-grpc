@@ -16,9 +16,9 @@ use tower_service::Service;
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
-pub trait StreamingService<R, RequestStream>
+pub trait StreamingService<RequestStream>
 where
-    RequestStream: Stream<Item = R, Error = ::Error>,
+    RequestStream: Stream<Error = ::Error>,
 {
     /// Protobuf response message type
     type Response;
@@ -33,7 +33,7 @@ where
     fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
 }
 
-impl<T, S1, S2> StreamingService<S1::Item, S1> for T
+impl<T, S1, S2> StreamingService<S1> for T
 where T: Service<Request<S1>,
                 Response = Response<S2>,
                    Error = ::Error>,
@@ -83,9 +83,9 @@ where T: Service<Request<M1>,
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait ClientStreamingService<R, RequestStream>
+pub trait ClientStreamingService<RequestStream>
 where
-    RequestStream: Stream<Item = R, Error = ::Error>,
+    RequestStream: Stream<Error = ::Error>,
 {
     /// Protobuf response message type
     type Response;
@@ -97,7 +97,7 @@ where
     fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
 }
 
-impl<T, M, S> ClientStreamingService<S::Item, S> for T
+impl<T, M, S> ClientStreamingService<S> for T
 where T: Service<Request<S>,
                 Response = Response<M>,
                    Error = ::Error>,

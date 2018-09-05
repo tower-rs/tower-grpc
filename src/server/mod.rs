@@ -36,7 +36,7 @@ impl Grpc {
     pub fn client_streaming<T, R, B>(service: &mut T,
                                      request: http::Request<B>)
         -> client_streaming::ResponseFuture<T, Streaming<R, B>>
-    where T: ClientStreamingService<R, Streaming<R, B>>,
+    where T: ClientStreamingService<Streaming<R, B>>,
           R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
@@ -66,7 +66,7 @@ impl Grpc {
     pub fn streaming<T, R, B>(service: &mut T,
                               request: http::Request<B>)
         -> streaming::ResponseFuture<T, Streaming<R, B>>
-    where T: StreamingService<R, Streaming<R, B>>,
+    where T: StreamingService<Streaming<R, B>>,
           R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
