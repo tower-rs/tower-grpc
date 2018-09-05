@@ -336,8 +336,10 @@ macro_rules! try_ready {
                             module: &mut codegen::Module)
     {
         for method in &service.methods {
-            let (path, thing) = ::super_import(&method.input_type, 2);
-            module.import(&path, &thing);
+            if !::is_imported_type(&method.input_type) {
+                let (path, thing) = ::super_import(&method.input_type, 2);
+                module.import(&path, &thing);
+            }
         }
 
         let mut ty = codegen::Type::new("Result");
