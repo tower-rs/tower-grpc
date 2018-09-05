@@ -594,9 +594,3 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 fn streaming_input_type(method: &prost_build::Method, level: usize) -> String {
     format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, level))
 }
-
-fn codegen_ty_to_string(ty: &codegen::Type) -> String {
-    let mut s = String::new();
-    ty.fmt(&mut codegen::Formatter::new(&mut s)).unwrap();
-    s
-}
