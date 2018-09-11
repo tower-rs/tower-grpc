@@ -5,6 +5,7 @@ use http::Response;
 use prost::Message;
 use tower_h2::{Body, Data};
 
+use Code;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -40,11 +41,14 @@ where T: Message + Default,
 
         // Get the response
         let response = try_ready!(response);
+        let status_code = response.status();
 
         // Destructure into the head / body
         let (head, body) = response.into_parts();
 
-        if let Some(status) = super::check_grpc_status(&head.headers) {
+        let status = super::check_grpc_status(&head.headers, status_code);
+
+        if status.code() != Code::OK {
             return Err(::Error::Grpc(status, head.headers));
         }
 

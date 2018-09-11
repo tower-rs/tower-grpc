@@ -6,7 +6,7 @@ pub mod streaming;
 use Status;
 
 use futures::{stream, Stream, Poll};
-use http::{uri, HeaderMap, Uri};
+use http::{uri, HeaderMap, Uri, StatusCode};
 use prost::Message;
 use tower_h2::{HttpService, BoxBody};
 
@@ -139,8 +139,19 @@ where T: Stream<Item = U, Error = ::Error> + Send + 'static,
 
 // ===== utility fns =====
 
-fn check_grpc_status(trailers: &HeaderMap) -> Option<Status> {
-    trailers.get("grpc-status").map(|s| {
+fn check_grpc_status(trailers: &HeaderMap, status_code: StatusCode) -> Status {
+    trailers.get("grpc-status").map_or(match status_code {
+        // Borrowed from https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md
+        StatusCode::BAD_REQUEST => Status::INTERNAL,
+        StatusCode::UNAUTHORIZED => Status::UNAUTHENTICATED,
+        StatusCode::FORBIDDEN => Status::PERMISSION_DENIED,
+        StatusCode::NOT_FOUND => Status::UNIMPLEMENTED,
+        StatusCode::TOO_MANY_REQUESTS |
+            StatusCode::BAD_GATEWAY |
+            StatusCode::SERVICE_UNAVAILABLE |
+            StatusCode::GATEWAY_TIMEOUT => Status::UNAVAILABLE,
+        _ => Status::UNKNOWN,
+    }, |s| {
         Status::from_bytes(s.as_ref())
     })
 }
