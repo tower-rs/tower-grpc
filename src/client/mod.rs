@@ -3,10 +3,8 @@ pub mod client_streaming;
 pub mod server_streaming;
 pub mod streaming;
 
-use Status;
-
 use futures::{stream, Stream, Poll};
-use http::{uri, HeaderMap, Uri};
+use http::{uri, Uri};
 use prost::Message;
 use tower_h2::{HttpService, BoxBody};
 
@@ -135,12 +133,4 @@ where T: Stream<Item = U, Error = ::Error> + Send + 'static,
         let encode = Encode::new(Encoder::new(), self, false);
         BoxBody::new(Box::new(encode))
     }
-}
-
-// ===== utility fns =====
-
-fn check_grpc_status(trailers: &HeaderMap) -> Option<Status> {
-    trailers.get("grpc-status").map(|s| {
-        Status::from_bytes(s.as_ref())
-    })
 }

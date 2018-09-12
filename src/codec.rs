@@ -23,6 +23,8 @@ pub struct Decoder<T>(PhantomData<T>);
 /// A stream of inbound gRPC messages
 pub type Streaming<T, B = tower_h2::RecvBody> = ::generic::Streaming<Decoder<T>, B>;
 
+pub use ::generic::Direction;
+
 /// A protobuf encoded gRPC response body
 pub struct Encode<T>
 where T: Stream,
