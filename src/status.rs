@@ -1,7 +1,8 @@
 use std::fmt;
 
 use h2;
-use http::header::HeaderValue;
+use http::header::{HeaderMap, HeaderValue};
+use http::status::StatusCode;
 
 #[derive(Debug, Clone)]
 pub struct Status {
@@ -201,4 +202,27 @@ enum Code_ {
     Unavailable = 14,
     DataLoss = 15,
     Unauthenticated = 16,
+}
+
+/// Take the `Status` value from `trailers` if it is available. if it is not, and `status_code` is
+/// provided, infer the `Status` from the `status_code`. Otherwise, return `None`.
+pub fn infer_grpc_status(trailers: &HeaderMap, status_code: Option<StatusCode>) -> Option<Status> {
+    trailers.get("grpc-status").map(|s| {
+        Status::from_bytes(s.as_ref())
+    }).or_else(|| {
+        status_code.map(|status_code| {
+            match status_code {
+                // Borrowed from https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md
+                StatusCode::BAD_REQUEST => Status::INTERNAL,
+                StatusCode::UNAUTHORIZED => Status::UNAUTHENTICATED,
+                StatusCode::FORBIDDEN => Status::PERMISSION_DENIED,
+                StatusCode::NOT_FOUND => Status::UNIMPLEMENTED,
+                StatusCode::TOO_MANY_REQUESTS |
+                    StatusCode::BAD_GATEWAY |
+                    StatusCode::SERVICE_UNAVAILABLE |
+                    StatusCode::GATEWAY_TIMEOUT => Status::UNAVAILABLE,
+                _ => Status::UNKNOWN,
+            }
+        })
+    })
 }

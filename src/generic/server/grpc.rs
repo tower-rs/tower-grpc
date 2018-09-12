@@ -1,6 +1,6 @@
 use ::Request;
 use super::{streaming, server_streaming, client_streaming, unary};
-use generic::{Codec, Streaming};
+use generic::{Codec, Direction, Streaming};
 use generic::server::{StreamingService, ServerStreamingService, ClientStreamingService, UnaryService};
 
 use http;
@@ -79,7 +79,7 @@ where T: Codec,
         let (head, body) = request.into_parts();
 
         // Wrap the body stream with a decoder
-        let body = Streaming::new(self.codec.decoder(), body, false);
+        let body = Streaming::new(self.codec.decoder(), body, Direction::Request);
 
         // Reconstruct the HTTP request
         let request = http::Request::from_parts(head, body);

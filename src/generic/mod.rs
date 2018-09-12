@@ -8,6 +8,7 @@ pub use self::codec::{
     Codec,
     Encoder,
     Decoder,
+    Direction,
     Streaming,
     Encode,
     EncodeBuf,

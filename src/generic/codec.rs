@@ -3,11 +3,12 @@ use Status;
 use bytes::{Buf, BufMut, BytesMut, Bytes};
 use futures::{Stream, Poll, Async};
 use h2;
-use http::HeaderMap;
+use http::{HeaderMap, StatusCode};
 use tower_h2::{self, Body, Data};
 
 use std::collections::VecDeque;
 
+use status::infer_grpc_status;
 use error::ProtocolError;
 
 /// Encodes and decodes gRPC message types
@@ -99,8 +100,17 @@ pub struct Streaming<T, U = tower_h2::RecvBody> {
     /// Decoding state
     state: State,
 
-    /// Set to true when expecting trailers
-    expect_trailers: bool,
+    direction: Direction,
+}
+
+/// Whether this is reading a request or a response stream value.
+#[derive(Clone, Copy, Debug)]
+pub enum Direction {
+    /// For requests, we expect only headers and the streaming body.
+    Request,
+    /// For responses, the received HTTP status code must be provided.
+    /// We also expect to receive trailers after the streaming body.
+    Response(StatusCode),
 }
 
 #[derive(Debug)]
@@ -219,7 +229,7 @@ impl<T, U> Streaming<T, U>
 where T: Decoder,
       U: Body<Data = Data>,
 {
-    pub(crate) fn new(decoder: T, inner: U, expect_trailers: bool) -> Self {
+    pub(crate) fn new(decoder: T, inner: U, direction: Direction) -> Self {
         Streaming {
             decoder,
             inner,
@@ -227,7 +237,7 @@ where T: Decoder,
                 bufs: VecDeque::new(),
             },
             state: State::ReadHeader,
-            expect_trailers,
+            direction,
         }
     }
 
@@ -312,10 +322,15 @@ where T: Decoder,
             }
         }
 
-        if self.expect_trailers {
+        if let Direction::Response(status_code) = self.direction {
             if let Some(trailers) = try_ready!(self.inner.poll_trailers()) {
-                grpc_status(trailers)?;
-                Ok(Async::Ready(None))
+                let status = infer_grpc_status(&trailers, Some(status_code))
+                    .ok_or(::Error::Protocol(ProtocolError::MissingTrailers))?;
+                if status.code() == ::Code::OK {
+                    Ok(Async::Ready(None))
+                } else {
+                    Err(::Error::Grpc(status, trailers))
+                }
             } else {
                 trace!("receive body ended without trailers");
                 Err(::Error::Protocol(ProtocolError::MissingTrailers))
@@ -428,18 +443,4 @@ impl Buf for BytesList {
 
 fn h2_err() -> h2::Error {
     unimplemented!("EncodingBody map_err")
-}
-
-fn grpc_status(mut trailers: HeaderMap) -> Result<(), ::Error> {
-    if let Some(status) = trailers.remove("grpc-status") {
-        let status = Status::from_bytes(status.as_ref());
-        if status.code() == ::Code::OK {
-            Ok(())
-        } else {
-            Err(::Error::Grpc(status, trailers))
-        }
-    } else {
-        trace!("trailers missing grpc-status");
-        Err(::Error::Protocol(ProtocolError::MissingTrailers))
-    }
 }
