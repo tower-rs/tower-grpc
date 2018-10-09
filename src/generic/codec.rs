@@ -13,11 +13,6 @@ use error::ProtocolError;
 
 /// Encodes and decodes gRPC message types
 pub trait Codec {
-    /// The content-type header for messages using this encoding.
-    ///
-    /// Should be `application/grpc+yourencoding`.
-    const CONTENT_TYPE: &'static str;
-
     /// The encode type
     type Encode;
 
@@ -41,6 +36,11 @@ pub trait Codec {
 pub trait Encoder {
     /// Type that is encoded
     type Item;
+
+    /// The content-type header for messages using this encoding.
+    ///
+    /// Should be `application/grpc+yourencoding`.
+    const CONTENT_TYPE: &'static str;
 
     /// Encode a message into the provided buffer.
     fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf) -> Result<(), ::Error>;
