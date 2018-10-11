@@ -48,9 +48,6 @@ impl<T, U> ::generic::Codec for Codec<T, U>
 where T: Message,
       U: Message + Default,
 {
-    /// Protocol buffer gRPC content type
-    const CONTENT_TYPE: &'static str = "application/grpc+proto";
-
     type Encode = T;
     type Encoder = Encoder<T>;
     type Decode = U;
@@ -85,6 +82,9 @@ impl<T> ::generic::Encoder for Encoder<T>
 where T: Message,
 {
     type Item = T;
+
+    /// Protocol buffer gRPC content type
+    const CONTENT_TYPE: &'static str = "application/grpc+proto";
 
     fn encode(&mut self, item: T, buf: &mut EncodeBuf) -> Result<(), ::Error> {
         let len = item.encoded_len();
