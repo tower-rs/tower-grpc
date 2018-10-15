@@ -4,7 +4,7 @@ use h2;
 use http::header::{HeaderMap, HeaderValue};
 use http::status::StatusCode;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Status {
     code: Code,
 }
@@ -155,10 +155,6 @@ impl Status {
     fn parse_err() -> Status {
         trace!("error parsing grpc-status");
         Status::UNKNOWN
-    }
-
-    pub fn is_ok(&self) -> bool {
-        *self == Status::OK
     }
 }
 
