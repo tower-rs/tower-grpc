@@ -3,6 +3,7 @@ use generic::{Encoder, Encode};
 
 use {http, h2};
 use futures::{Future, Stream, Poll, Async};
+use http::header;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
@@ -56,7 +57,13 @@ where T: Future<Item = Response<S>,
         let response = response.into_http();
 
         // Map the response body
-        let (head, body) = response.into_parts();
+        let (mut head, body) = response.into_parts();
+
+        // Set the content type
+        head.headers.insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static(E::CONTENT_TYPE),
+        );
 
         // Get the encoder
         let encoder = self.encoder.take().expect("encoder consumed");

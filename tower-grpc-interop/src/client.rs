@@ -581,7 +581,7 @@ impl Testcase {
                      currently support gRPC compression."
                 ),
 
-            _ => unimplemented!()
+            _ => unimplemented!("test case unimplemented: {}", *self)
         }
     }
 }

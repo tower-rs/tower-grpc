@@ -1,9 +1,12 @@
-use codec::Streaming;
+use codec::{Direction, Streaming};
 
 use futures::{Future, Poll};
 use http::Response;
 use prost::Message;
 use tower_h2::{Body, Data};
+
+use Code;
+use status::infer_grpc_status;
 
 use std::marker::PhantomData;
 
@@ -41,18 +44,26 @@ where T: Message + Default,
         // Get the response
         let response = try_ready!(response);
 
+        let status_code = response.status();
+
         // Destructure into the head / body
         let (head, body) = response.into_parts();
 
-        let trailers_only_status = super::check_grpc_status(&head.headers);
+        // Check the headers for `grpc-status`, in which case we should not parse the body.
+        let trailers_only_status = infer_grpc_status(&head.headers, None);
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
-            if !status.is_ok() {
+            if status.code() != Code::OK {
                 return Err(::Error::Grpc(status, head.headers));
             }
         }
 
-        let body = Streaming::new(Decoder::new(), body, expect_additional_trailers);
+        let streaming_direction = if expect_additional_trailers {
+            Direction::Response(status_code)
+        } else {
+            Direction::EmptyResponse
+        };
+        let body = Streaming::new(Decoder::new(), body, streaming_direction);
         let response = Response::from_parts(head, body);
 
         Ok(::Response::from_http(response).into())
