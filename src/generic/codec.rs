@@ -111,6 +111,10 @@ pub enum Direction {
     /// For responses, the received HTTP status code must be provided.
     /// We also expect to receive trailers after the streaming body.
     Response(StatusCode),
+    /// For streaming responses with zero response payloads, the HTTP
+    /// status is provided immediately. In this case no additional
+    /// trailers are expected.
+    EmptyResponse
 }
 
 #[derive(Debug)]

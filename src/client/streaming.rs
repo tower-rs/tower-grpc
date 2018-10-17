@@ -50,13 +50,20 @@ where T: Message + Default,
         let (head, body) = response.into_parts();
 
         // Check the headers for `grpc-status`, in which case we should not parse the body.
-        if let Some(status) = infer_grpc_status(&head.headers, None) {
+        let trailers_only_status = infer_grpc_status(&head.headers, None);
+        let expect_additional_trailers = trailers_only_status.is_none();
+        if let Some(status) = trailers_only_status {
             if status.code() != Code::OK {
                 return Err(::Error::Grpc(status, head.headers));
             }
         }
 
-        let body = Streaming::new(Decoder::new(), body, Direction::Response(status_code));
+        let streaming_direction = if expect_additional_trailers {
+            Direction::Response(status_code)
+        } else {
+            Direction::EmptyResponse
+        };
+        let body = Streaming::new(Decoder::new(), body, streaming_direction);
         let response = Response::from_parts(head, body);
 
         Ok(::Response::from_http(response).into())

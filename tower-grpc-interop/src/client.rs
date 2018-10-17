@@ -3,7 +3,7 @@ extern crate console;
 #[macro_use]
 extern crate clap;
 extern crate domain;
-extern crate env_logger;
+extern crate pretty_env_logger;
 extern crate http;
 extern crate futures;
 #[macro_use]
@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use http::header::HeaderValue;
 use http::uri::{self, Uri};
-use futures::{future, Future, stream};
+use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
 use tower_grpc::Request;
@@ -41,10 +41,20 @@ mod pb {
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
 }
 
+impl pb::ResponseParameters {
+    fn with_size(size: i32) -> Self {
+        pb::ResponseParameters {
+            size,
+            ..Default::default()
+        }
+    }
+}
 mod util;
 
 const LARGE_REQ_SIZE: usize = 271828;
 const LARGE_RSP_SIZE: i32 = 314159;
+const REQUEST_LENGTHS: &'static [i32] = &[27182, 8, 1828, 45904];
+const RESPONSE_LENGTHS: &'static [i32] = &[31415, 9, 2653, 58979];
 
 arg_enum!{
     #[derive(Debug, Copy, Clone)]
@@ -179,12 +189,348 @@ impl From<domain::resolv::error::Error> for DnsError {
 //     }
 // }
 
+fn response_length(response: &pb::StreamingOutputCallResponse) -> i32 {
+    match &response.payload {
+        Some(ref payload) => payload.body.len() as i32,
+        None => 0,
+    }
+}
+
+fn response_lengths(responses: &Vec<pb::StreamingOutputCallResponse>) -> Vec<i32> {
+    responses.iter().map(&response_length).collect()
+}
+
+/// Helper function that can be used with .then to assert that the RPC performed
+/// in a test was successful.
+fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
+        -> future::FutureResult<Vec<TestAssertion>, Box<Error>> {
+    let assertion = test_assert!(
+        "call must be successful",
+        result.is_ok(),
+        format!("result={:?}", result)
+    );
+    future::ok(if let Ok(mut assertions) = result {
+        assertions.push(assertion);
+        assertions
+    } else {
+        vec![assertion]
+    })
+}
+
+struct TestClient(
+    pb::client::TestService<tower_http::AddOrigin<
+        tower_h2::client::Connection<
+            tokio_core::net::TcpStream,
+            tokio_core::reactor::Handle,
+            tower_h2::BoxBody>>>
+);
+
+fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
+    let req_len = REQUEST_LENGTHS[idx];
+    let resp_len = RESPONSE_LENGTHS[idx];
+    pb::StreamingOutputCallRequest {
+        response_parameters: vec![
+            pb::ResponseParameters::with_size(resp_len)
+        ],
+        payload: Some(util::client_payload(req_len as usize)),
+        ..Default::default()
+    }
+}
+
+/// Contains the state that is threaded through the recursive "loop"
+/// of futures that performs the actual ping-pong with the server.
+struct PingPongState {
+    sender: futures::sync::mpsc::UnboundedSender<pb::StreamingOutputCallRequest>,
+    stream: Box<Stream<Item=pb::StreamingOutputCallResponse, Error=tower_grpc::Error>>,
+    responses: Vec<pb::StreamingOutputCallResponse>,
+    assertions: Vec<TestAssertion>,
+}
+
+type PingPongResponsesFuture = Box<Future<
+    Item=(Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>),
+    Error=Box<Error>>>;
+
+impl PingPongState {
+    /// Recursive function that takes the current PingPongState of the ping-pong
+    /// operation and performs the rest of it. It returns a future of
+    /// responses from the server and assertions that were performed in
+    /// the process.
+    fn perform_ping_pong(self) -> PingPongResponsesFuture {
+        let PingPongState { sender, stream, mut responses, mut assertions } = self;
+        Box::new(stream
+            .into_future()  // Take one element from the stream.
+            .map_err(|(err, _stream)| -> Box<Error> {
+                Box::new(err)
+            })
+            .and_then(|(resp, stream)| -> PingPongResponsesFuture {
+                if let Some(resp) = resp {
+                    responses.push(resp);
+                    if responses.len() == REQUEST_LENGTHS.len() {
+                        // Close the request stream. This tells the server that there
+                        // won't be any more requests.
+                        drop(sender);
+                        Box::new(stream
+                            .into_future()
+                            .map_err(|err| -> Box<Error> {
+                                Box::new(err.0)
+                            })
+                            .map(|(resp, _stream)| {
+                                assertions.push(test_assert!(
+                                    "server should close stream after client closes it.",
+                                    resp.is_none(),
+                                    format!("resp={:?}", resp)
+                                ));
+                                (responses, assertions)
+                            }))
+                    } else {
+                        sender.unbounded_send(
+                            make_ping_pong_request(responses.len())
+                        ).unwrap();
+                        PingPongState {
+                            sender,
+                            stream,
+                            responses,
+                            assertions,
+                        }.perform_ping_pong()
+                    }
+                } else {
+                    assertions.push(TestAssertion::Failed {
+                        description: "server should keep the stream open until the client closes it",
+                        expression: "Stream terminated unexpectedly early",
+                        why: None
+                    });
+                    Box::new(future::ok((responses, assertions)))
+                }
+            }))
+    }
+}
+
+impl TestClient {
+    fn empty_unary_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        use pb::Empty;
+        self.0.empty_call(Request::new(Empty {}))
+            .then(|result| {
+                let mut assertions = vec![
+                    test_assert!(
+                        "call must be successful",
+                        result.is_ok(),
+                        format!("result={:?}", result)
+                    )
+                ];
+                if let Ok(body) = result.map(|r| r.into_inner()) {
+                    assertions.push(test_assert!(
+                        "body must not be null",
+                        body == Empty{},
+                        format!("body={:?}", body)
+                    ))
+                }
+                future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+            })
+    }
+
+    fn large_unary_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        use std::mem;
+        let payload = util::client_payload(LARGE_REQ_SIZE);
+        let req = SimpleRequest {
+            response_type: pb::PayloadType::Compressable as i32,
+            response_size: LARGE_RSP_SIZE,
+            payload: Some(payload),
+            ..Default::default()
+        };
+        self.0.unary_call(Request::new(req))
+            .then(|result| {
+                let mut assertions = vec![
+                    test_assert!(
+                        "call must be successful",
+                        result.is_ok(),
+                        format!("result={:?}", result)
+                    )
+                ];
+                if let Ok(body) = result.map(|r| r.into_inner()) {
+                    let payload_len = body.payload.as_ref()
+                        .map(|p| p.body.len())
+                        .unwrap_or(0);
+
+                    assertions.push(test_assert!(
+                    "body must be 314159 bytes",
+                    payload_len == LARGE_RSP_SIZE as usize,
+                    format!("mem::size_of_val(&body)={:?}",
+                        mem::size_of_val(&body))
+                    ));
+                }
+                future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+            })
+    }
+
+    fn cacheable_unary_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        let payload = pb::Payload {
+            type_: pb::PayloadType::Compressable as i32,
+            body: format!("{:?}", std::time::Instant::now()).into_bytes(),
+        };
+        let req = SimpleRequest {
+            response_type: pb::PayloadType::Compressable as i32,
+            payload: Some(payload),
+            ..Default::default()
+        };
+        let mut req = Request::new(req);
+        req.headers_mut()
+            .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
+        // core.run(client.unary_call(req)
+        //     .then(|result| {
+        //         unimplemented!()
+        //     })
+        // )
+        unimplemented!();
+        // This line is just a hint for the type checker
+        future::ok::<Vec<TestAssertion>, Box<Error>>(vec![])
+    }
+
+    fn client_streaming_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        let requests = REQUEST_LENGTHS
+            .iter()
+            .map(|len| StreamingInputCallRequest {
+                payload: Some(util::client_payload(*len as usize)),
+                ..Default::default()
+            });
+        let stream = stream::iter_ok(requests);
+        self.0.streaming_input_call(Request::new(stream))
+            .then(|result| {
+                let mut assertions = vec![
+                    test_assert!(
+                        "call must be successful",
+                        result.is_ok(),
+                        format!("result={:?}", result)
+                    )
+                ];
+                if let Ok(response) = result.map(|r| r.into_inner()) {
+                    assertions.push(test_assert!(
+                    "aggregated payload size must be 74922 bytes",
+                    response.aggregated_payload_size == 74922,
+                    format!("aggregated_payload_size={:?}",
+                        response.aggregated_payload_size
+                    )));
+                }
+                future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+            })
+    }
+
+    fn server_streaming_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        use pb::ResponseParameters;
+        let req = pb::StreamingOutputCallRequest {
+            response_parameters: RESPONSE_LENGTHS.iter().map(|len| {
+                ResponseParameters::with_size(*len)
+            }).collect(),
+            ..Default::default()
+        };
+        let req = Request::new(req);
+        self.0.streaming_output_call(req)
+            .map_err(|tower_error| -> Box<Error> {
+                Box::new(tower_error)
+            })
+            .and_then(|response_stream| {
+                // Convert the stream into a plain Vec
+                response_stream.into_inner()
+                    .collect()
+                    .map_err(|tower_error| -> Box<Error> {
+                        Box::new(tower_error)
+                    })
+            })
+            .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                let actual_response_lengths = response_lengths(&responses);
+                vec![
+                    test_assert!(
+                        "there should be four responses",
+                        responses.len() == 4,
+                        format!("responses.len()={:?}", responses.len())
+                    ),
+                    test_assert!(
+                        "the response payload sizes should match input",
+                        RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                        format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
+                    ),
+                ]
+            })
+            .then(&assert_success)
+    }
+
+    fn ping_pong_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        let (sender, receiver) = futures::sync::mpsc::unbounded::<
+            pb::StreamingOutputCallRequest>();
+
+        // Kick off the initial ping; without this the server does not
+        // even start responding.
+        sender.unbounded_send(make_ping_pong_request(0)).unwrap();
+
+        self.0.full_duplex_call(Request::new(receiver
+                .map_err(|_error| panic!("Receiver stream should not error!"))))
+            .map_err(|tower_error| -> Box<Error> {
+                Box::new(tower_error)
+            })
+            .and_then(|response_stream| {
+                PingPongState {
+                    sender,
+                    stream: Box::new(response_stream.into_inner()),
+                    responses: vec![],
+                    assertions: vec![],
+                }.perform_ping_pong()
+            })
+            .map(|(responses, mut assertions)| {
+                let actual_response_lengths = response_lengths(&responses);
+                assertions.push(test_assert!(
+                    "there should be four responses",
+                    responses.len() == RESPONSE_LENGTHS.len(),
+                    format!("{:?}={:?}", responses.len(), RESPONSE_LENGTHS.len())
+                ));
+                assertions.push(test_assert!(
+                    "the response payload sizes should match input",
+                    RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                    format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
+                ));
+                assertions
+            })
+            .then(&assert_success)
+    }
+
+    fn empty_stream_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
+        self.0.full_duplex_call(Request::new(stream))
+            .map_err(|tower_error| -> Box<Error> {
+                Box::new(tower_error)
+            })
+            .and_then(|response_stream| {
+                // Convert the stream into a plain Vec
+                response_stream.into_inner()
+                    .collect()
+                    .map_err(|tower_error| -> Box<Error> {
+                        Box::new(tower_error)
+                    })
+            })
+            .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                vec![
+                    test_assert!(
+                        "there should be no responses",
+                        responses.len() == 0,
+                        format!("responses.len()={:?}", responses.len())
+                    ),
+                ]
+            })
+            .then(&assert_success)
+    }
+}
+
 impl Testcase {
     fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core)
            -> Result<Vec<TestAssertion>, Box<Error>> {
 
         let reactor = core.handle();
-        let mut client = core.run(
+        let mut client = TestClient(core.run(
             TcpStream::connect(&server.addr, &reactor)
                 .and_then(move |socket| {
                     // Bind the HTTP/2.0 connection
@@ -201,113 +547,23 @@ impl Testcase {
 
                     TestService::new(conn)
                 })
-        ).expect("client");
+        ).expect("client"));
 
         match *self {
-            Testcase::empty_unary => {
-                use pb::Empty;
-                core.run(client.empty_call(Request::new(Empty {}))
-                    .then(|result| {
-                        let mut assertions = vec![
-                            test_assert!(
-                                "call must be successful",
-                                result.is_ok(),
-                                format!("result={:?}", result)
-                            )
-                        ];
-                        if let Ok(body) = result.map(|r| r.into_inner()) {
-                            assertions.push(test_assert!(
-                                "body must not be null",
-                                body == Empty{},
-                                format!("body={:?}", body)
-                            ))
-                        }
-                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                    }))
-            },
-            Testcase::large_unary => {
-                use std::mem;
-                let payload = util::client_payload(LARGE_REQ_SIZE);
-                let req = SimpleRequest {
-                    response_type: pb::PayloadType::Compressable as i32,
-                    response_size: LARGE_RSP_SIZE,
-                    payload: Some(payload),
-                    ..Default::default()
-                };
-                core.run(client.unary_call(Request::new(req))
-                    .then(|result| {
-                    let mut assertions = vec![
-                            test_assert!(
-                                "call must be successful",
-                                result.is_ok(),
-                                format!("result={:?}", result)
-                            )
-                    ];
-                        if let Ok(body) = result.map(|r| r.into_inner()) {
-                            let payload_len = body.payload.as_ref()
-                                .map(|p| p.body.len())
-                                .unwrap_or(0);
-
-                            assertions.push(test_assert!(
-                            "body must be 314159 bytes",
-                            payload_len == LARGE_RSP_SIZE as usize,
-                            format!("mem::size_of_val(&body)={:?}",
-                                mem::size_of_val(&body))
-                            ));
-                        }
-                        future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                    }))
-            },
-            Testcase::cacheable_unary => {
-                let payload = pb::Payload {
-                    type_: pb::PayloadType::Compressable as i32,
-                    body: format!("{:?}", std::time::Instant::now()).into_bytes(),
-                };
-                let req = SimpleRequest {
-                    response_type: pb::PayloadType::Compressable as i32,
-                    payload: Some(payload),
-                    ..Default::default()
-                };
-                let mut req = Request::new(req);
-                req.headers_mut()
-                    .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
-                // core.run(client.unary_call(req)
-                //     .then(|result| {
-                //         unimplemented!()
-                //     })
-                // )
-                unimplemented!()
-            },
-            Testcase::client_streaming => {
-                let requests = vec![27182, 8, 1828, 45904]
-                    .into_iter()
-                    .map(|len| StreamingInputCallRequest {
-                        payload: Some(util::client_payload(len as usize)),
-                        ..Default::default()
-                    });
-                let stream = stream::iter_ok(requests);
-                core.run(
-                    client.streaming_input_call(Request::new(stream))
-                        .then(|result| {
-                            let mut assertions = vec![
-                                    test_assert!(
-                                        "call must be successful",
-                                        result.is_ok(),
-                                        format!("result={:?}", result)
-                                    )
-                            ];
-                            if let Ok(response) = result.map(|r| r.into_inner()) {
-                                assertions.push(test_assert!(
-                                "aggregated payload size must be 74922 bytes",
-                                response.aggregated_payload_size == 74922,
-                                format!("aggregated_payload_size={:?}",
-                                    response.aggregated_payload_size
-                                )));
-                            }
-                            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
-                        })
-                )
-            },
+            Testcase::empty_unary =>
+                core.run(client.empty_unary_test()),
+            Testcase::large_unary =>
+                core.run(client.large_unary_test()),
+            Testcase::cacheable_unary =>
+                core.run(client.cacheable_unary_test()),
+            Testcase::client_streaming =>
+                core.run(client.client_streaming_test()),
+            Testcase::server_streaming =>
+                core.run(client.server_streaming_test()),
+            Testcase::ping_pong =>
+                core.run(client.ping_pong_test()),
+            Testcase::empty_stream =>
+                core.run(client.empty_stream_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
@@ -325,10 +581,11 @@ impl Testcase {
                      currently support gRPC compression."
                 ),
 
-            _ => unimplemented!()
+            _ => unimplemented!("test case unimplemented: {}", *self)
         }
     }
 }
+#[derive(Debug)]
 enum TestAssertion {
     Passed { description: &'static str },
     Failed { description: &'static str,
@@ -450,7 +707,7 @@ impl ServerInfo {
 
 fn main() {
     use clap::{Arg, App};
-    let _ = ::env_logger::init();
+    let _ = ::pretty_env_logger::init();
 
     let matches =
         App::new("interop-client")

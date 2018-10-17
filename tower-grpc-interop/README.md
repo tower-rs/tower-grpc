@@ -13,10 +13,10 @@ Note that currently, only the interop test client is implemented. The `docker-co
 - [ ] ~`server_compressed_unary`~: requires gRPC compression, NYI
 - [x] `client_streaming`: implemented in client
 - [ ] ~`client_compressed_streaming`~: requires gRPC compression, NYI
-- [ ] `server_streaming`
+- [x] `server_streaming`
 - [ ] ~`server_compressed_streaming`~: requires gRPC compression, NYI
-- [ ] `ping_pong`
-- [ ] `empty_stream`
+- [x] `ping_pong`
+- [x] `empty_stream`
 - [ ] ~`compute_engine_creds`~ requires auth, NYI
 - [ ] ~`jwt_token_creds`~ requires auth, NYI
 - [ ] ~`oauth2_auth_token`~ requires auth, NYI
