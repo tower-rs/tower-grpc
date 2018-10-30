@@ -33,7 +33,7 @@ impl server::Doorman for Door {
         println!("REQUEST = {:?}", request);
 
         let metadata = request
-            .headers()
+            .metadata()
             .get("metadata")
             .and_then(|header| header.to_str().ok());
 

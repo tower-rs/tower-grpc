@@ -388,7 +388,7 @@ impl TestClients {
             ..Default::default()
         };
         let mut req = Request::new(req);
-        req.headers_mut()
+        req.metadata_mut()
             .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
         // core.run(client.unary_call(req)
         //     .then(|result| {

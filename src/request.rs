@@ -2,7 +2,7 @@ use http;
 
 #[derive(Debug)]
 pub struct Request<T> {
-    headers: http::HeaderMap,
+    metadata: http::HeaderMap,
     message: T,
 }
 
@@ -10,7 +10,7 @@ impl<T> Request<T> {
     /// Create a new gRPC request
     pub fn new(message: T) -> Self {
         Request {
-            headers: http::HeaderMap::new(),
+            metadata: http::HeaderMap::new(),
             message,
         }
     }
@@ -25,14 +25,14 @@ impl<T> Request<T> {
         &mut self.message
     }
 
-    /// Get a reference to the request headers.
-    pub fn headers(&self) -> &http::HeaderMap {
-        &self.headers
+    /// Get a reference to the custom request metadata.
+    pub fn metadata(&self) -> &http::HeaderMap {
+        &self.metadata
     }
 
-    /// Get a mutable reference to the request headers.
-    pub fn headers_mut(&mut self) -> &mut http::HeaderMap {
-        &mut self.headers
+    /// Get a mutable reference to the request metadata.
+    pub fn metadata_mut(&mut self) -> &mut http::HeaderMap {
+        &mut self.metadata
     }
 
     /// Consumes `self`, returning the message
@@ -44,7 +44,7 @@ impl<T> Request<T> {
     pub fn from_http(http: http::Request<T>) -> Self {
         let (head, message) = http.into_parts();
         Request {
-            headers: head.headers,
+            metadata: head.headers,
             message,
         }
     }
@@ -55,7 +55,7 @@ impl<T> Request<T> {
         *request.version_mut() = http::Version::HTTP_2;
         *request.method_mut() = http::Method::POST;
         *request.uri_mut() = uri;
-        *request.headers_mut() = self.headers;
+        *request.headers_mut() = self.metadata;
 
         request
     }
@@ -66,7 +66,7 @@ impl<T> Request<T> {
         let message = f(self.message);
 
         Request {
-            headers: self.headers,
+            metadata: self.metadata,
             message,
         }
     }
