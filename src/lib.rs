@@ -18,6 +18,9 @@ pub mod client;
 pub mod generic;
 
 mod error;
+mod metadata_key;
+mod metadata_value;
+mod metadata_map;
 mod request;
 mod response;
 mod status;
@@ -26,6 +29,26 @@ pub use error::{Error, ProtocolError};
 pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
+
+pub mod metadata {
+    pub use metadata_key::MetadataKey;
+    pub use metadata_key::InvalidMetadataKey;
+    pub use metadata_value::MetadataValue;
+    pub use metadata_value::InvalidMetadataValue;
+    pub use metadata_value::InvalidMetadataValueBytes;
+    pub use metadata_value::ToStrError;
+    pub use metadata_map::MetadataMap;
+    pub use metadata_map::Iter;
+    pub use metadata_map::ValueDrain;
+    pub use metadata_map::Drain;
+    pub use metadata_map::Keys;
+    pub use metadata_map::Values;
+    pub use metadata_map::ValueIter;
+    pub use metadata_map::GetAll;
+    pub use metadata_map::Entry;
+    pub use metadata_map::VacantEntry;
+    pub use metadata_map::OccupiedEntry;
+}
 
 #[cfg(feature = "protobuf")]
 pub mod server;
