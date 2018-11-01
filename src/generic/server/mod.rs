@@ -16,10 +16,7 @@ use tower_service::Service;
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
-pub trait StreamingService<RequestStream>
-where
-    RequestStream: Stream<Error = ::Error>,
-{
+pub trait StreamingService<RequestStream> {
     /// Protobuf response message type
     type Response;
 
@@ -83,10 +80,7 @@ where T: Service<Request<M1>,
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait ClientStreamingService<RequestStream>
-where
-    RequestStream: Stream<Error = ::Error>,
-{
+pub trait ClientStreamingService<RequestStream> {
     /// Protobuf response message type
     type Response;
 
