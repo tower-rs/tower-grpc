@@ -62,7 +62,6 @@ impl ServiceGenerator {
         let imp = scope.new_impl(&service.name)
             .generic("T")
             .target_generic("T")
-            .bound("T", "tower_h2::HttpService")
             ;
 
         imp.new_fn("new")
@@ -74,6 +73,8 @@ impl ServiceGenerator {
             ;
 
         imp.new_fn("poll_ready")
+            .generic("R")
+            .bound("T", "tower_h2::HttpService<R>")
             .vis("pub")
             .arg_mut_self()
             .ret("futures::Poll<(), grpc::Error<T::Error>>")
@@ -88,6 +89,8 @@ impl ServiceGenerator {
 
             let func = imp.new_fn(&name)
                 .vis("pub")
+                .generic("R")
+                .bound("T", "tower_h2::HttpService<R>")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
                 ;
@@ -152,7 +155,7 @@ impl ServiceGenerator {
             };
 
             func.arg("request", request)
-                .bound(&req_body, "grpc::Encodable<T::RequestBody>");
+                .bound(&req_body, "grpc::Encodable<R>");
         }
     }
 }

@@ -10,30 +10,32 @@ use tower_h2::{Body, Data};
 
 use std::fmt;
 
-pub struct ResponseFuture<T, B>
-where T: UnaryService,
-      T::Request: prost::Message + Default,
+pub struct ResponseFuture<T, B, R>
+where T: UnaryService<R>,
+      R: prost::Message + Default,
       T::Response: prost::Message,
+      B: Body<Data = Data>,
 {
-    inner: Inner<T, T::Response, T::Request, B>,
+    inner: Inner<T, T::Response, R, B>,
 }
 
 type Inner<T, U, V, B> =
     unary::ResponseFuture<T, Encoder<U>, Streaming<Decoder<V>, B>>;
 
-impl<T, B> ResponseFuture<T, B>
-where T: UnaryService,
-      T::Request: prost::Message + Default,
+impl<T, B, R> ResponseFuture<T, B, R>
+where T: UnaryService<R>,
+      R: prost::Message + Default,
       T::Response: prost::Message,
+      B: Body<Data = Data>,
 {
-    pub(crate) fn new(inner: Inner<T, T::Response, T::Request, B>) -> Self {
+    pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
     }
 }
 
-impl<T, B> Future for ResponseFuture<T, B>
-where T: UnaryService,
-      T::Request: prost::Message + Default,
+impl<T, B, R> Future for ResponseFuture<T, B, R>
+where T: UnaryService<R>,
+      R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body<Data = Data>,
 {
@@ -48,12 +50,12 @@ where T: UnaryService,
     }
 }
 
-impl<T, B> fmt::Debug for ResponseFuture<T, B>
-where T: UnaryService + fmt::Debug,
-      T::Request: prost::Message + Default + fmt::Debug,
+impl<T, B, R> fmt::Debug for ResponseFuture<T, B, R>
+where T: UnaryService<R> + fmt::Debug,
+      R: prost::Message + Default + fmt::Debug,
       T::Response: prost::Message + fmt::Debug,
       T::Future: fmt::Debug,
-      B: fmt::Debug,
+      B: Body<Data = Data> + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")

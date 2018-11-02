@@ -24,7 +24,7 @@ where T: Codec,
                        service: S,
                        request: http::Request<B>)
         -> unary::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
-    where S: UnaryService<Request = T::Decode,
+    where S: UnaryService<T::Decode,
                          Response = T::Encode>,
           B: Body<Data = Data>,
     {
@@ -36,8 +36,7 @@ where T: Codec,
                                service: &mut S,
                                request: http::Request<B>)
         -> client_streaming::ResponseFuture<S::Future, T::Encoder>
-    where S: ClientStreamingService<Request = T::Decode,
-                              RequestStream = Streaming<T::Decoder, B>,
+    where S: ClientStreamingService<Streaming<T::Decoder, B>,
                                    Response = T::Encode>,
           B: Body<Data = Data>,
     {
@@ -49,7 +48,7 @@ where T: Codec,
                                   service: S,
                                   request: http::Request<B>)
         -> server_streaming::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
-    where S: ServerStreamingService<Request = T::Decode,
+    where S: ServerStreamingService<T::Decode,
                                    Response = T::Encode>,
           B: Body<Data = Data>,
     {
@@ -61,9 +60,8 @@ where T: Codec,
                            service: &mut S,
                            request: http::Request<B>)
         -> streaming::ResponseFuture<S::Future, T::Encoder>
-    where S: StreamingService<Request = T::Decode,
-                        RequestStream = Streaming<T::Decoder, B>,
-                             Response = T::Encode>,
+    where S: StreamingService<Streaming<T::Decoder, B>,
+                              Response = T::Encode>,
           B: Body<Data = Data>,
     {
         let response = service.call(self.map_request(request));

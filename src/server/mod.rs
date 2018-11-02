@@ -18,11 +18,11 @@ pub struct Grpc {
 // ===== impl Grpc =====
 
 impl Grpc {
-    pub fn unary<T, B>(service: T,
+    pub fn unary<T, B, R>(service: T,
                        request: http::Request<B>)
-        -> unary::ResponseFuture<T, B>
-    where T: UnaryService,
-          T::Request: prost::Message + Default,
+        -> unary::ResponseFuture<T, B, R>
+    where T: UnaryService<R>,
+          R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
     {
@@ -35,9 +35,9 @@ impl Grpc {
 
     pub fn client_streaming<T, R, B>(service: &mut T,
                                      request: http::Request<B>)
-        -> client_streaming::ResponseFuture<T>
-    where T: ClientStreamingService<Request = R, RequestStream = Streaming<R, B>>,
-          T::Request: prost::Message + Default,
+        -> client_streaming::ResponseFuture<T, Streaming<R, B>>
+    where T: ClientStreamingService<Streaming<R, B>>,
+          R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
     {
@@ -48,11 +48,11 @@ impl Grpc {
         client_streaming::ResponseFuture::new(inner)
     }
 
-    pub fn server_streaming<T, B>(service: T,
+    pub fn server_streaming<T, B, R>(service: T,
                                   request: http::Request<B>)
-        -> server_streaming::ResponseFuture<T, B>
-    where T: ServerStreamingService,
-          T::Request: prost::Message + Default,
+        -> server_streaming::ResponseFuture<T, B, R>
+    where T: ServerStreamingService<R>,
+          R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
     {
@@ -65,9 +65,9 @@ impl Grpc {
 
     pub fn streaming<T, R, B>(service: &mut T,
                               request: http::Request<B>)
-        -> streaming::ResponseFuture<T>
-    where T: StreamingService<Request = R, RequestStream = Streaming<R, B>>,
-          T::Request: prost::Message + Default,
+        -> streaming::ResponseFuture<T, Streaming<R, B>>
+    where T: StreamingService<Streaming<R, B>>,
+          R: prost::Message + Default,
           T::Response: prost::Message,
           B: Body<Data = Data>,
     {

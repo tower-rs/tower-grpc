@@ -7,29 +7,32 @@ use {h2, http, prost};
 use futures::{Future, Poll};
 use tower_h2::{Body, Data};
 
-pub struct ResponseFuture<T, B>
-where T: ServerStreamingService
+pub struct ResponseFuture<T, B, R>
+where
+    T: ServerStreamingService<R>,
+    B: Body<Data = Data>,
+    R: prost::Message + Default,
 {
-    inner: Inner<T, T::Response, T::Request, B>,
+    inner: Inner<T, T::Response, R, B>,
 }
 
 type Inner<T, U, V, B> =
     server_streaming::ResponseFuture<T, Encoder<U>, Streaming<V, B>>;
 
-impl<T, B> ResponseFuture<T, B>
-where T: ServerStreamingService,
-      T::Request: prost::Message + Default,
+impl<T, B, R> ResponseFuture<T, B, R>
+where T: ServerStreamingService<R>,
+      R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body<Data = Data>,
 {
-    pub(crate) fn new(inner: Inner<T, T::Response, T::Request, B>) -> Self {
+    pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
     }
 }
 
-impl<T, B> Future for ResponseFuture<T, B>
-where T: ServerStreamingService,
-      T::Request: prost::Message + Default,
+impl<T, B, R> Future for ResponseFuture<T, B, R>
+where T: ServerStreamingService<R>,
+      R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body<Data = Data>,
 {
@@ -44,13 +47,13 @@ where T: ServerStreamingService,
     }
 }
 
-impl<T, B> fmt::Debug for ResponseFuture<T, B>
-where T: ServerStreamingService + fmt::Debug,
-      T::Request: fmt::Debug,
+impl<T, B, R> fmt::Debug for ResponseFuture<T, B, R>
+where T: ServerStreamingService<R> + fmt::Debug,
       T::Response: fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
-      B: fmt::Debug,
+      B: Body<Data = Data> + fmt::Debug,
+      R: prost::Message + Default,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")

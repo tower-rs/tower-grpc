@@ -167,11 +167,10 @@ macro_rules! try_ready {
 
         // Implement service trait
         let mut service_impl = codegen::Impl::new(&name);
-        service_impl.impl_trait("tower::Service")
+        service_impl.impl_trait("tower::Service<http::Request<tower_h2::RecvBody>>")
             .generic("T")
             .target_generic("T")
             .bound("T", &service.name)
-            .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
             .associate_type("Future", &format!("{}::ResponseFuture<T>", lower_name))
@@ -186,7 +185,7 @@ macro_rules! try_ready {
         {
             let call = service_impl.new_fn("call")
                 .arg_mut_self()
-                .arg("request", "Self::Request")
+                .arg("request", "http::Request<tower_h2::RecvBody>")
                 .ret("Self::Future")
                 .line(&format!("use self::{}::Kind::*;", lower_name))
                 .line("")
@@ -256,9 +255,8 @@ macro_rules! try_ready {
         scope.new_impl(&name)
             .generic("T")
             .target_generic("T")
-            .impl_trait("tower::NewService")
+            .impl_trait("tower::NewService<http::Request<tower_h2::RecvBody>>")
             .bound("T", &service.name)
-            .associate_type("Request", "http::Request<tower_h2::RecvBody>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
             .associate_type("Service", "Self")
@@ -337,6 +335,13 @@ macro_rules! try_ready {
                             service: &prost_build::Service,
                             module: &mut codegen::Module)
     {
+        for method in &service.methods {
+            if !::is_imported_type(&method.input_type) {
+                let (path, thing) = ::super_import(&method.input_type, 2);
+                module.import(&path, &thing);
+            }
+        }
+
         let mut ty = codegen::Type::new("Result");
         ty.generic(response_body_kind(service));
         ty.generic("grpc::Status");
@@ -453,10 +458,9 @@ macro_rules! try_ready {
             .generic("T")
             .tuple_field("pub T")
             ;
-
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");
-        let request_stream = format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, 3));
+        let request_stream = streaming_input_type(&method, 3);
         let response_stream = format!("T::{}Stream", &upper_name);
 
         match (method.client_streaming, method.server_streaming) {
@@ -478,12 +482,14 @@ macro_rules! try_ready {
             }
         }
 
+        let mut req_str = String::new();
+        request.fmt(&mut codegen::Formatter::new(&mut req_str)).unwrap();
+
         let imp = module.new_impl(&upper_name)
             .generic("T")
             .target_generic("T")
-            .impl_trait("tower::Service")
+            .impl_trait(format!("tower::Service<{}>", req_str))
             .bound("T", &service.name)
-            .associate_type("Request", request)
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Error")
             .associate_type("Future", &format!("T::{}Future", &upper_name))
@@ -497,7 +503,7 @@ macro_rules! try_ready {
 
         imp.new_fn("call")
             .arg_mut_self()
-            .arg("request", "Self::Request")
+            .arg("request", &req_str)
             .ret("Self::Future")
             .line(&format!("self.0.{}(request)", method.name))
             ;
@@ -519,23 +525,24 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
     // grpc::unary::ResponseFuture<methods::SayHello<T>, tower_h2::RecvBody>
     for method in &service.methods {
         let upper_name = ::to_upper_camel(&method.proto_name);
-
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                write!(&mut ret, "    grpc::unary::ResponseFuture<methods::{}<T>, tower_h2::RecvBody>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::unary::ResponseFuture<methods::{}<T>, tower_h2::RecvBody, {}>,\n",
+                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (false, true) => {
-                write!(&mut ret, "    grpc::server_streaming::ResponseFuture<methods::{}<T>, tower_h2::RecvBody>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::server_streaming::ResponseFuture<methods::{}<T>, tower_h2::RecvBody, {}>,\n",
+                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (true, false) => {
-                write!(&mut ret, "    grpc::client_streaming::ResponseFuture<methods::{}<T>>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::client_streaming::ResponseFuture<methods::{}<T>, {}>,\n",
+                                 &upper_name, streaming_input_type(&method, 2)).unwrap();
             }
             (true, true) => {
-                write!(&mut ret, "    grpc::streaming::ResponseFuture<methods::{}<T>>,\n",
-                                 &upper_name).unwrap();
+                let mut request = codegen::Type::new("grpc::Streaming");
+                request.generic(::unqualified(&method.input_type, 2));
+                write!(&mut ret, "    grpc::streaming::ResponseFuture<methods::{}<T>, {}>,\n",
+                                 &upper_name, streaming_input_type(&method, 2)).unwrap();
             }
         }
     }
@@ -560,24 +567,30 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::UnaryService>::Response>>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::UnaryService<{}>>::Response>>,\n",
+                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (false, true) => {
-                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::ServerStreamingService>::ResponseStream>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::ServerStreamingService<{}>>::ResponseStream>,\n",
+                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
             }
             (true, false) => {
-                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService>::Response>>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}>>::Response>>,\n",
+                                 &upper_name, streaming_input_type(&method, 2)
+                            ).unwrap();
             }
             (true, true) => {
-                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService>::ResponseStream>,\n",
-                                 &upper_name).unwrap();
+                write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::StreamingService<{}>>::ResponseStream>,\n",
+                                 &upper_name, streaming_input_type(&method, 2)
+                            ).unwrap();
             }
         }
     }
 
     ret.push_str(">");
     ret
+}
+
+fn streaming_input_type(method: &prost_build::Method, level: usize) -> String {
+    format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, level))
 }

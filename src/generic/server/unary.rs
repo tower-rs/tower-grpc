@@ -10,7 +10,9 @@ use tower_service::Service;
 use std::fmt;
 
 pub struct ResponseFuture<T, E, S>
-where T: UnaryService,
+where
+    T: UnaryService<S::Item>,
+    S: Stream,
 {
     inner: server_streaming::ResponseFuture<Inner<T>, E, S>,
 }
@@ -31,7 +33,7 @@ struct InnerFuture<T>(T);
 // ===== impl ResponseFuture ======
 
 impl<T, E, S> ResponseFuture<T, E, S>
-where T: UnaryService<Request = S::Item, Response = E::Item>,
+where T: UnaryService<S::Item, Response = E::Item>,
       E: Encoder,
       S: Stream<Error = ::Error>,
 {
@@ -42,7 +44,7 @@ where T: UnaryService<Request = S::Item, Response = E::Item>,
 }
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
-where T: UnaryService<Request = S::Item, Response = E::Item>,
+where T: UnaryService<S::Item, Response = E::Item>,
       E: Encoder,
       S: Stream<Error = ::Error>,
 {
@@ -56,10 +58,9 @@ where T: UnaryService<Request = S::Item, Response = E::Item>,
 
 // ===== impl Inner =====
 
-impl<T> Service for Inner<T>
-where T: UnaryService,
+impl<T, R> Service<Request<R>> for Inner<T>
+where T: UnaryService<R>,
 {
-    type Request = Request<T::Request>;
     type Response = Response<Once<T::Response>>;
     type Error = ::Error;
     type Future = InnerFuture<T::Future>;
@@ -68,7 +69,7 @@ where T: UnaryService,
         Ok(().into())
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request<R>) -> Self::Future {
         let inner = self.0.call(request);
         InnerFuture(inner)
     }
@@ -114,12 +115,11 @@ impl<T> Stream for Once<T> {
 }
 
 impl<T, E, S> fmt::Debug for ResponseFuture<T, E, S>
-where T: UnaryService + fmt::Debug,
-      T::Request: fmt::Debug,
+where T: UnaryService<S::Item> + fmt::Debug,
       T::Response: fmt::Debug,
       T::Future: fmt::Debug,
       E: fmt::Debug,
-      S: fmt::Debug,
+      S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")

@@ -23,24 +23,25 @@ pub trait Encodable<T> {
 
 // ===== impl Grpc =====
 
-impl<T> Grpc<T>
-where T: HttpService,
-{
+impl<T> Grpc<T> {
     /// Create a new `Grpc` instance backed by the given HTTP service.
     pub fn new(inner: T) -> Self {
         Grpc { inner }
     }
 
-    pub fn poll_ready(&mut self) -> Poll<(), ::Error<T::Error>> {
+    pub fn poll_ready<R>(&mut self) -> Poll<(), ::Error<T::Error>>
+    where T: HttpService<R> {
         self.inner.poll_ready()
             .map_err(::Error::Inner)
     }
 
-    pub fn unary<M1, M2>(&mut self,
+    pub fn unary<M1, M2, R>(&mut self,
                          request: ::Request<M1>,
                          path: uri::PathAndQuery)
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
-    where unary::Once<M1>: Encodable<T::RequestBody>,
+    where
+        T: HttpService<R>,
+        unary::Once<M1>: Encodable<R>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.client_streaming(request, path);
@@ -48,21 +49,25 @@ where T: HttpService,
         unary::ResponseFuture::new(response)
     }
 
-    pub fn client_streaming<B, M>(&mut self,
+    pub fn client_streaming<B, M, R>(&mut self,
                                   request: ::Request<B>,
                                   path: uri::PathAndQuery)
         -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
-    where B: Encodable<T::RequestBody>,
+    where
+        T: HttpService<R>,
+        B: Encodable<R>,
     {
         let response = self.streaming(request, path);
         client_streaming::ResponseFuture::new(response)
     }
 
-    pub fn server_streaming<M1, M2>(&mut self,
+    pub fn server_streaming<M1, M2, R>(&mut self,
                                     request: ::Request<M1>,
                                     path: uri::PathAndQuery)
         -> server_streaming::ResponseFuture<M2, T::Future>
-    where unary::Once<M1>: Encodable<T::RequestBody>,
+    where
+        T: HttpService<R>,
+        unary::Once<M1>: Encodable<R>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
         let response = self.streaming(request, path);
@@ -76,11 +81,14 @@ where T: HttpService,
     ///
     /// **B**: The request stream of gRPC message values.
     /// **M**: The response **message** (not stream) type.
-    pub fn streaming<B, M>(&mut self,
+    /// **R**: The type of the request body.
+    pub fn streaming<B, M, R>(&mut self,
                            request: ::Request<B>,
                            path: uri::PathAndQuery)
         -> streaming::ResponseFuture<M, T::Future>
-    where B: Encodable<T::RequestBody>,
+    where
+        T: HttpService<R>,
+        B: Encodable<R>,
     {
         use http::header::{self, HeaderValue};
 
