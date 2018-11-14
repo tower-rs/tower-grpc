@@ -1,16 +1,17 @@
+use Body;
 use codec::{Encode, Encoder, Streaming};
 use generic::server::{ServerStreamingService, server_streaming};
 
 use std::fmt;
 
+use bytes::IntoBuf;
 use {h2, http, prost};
 use futures::{Future, Poll};
-use tower_h2::{Body, Data};
 
 pub struct ResponseFuture<T, B, R>
 where
     T: ServerStreamingService<R>,
-    B: Body<Data = Data>,
+    B: Body,
     R: prost::Message + Default,
 {
     inner: Inner<T, T::Response, R, B>,
@@ -23,7 +24,7 @@ impl<T, B, R> ResponseFuture<T, B, R>
 where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
-      B: Body<Data = Data>,
+      B: Body,
 {
     pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
@@ -34,7 +35,7 @@ impl<T, B, R> Future for ResponseFuture<T, B, R>
 where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
-      B: Body<Data = Data>,
+      B: Body,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
     type Error = h2::Error;
@@ -52,7 +53,8 @@ where T: ServerStreamingService<R> + fmt::Debug,
       T::Response: fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
-      B: Body<Data = Data> + fmt::Debug,
+      B: Body + fmt::Debug,
+      <B::Data as IntoBuf>::Buf: fmt::Debug,
       R: prost::Message + Default,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

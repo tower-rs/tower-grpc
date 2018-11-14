@@ -48,6 +48,3 @@ serde_derive = "1.0"
 
 [build-dependencies]
 tower-grpc-build = { path = "../tower-grpc-build" }
-
-[patch.crates-io]
-http = { git = "http://github.com/hyperium/http", rev = "5f362a32278891672f428d570d46387fe6896a5d" }

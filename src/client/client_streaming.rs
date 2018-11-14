@@ -1,19 +1,20 @@
+use Body;
 use super::streaming;
-use codec::Streaming;
+use codec::{Streaming};
 
+use std::fmt;
+
+use bytes::IntoBuf;
 use futures::{Future, Stream, Poll};
 use http::{response, Response};
 use prost::Message;
-use tower_h2::{Body, Data};
 use error::ProtocolError;
 
-#[derive(Debug)]
-pub struct ResponseFuture<T, U, B> {
+pub struct ResponseFuture<T, U, B: Body> {
     state: State<T, U, B>,
 }
 
-#[derive(Debug)]
-enum State<T, U, B> {
+enum State<T, U, B: Body> {
     WaitResponse(streaming::ResponseFuture<T, U>),
     WaitMessage {
         head: Option<response::Parts>,
@@ -21,7 +22,7 @@ enum State<T, U, B> {
     },
 }
 
-impl<T, U, B> ResponseFuture<T, U, B> {
+impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
     pub(crate) fn new(inner: streaming::ResponseFuture<T, U>) -> Self {
         let state = State::WaitResponse(inner);
@@ -32,7 +33,7 @@ impl<T, U, B> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      B: Body<Data = Data>,
+      B: Body,
 {
     type Item = ::Response<T>;
     type Error = ::Error<U::Error>;
@@ -74,6 +75,40 @@ where T: Message + Default,
                 head: Some(head),
                 stream: body,
             };
+        }
+    }
+}
+
+impl<T, U, B> fmt::Debug for ResponseFuture<T, U, B>
+where
+    T: fmt::Debug,
+    U: fmt::Debug,
+    B: Body + fmt::Debug,
+    <B::Data as IntoBuf>::Buf: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ResponseFuture")
+            .field("state", &self.state)
+            .finish()
+    }
+}
+
+impl<T, U, B> fmt::Debug for State<T, U, B>
+where
+    T: fmt::Debug,
+    U: fmt::Debug,
+    B: Body + fmt::Debug,
+    <B::Data as IntoBuf>::Buf: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            State::WaitResponse(ref future) => f.debug_tuple("WaitResponse")
+                .field(future)
+                .finish(),
+            State::WaitMessage { ref head, ref stream } => f.debug_struct("WaitMessage")
+                .field("head", head)
+                .field("stream", stream)
+                .finish(),
         }
     }
 }

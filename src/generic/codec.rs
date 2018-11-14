@@ -1,12 +1,11 @@
-use Status;
+use {Body, Status};
 
-use bytes::{Buf, BufMut, BytesMut, Bytes};
+use bytes::{Buf, BufMut, BytesMut, Bytes, IntoBuf};
 use futures::{Stream, Poll, Async};
-use h2;
 use http::{HeaderMap, StatusCode};
-use tower_h2::{self, Body, Data};
 
 use std::collections::VecDeque;
+use std::fmt;
 
 use status::infer_grpc_status;
 use error::ProtocolError;
@@ -86,16 +85,15 @@ enum EncodeInner<T, U> {
 
 /// An stream of inbound gRPC messages
 #[must_use = "futures do nothing unless polled"]
-#[derive(Debug)]
-pub struct Streaming<T, U = tower_h2::RecvBody> {
+pub struct Streaming<T, B: Body> {
     /// The decoder
     decoder: T,
 
     /// The source of encoded messages
-    inner: U,
+    inner: B,
 
     /// buffer
-    bufs: BytesList,
+    bufs: BufList<<B::Data as IntoBuf>::Buf>,
 
     /// Decoding state
     state: State,
@@ -134,15 +132,14 @@ pub struct EncodeBuf<'a> {
 }
 
 /// A buffer to decode messages from.
-#[derive(Debug)]
 pub struct DecodeBuf<'a> {
-    bufs: &'a mut BytesList,
+    bufs: &'a mut Buf,
     len: usize,
 }
 
 #[derive(Debug)]
-pub struct BytesList {
-    bufs: VecDeque<Bytes>,
+pub struct BufList<B> {
+    bufs: VecDeque<B>,
 }
 
 // ===== impl Encode =====
@@ -168,7 +165,7 @@ where T: Encoder<Item = U::Item>,
     }
 }
 
-impl<T, U> tower_h2::Body for Encode<T, U>
+impl<T, U> Body for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
 {
@@ -178,17 +175,17 @@ where T: Encoder<Item = U::Item>,
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, h2::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
         match self.inner {
             EncodeInner::Ok { ref mut inner, ref mut encoder } => {
-                let item = try_ready!(inner.poll().map_err(|_| h2_err()));
+                let item = try_ready!(inner.poll().map_err(|_| ::Error::Inner(())));
 
                 if let Some(item) = item {
                     self.buf.reserve(5);
                     unsafe { self.buf.advance_mut(5); }
                     encoder.encode(item, &mut EncodeBuf {
                         bytes: &mut self.buf,
-                    }).map_err(|_| h2_err())?;
+                    })?;
 
                     // now that we know length, we can write the header
                     let len = self.buf.len() - 5;
@@ -208,7 +205,7 @@ where T: Encoder<Item = U::Item>,
         }
     }
 
-    fn poll_trailers(&mut self) -> Poll<Option<HeaderMap>, h2::Error> {
+    fn poll_metadata(&mut self) -> Poll<Option<HeaderMap>, ::Error> {
         if !self.return_trailers {
             return Ok(Async::Ready(None));
         }
@@ -227,17 +224,39 @@ where T: Encoder<Item = U::Item>,
     }
 }
 
+#[cfg(feature = "tower-h2")]
+impl<T, U> ::tower_h2::Body for Encode<T, U>
+where T: Encoder<Item = U::Item>,
+      U: Stream,
+{
+    type Data = ::bytes::Bytes;
+
+    fn is_end_stream(&self) -> bool {
+        Body::is_end_stream(self)
+    }
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
+        Body::poll_data(self)
+            .map_err(From::from)
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, ::h2::Error> {
+        Body::poll_metadata(self)
+            .map_err(From::from)
+    }
+}
+
 // ===== impl Streaming =====
 
 impl<T, U> Streaming<T, U>
 where T: Decoder,
-      U: Body<Data = Data>,
+      U: Body,
 {
     pub(crate) fn new(decoder: T, inner: U, direction: Direction) -> Self {
         Streaming {
             decoder,
             inner,
-            bufs: BytesList {
+            bufs: BufList {
                 bufs: VecDeque::new(),
             },
             state: State::ReadHeader,
@@ -295,7 +314,7 @@ where T: Decoder,
 
 impl<T, U> Stream for Streaming<T, U>
 where T: Decoder,
-      U: Body<Data = Data>,
+      U: Body,
 {
     type Item = T::Item;
     type Error = ::Error;
@@ -314,7 +333,7 @@ where T: Decoder,
             let chunk = try_ready!(self.inner.poll_data());
 
             if let Some(data) = chunk {
-                self.bufs.bufs.push_back(data.into());
+                self.bufs.bufs.push_back(data.into_buf());
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
@@ -327,7 +346,7 @@ where T: Decoder,
         }
 
         if let Direction::Response(status_code) = self.direction {
-            if let Some(trailers) = try_ready!(self.inner.poll_trailers()) {
+            if let Some(trailers) = try_ready!(self.inner.poll_metadata()) {
                 let status = infer_grpc_status(&trailers, Some(status_code))
                     .ok_or(::Error::Protocol(ProtocolError::MissingTrailers))?;
                 if status.code() == ::Code::OK {
@@ -342,6 +361,18 @@ where T: Decoder,
         } else {
             Ok(Async::Ready(None))
         }
+    }
+}
+
+impl<T, B> fmt::Debug for Streaming<T, B>
+where
+    T: fmt::Debug,
+    B: Body + fmt::Debug,
+    <B::Data as IntoBuf>::Buf: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Streaming")
+            .finish()
     }
 }
 
@@ -398,6 +429,13 @@ impl<'a> Buf for DecodeBuf<'a> {
     }
 }
 
+impl<'a> fmt::Debug for DecodeBuf<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("DecodeBuf")
+            .finish()
+    }
+}
+
 impl<'a> Drop for DecodeBuf<'a> {
     fn drop(&mut self) {
         if self.len > 0 {
@@ -407,13 +445,13 @@ impl<'a> Drop for DecodeBuf<'a> {
     }
 }
 
-// ===== impl BytesList =====
+// ===== impl BufList =====
 
-impl Buf for BytesList {
+impl<T: Buf> Buf for BufList<T> {
     #[inline]
     fn remaining(&self) -> usize {
         self.bufs.iter()
-            .map(|buf| buf.len())
+            .map(|buf| buf.remaining())
             .sum()
     }
 
@@ -422,7 +460,7 @@ impl Buf for BytesList {
         if self.bufs.is_empty() {
             &[]
         } else {
-            &self.bufs[0][..]
+            self.bufs[0].bytes()
         }
     }
 
@@ -431,11 +469,11 @@ impl Buf for BytesList {
         while cnt > 0 {
             {
                 let front = &mut self.bufs[0];
-                if front.len() > cnt {
+                if front.remaining() > cnt {
                     front.advance(cnt);
                     return;
                 } else {
-                    cnt -= front.len();
+                    cnt -= front.remaining();
                 }
             }
             self.bufs.pop_front();
@@ -443,8 +481,3 @@ impl Buf for BytesList {
     }
 }
 
-// ===== impl utils =====
-
-fn h2_err() -> h2::Error {
-    unimplemented!("EncodingBody map_err")
-}

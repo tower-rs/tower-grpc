@@ -24,8 +24,22 @@ pub enum ProtocolError {
 impl<T> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Grpc(ref _status, ref _header_map) =>
-                f.pad("gRPC error"),
+            Error::Grpc(ref status, ref headers) => {
+                let msg = headers
+                    .get("grpc-message")
+                    .and_then(|val| val.to_str().ok());
+
+                if let Some(msg) = msg {
+                    write!(
+                        f,
+                        "grpc-status: {:?}, grpc-message: {:?}",
+                        status.code(),
+                        msg
+                    )
+                } else {
+                    write!(f, "grpc-status: {:?}", status.code())
+                }
+            },
             Error::Protocol(ref _protocol_error) =>
                 f.pad("protocol error"),
             Error::Decode(ref _decode_error) =>
@@ -81,8 +95,8 @@ impl From<Error<()>> for h2::Error {
 }
 
 impl From<h2::Error> for Error<()> {
-    fn from(_: h2::Error) -> Self {
-        // TODO: implement
-        Error::Inner(())
+    fn from(err: h2::Error) -> Self {
+        let status = err.into();
+        Error::Grpc(status, HeaderMap::default())
     }
 }

@@ -74,7 +74,7 @@ impl ServiceGenerator {
 
         imp.new_fn("poll_ready")
             .generic("R")
-            .bound("T", "tower_h2::HttpService<R>")
+            .bound("T", "tower::HttpService<R>")
             .vis("pub")
             .arg_mut_self()
             .ret("futures::Poll<(), grpc::Error<T::Error>>")
@@ -90,7 +90,8 @@ impl ServiceGenerator {
             let func = imp.new_fn(&name)
                 .vis("pub")
                 .generic("R")
-                .bound("T", "tower_h2::HttpService<R>")
+                .bound("T", "tower::HttpService<R>")
+                .bound("T::ResponseBody", "grpc::Body")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
                 ;

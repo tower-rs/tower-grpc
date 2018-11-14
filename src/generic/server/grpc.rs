@@ -1,10 +1,9 @@
-use ::Request;
+use {Body, Request};
 use super::{streaming, server_streaming, client_streaming, unary};
 use generic::{Codec, Direction, Streaming};
 use generic::server::{StreamingService, ServerStreamingService, ClientStreamingService, UnaryService};
 
 use http;
-use tower_h2::{Body, Data};
 
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {
@@ -26,7 +25,7 @@ where T: Codec,
         -> unary::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
     where S: UnaryService<T::Decode,
                          Response = T::Encode>,
-          B: Body<Data = Data>,
+          B: Body,
     {
         let request = self.map_request(request);
         unary::ResponseFuture::new(service, request, self.codec.encoder())
@@ -38,7 +37,7 @@ where T: Codec,
         -> client_streaming::ResponseFuture<S::Future, T::Encoder>
     where S: ClientStreamingService<Streaming<T::Decoder, B>,
                                    Response = T::Encode>,
-          B: Body<Data = Data>,
+          B: Body,
     {
         let response = service.call(self.map_request(request));
         client_streaming::ResponseFuture::new(response, self.codec.encoder())
@@ -50,7 +49,7 @@ where T: Codec,
         -> server_streaming::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
     where S: ServerStreamingService<T::Decode,
                                    Response = T::Encode>,
-          B: Body<Data = Data>,
+          B: Body,
     {
         let request = self.map_request(request);
         server_streaming::ResponseFuture::new(service, request, self.codec.encoder())
@@ -62,7 +61,7 @@ where T: Codec,
         -> streaming::ResponseFuture<S::Future, T::Encoder>
     where S: StreamingService<Streaming<T::Decoder, B>,
                               Response = T::Encode>,
-          B: Body<Data = Data>,
+          B: Body,
     {
         let response = service.call(self.map_request(request));
         streaming::ResponseFuture::new(response, self.codec.encoder())
@@ -71,7 +70,7 @@ where T: Codec,
     /// Map an inbound HTTP request to a streaming decoded request
     fn map_request<B>(&mut self, request: http::Request<B>)
         -> Request<Streaming<T::Decoder, B>>
-    where B: Body<Data = Data>,
+    where B: Body,
     {
         // Map the request body
         let (head, body) = request.into_parts();
