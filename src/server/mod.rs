@@ -3,12 +3,12 @@ pub mod server_streaming;
 pub mod streaming;
 pub mod unary;
 
+use Body;
 use codec::{Codec, Streaming};
 use generic::server::{UnaryService, ClientStreamingService, ServerStreamingService, StreamingService};
 
 use http;
 use prost;
-use tower_h2::{Body, Data};
 
 #[derive(Debug, Clone)]
 pub struct Grpc {
@@ -24,7 +24,7 @@ impl Grpc {
     where T: UnaryService<R>,
           R: prost::Message + Default,
           T::Response: prost::Message,
-          B: Body<Data = Data>,
+          B: Body,
     {
         use generic::server::Grpc;
 
@@ -39,7 +39,7 @@ impl Grpc {
     where T: ClientStreamingService<Streaming<R, B>>,
           R: prost::Message + Default,
           T::Response: prost::Message,
-          B: Body<Data = Data>,
+          B: Body,
     {
         use generic::server::Grpc;
 
@@ -54,7 +54,7 @@ impl Grpc {
     where T: ServerStreamingService<R>,
           R: prost::Message + Default,
           T::Response: prost::Message,
-          B: Body<Data = Data>,
+          B: Body,
     {
         use generic::server::Grpc;
 
@@ -69,7 +69,7 @@ impl Grpc {
     where T: StreamingService<Streaming<R, B>>,
           R: prost::Message + Default,
           T::Response: prost::Message,
-          B: Body<Data = Data>,
+          B: Body,
     {
         use generic::server::Grpc;
 

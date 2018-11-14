@@ -8,3 +8,7 @@ license = "MIT"
 codegen = { git = "https://github.com/carllerche/codegen" }
 prost-build = "0.4"
 heck = "0.3"
+
+[features]
+default = ["tower-h2"]
+tower-h2 = []

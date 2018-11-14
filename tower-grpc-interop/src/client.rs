@@ -227,14 +227,14 @@ struct TestClients {
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
-                tower_h2::BoxBody>>>,
+                tower_grpc::BoxBody>>>,
 
     unimplemented_client:
         UnimplementedService<tower_http::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
-                tower_h2::BoxBody>>>
+                tower_grpc::BoxBody>>>
 }
 
 fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
@@ -397,7 +397,10 @@ impl TestClients {
         // )
         unimplemented!();
         // This line is just a hint for the type checker
+        #[allow(unreachable_code)]
+        {
         future::ok::<Vec<TestAssertion>, Box<Error>>(vec![])
+        }
     }
 
     fn client_streaming_test(&mut self)

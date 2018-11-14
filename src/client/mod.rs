@@ -6,7 +6,9 @@ pub mod streaming;
 use futures::{stream, Stream, Poll};
 use http::{uri, Uri};
 use prost::Message;
-use tower_h2::{HttpService, BoxBody};
+use tower_http::HttpService;
+
+use body::{Body, BoxBody};
 
 #[derive(Debug)]
 pub struct Grpc<T> {
@@ -41,6 +43,7 @@ impl<T> Grpc<T> {
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
     where
         T: HttpService<R>,
+        T::ResponseBody: Body,
         unary::Once<M1>: Encodable<R>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
@@ -55,6 +58,7 @@ impl<T> Grpc<T> {
         -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
     where
         T: HttpService<R>,
+        T::ResponseBody: Body,
         B: Encodable<R>,
     {
         let response = self.streaming(request, path);

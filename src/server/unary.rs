@@ -1,12 +1,13 @@
 pub use generic::server::unary::Once;
 
+use Body;
 use codec::{Encode, Encoder, Decoder};
 use generic::Streaming;
 use generic::server::{UnaryService, unary};
 
+use bytes::IntoBuf;
 use {h2, http, prost};
 use futures::{Future, Poll};
-use tower_h2::{Body, Data};
 
 use std::fmt;
 
@@ -14,7 +15,7 @@ pub struct ResponseFuture<T, B, R>
 where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
-      B: Body<Data = Data>,
+      B: Body,
 {
     inner: Inner<T, T::Response, R, B>,
 }
@@ -26,7 +27,7 @@ impl<T, B, R> ResponseFuture<T, B, R>
 where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
-      B: Body<Data = Data>,
+      B: Body,
 {
     pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
@@ -37,7 +38,7 @@ impl<T, B, R> Future for ResponseFuture<T, B, R>
 where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
-      B: Body<Data = Data>,
+      B: Body,
 {
     type Item = http::Response<Encode<Once<T::Response>>>;
     type Error = h2::Error;
@@ -55,7 +56,8 @@ where T: UnaryService<R> + fmt::Debug,
       R: prost::Message + Default + fmt::Debug,
       T::Response: prost::Message + fmt::Debug,
       T::Future: fmt::Debug,
-      B: Body<Data = Data> + fmt::Debug,
+      B: Body + fmt::Debug,
+      <B::Data as IntoBuf>::Buf: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")

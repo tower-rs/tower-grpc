@@ -9,7 +9,7 @@ authors = [
 license = "MIT"
 
 [features]
-default = ["protobuf"]
+default = ["protobuf", "tower-h2"]
 protobuf = ["prost"]
 
 [workspace]
@@ -31,7 +31,8 @@ futures = "0.1"
 http = "0.1"
 h2 = "0.1.11"
 log = "0.4"
-tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
+tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-service = { git = "https://github.com/tower-rs/tower"  }
 
 # For protobuf
@@ -45,3 +46,4 @@ tokio-core = "0.1"
 # For examples
 prost = "0.4"
 prost-derive = "0.4"
+

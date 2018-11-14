@@ -2,7 +2,7 @@
 pub mod server {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::{Request, Response, Error, Status};
+        pub use ::{Body, BoxBody, Request, Response, Error, Status};
         pub use ::generic::server::{
             StreamingService,
             UnaryService,
@@ -43,14 +43,15 @@ pub mod server {
         pub use ::h2::Error;
     }
 
-    /// Re-export types from the `tower_h2` crate
-    pub mod tower_h2 {
-        pub use ::tower_h2::{Body, RecvBody};
-    }
-
     /// Re-exported types from the `tower` crate.
     pub mod tower {
-        pub use ::tower_service::{Service, NewService};
+        pub use ::tower_service::{Service, MakeService};
+    }
+
+    #[cfg(feature = "tower-h2")]
+    /// Re-exported types from `tower-h2` crate.
+    pub mod tower_h2 {
+        pub use ::tower_h2::{Body, RecvBody};
     }
 }
 
@@ -65,7 +66,7 @@ pub mod client {
             server_streaming,
             streaming,
         };
-        pub use ::{Request, Response, Error, Status};
+        pub use ::{Body, Request, Response, Error, Status};
     }
 
     pub mod http {
@@ -77,7 +78,13 @@ pub mod client {
         pub use ::futures::{Future, Poll};
     }
 
+    pub mod tower {
+        pub use ::tower_http::HttpService;
+    }
+
+    #[cfg(feature = "tower-h2")]
+    /// Re-exported types from `tower-h2` crate.
     pub mod tower_h2 {
-        pub use ::tower_h2::HttpService;
+        pub use ::tower_h2::Body;
     }
 }

@@ -22,8 +22,11 @@ impl Status {
         code: Code(Code_::Ok),
     };
 
-    pub const CANCELED: Status = Status {
-        code: Code(Code_::Canceled),
+    #[deprecated(note = "use Status::CANCELLED")]
+    pub const CANCELED: Status = Status::CANCELLED;
+
+    pub const CANCELLED: Status = Status {
+        code: Code(Code_::Cancelled),
     };
 
     pub const UNKNOWN: Status = Status {
@@ -91,7 +94,7 @@ impl Status {
             1 => {
                 match bytes[0] {
                     b'0' => Code_::Ok,
-                    b'1' => Code_::Canceled,
+                    b'1' => Code_::Cancelled,
                     b'2' => Code_::Unknown,
                     b'3' => Code_::InvalidArgument,
                     b'4' => Code_::DeadlineExceeded,
@@ -123,26 +126,24 @@ impl Status {
 
     // TODO: It would be nice for this not to be public
     pub fn to_header_value(&self) -> HeaderValue {
-        use self::Code_::*;
-
         match self.code.0 {
-            Ok => HeaderValue::from_static("0"),
-            Canceled => HeaderValue::from_static("1"),
-            Unknown => HeaderValue::from_static("2"),
-            InvalidArgument => HeaderValue::from_static("3"),
-            DeadlineExceeded => HeaderValue::from_static("4"),
-            NotFound => HeaderValue::from_static("5"),
-            AlreadyExists => HeaderValue::from_static("6"),
-            PermissionDenied => HeaderValue::from_static("7"),
-            ResourceExhausted => HeaderValue::from_static("8"),
-            FailedPrecondition => HeaderValue::from_static("9"),
-            Aborted => HeaderValue::from_static("10"),
-            OutOfRange => HeaderValue::from_static("11"),
-            Unimplemented => HeaderValue::from_static("12"),
-            Internal => HeaderValue::from_static("13"),
-            Unavailable => HeaderValue::from_static("14"),
-            DataLoss => HeaderValue::from_static("15"),
-            Unauthenticated => HeaderValue::from_static("16"),
+            Code_::Ok => HeaderValue::from_static("0"),
+            Code_::Cancelled => HeaderValue::from_static("1"),
+            Code_::Unknown => HeaderValue::from_static("2"),
+            Code_::InvalidArgument => HeaderValue::from_static("3"),
+            Code_::DeadlineExceeded => HeaderValue::from_static("4"),
+            Code_::NotFound => HeaderValue::from_static("5"),
+            Code_::AlreadyExists => HeaderValue::from_static("6"),
+            Code_::PermissionDenied => HeaderValue::from_static("7"),
+            Code_::ResourceExhausted => HeaderValue::from_static("8"),
+            Code_::FailedPrecondition => HeaderValue::from_static("9"),
+            Code_::Aborted => HeaderValue::from_static("10"),
+            Code_::OutOfRange => HeaderValue::from_static("11"),
+            Code_::Unimplemented => HeaderValue::from_static("12"),
+            Code_::Internal => HeaderValue::from_static("13"),
+            Code_::Unavailable => HeaderValue::from_static("14"),
+            Code_::DataLoss => HeaderValue::from_static("15"),
+            Code_::Unauthenticated => HeaderValue::from_static("16"),
         }
     }
 
@@ -159,9 +160,23 @@ impl Status {
 }
 
 impl From<h2::Error> for Status {
-    fn from(_err: h2::Error) -> Self {
-        //TODO: https://grpc.io/docs/guides/wire.html#errors
-        Status::new(Code(Code_::Internal))
+    fn from(err: h2::Error) -> Self {
+        // See https://github.com/grpc/grpc/blob/3977c30/doc/PROTOCOL-HTTP2.md#errors
+        match err.reason() {
+            Some(h2::Reason::NO_ERROR) |
+            Some(h2::Reason::PROTOCOL_ERROR) |
+            Some(h2::Reason::INTERNAL_ERROR) |
+            Some(h2::Reason::FLOW_CONTROL_ERROR) |
+            Some(h2::Reason::SETTINGS_TIMEOUT) |
+            Some(h2::Reason::COMPRESSION_ERROR) |
+            Some(h2::Reason::CONNECT_ERROR) => Status::INTERNAL,
+            Some(h2::Reason::REFUSED_STREAM) => Status::UNAVAILABLE,
+            Some(h2::Reason::CANCEL) => Status::CANCELLED,
+            Some(h2::Reason::ENHANCE_YOUR_CALM) => Status::RESOURCE_EXHAUSTED,
+            Some(h2::Reason::INADEQUATE_SECURITY) => Status::PERMISSION_DENIED,
+
+            _ => Status::UNKNOWN,
+        }
     }
 }
 
@@ -186,7 +201,7 @@ impl fmt::Debug for Code {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Code_ {
     Ok = 0,
-    Canceled = 1,
+    Cancelled = 1,
     Unknown = 2,
     InvalidArgument = 3,
     DeadlineExceeded = 4,

@@ -1,9 +1,9 @@
+use Body;
 use codec::{Direction, Streaming};
 
 use futures::{Future, Poll};
 use http::Response;
 use prost::Message;
-use tower_h2::{Body, Data};
 
 use Code;
 use status::infer_grpc_status;
@@ -29,7 +29,7 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      B: Body<Data = Data>,
+      B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
     type Error = ::Error<U::Error>;
