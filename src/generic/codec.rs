@@ -210,17 +210,11 @@ where T: Encoder<Item = U::Item>,
             return Ok(Async::Ready(None));
         }
 
-        let mut map = HeaderMap::new();
-
-        let status = match self.inner {
-            EncodeInner::Ok { .. } => Status::OK.to_header_value(),
-            EncodeInner::Err(ref status) => status.to_header_value(),
+        let map = match self.inner {
+            EncodeInner::Ok { .. } => Status::with_code(::Code::Ok).to_header_map(),
+            EncodeInner::Err(ref status) => status.to_header_map(),
         };
-
-        // Success
-        map.insert("grpc-status", status);
-
-        Ok(Some(map).into())
+        Ok(Some(map?).into())
     }
 }
 
@@ -346,17 +340,9 @@ where T: Decoder,
         }
 
         if let Direction::Response(status_code) = self.direction {
-            if let Some(trailers) = try_ready!(self.inner.poll_metadata()) {
-                let status = infer_grpc_status(&trailers, Some(status_code))
-                    .ok_or(::Error::Protocol(ProtocolError::MissingTrailers))?;
-                if status.code() == ::Code::OK {
-                    Ok(Async::Ready(None))
-                } else {
-                    Err(::Error::Grpc(status, trailers))
-                }
-            } else {
-                trace!("receive body ended without trailers");
-                Err(::Error::Protocol(ProtocolError::MissingTrailers))
+            match infer_grpc_status(try_ready!(self.inner.poll_metadata()), status_code) {
+                Ok(_) => Ok(Async::Ready(None)),
+                Err(err) => Err(err),
             }
         } else {
             Ok(Async::Ready(None))
