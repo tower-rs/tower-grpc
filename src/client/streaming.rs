@@ -6,7 +6,6 @@ use http::Response;
 use prost::Message;
 
 use Code;
-use status::infer_grpc_status;
 
 use std::marker::PhantomData;
 
@@ -50,10 +49,10 @@ where T: Message + Default,
         let (head, body) = response.into_parts();
 
         // Check the headers for `grpc-status`, in which case we should not parse the body.
-        let trailers_only_status = infer_grpc_status(&head.headers, None);
+        let trailers_only_status = ::Status::from_header_map(&head.headers);
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
-            if status.code() != Code::OK {
+            if status.code() != Code::Ok {
                 return Err(::Error::Grpc(status, head.headers));
             }
         }
