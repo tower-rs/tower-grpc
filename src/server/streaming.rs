@@ -2,14 +2,16 @@ use codec::{Encode, Encoder};
 use generic::server::{StreamingService, streaming};
 
 use {h2, http, prost};
-use futures::{Future, Poll};
+use futures::{Future, Poll, Stream};
 
 use std::fmt;
 
-pub struct ResponseFuture<T>
-where T: StreamingService,
-      T::Request: prost::Message + Default,
-      T::Response: prost::Message,
+pub struct ResponseFuture<T, S>
+where
+    T: StreamingService<S>,
+    S: Stream<Error = ::Error>,
+    S::Item: prost::Message + Default,
+    T::Response: prost::Message,
 {
     inner: Inner<T::Future, T::Response>,
 }
@@ -17,20 +19,24 @@ where T: StreamingService,
 type Inner<T, U> =
     streaming::ResponseFuture<T, Encoder<U>>;
 
-impl<T> ResponseFuture<T>
-where T: StreamingService,
-      T::Request: prost::Message + Default,
-      T::Response: prost::Message,
+impl<T, S> ResponseFuture<T, S>
+where
+    T: StreamingService<S>,
+    S: Stream<Error = ::Error>,
+    S::Item: prost::Message + Default,
+    T::Response: prost::Message,
 {
     pub(crate) fn new(inner: Inner<T::Future, T::Response>) -> Self {
         ResponseFuture { inner }
     }
 }
 
-impl<T> Future for ResponseFuture<T>
-where T: StreamingService,
-      T::Request: prost::Message + Default,
-      T::Response: prost::Message,
+impl<T, S> Future for ResponseFuture<T, S>
+where
+    T: StreamingService<S>,
+    S: Stream<Error = ::Error>,
+    S::Item: prost::Message + Default,
+    T::Response: prost::Message,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
     type Error = h2::Error;
@@ -43,11 +49,11 @@ where T: StreamingService,
     }
 }
 
-impl<T> fmt::Debug for ResponseFuture<T>
-where T: StreamingService + fmt::Debug,
-      T::Request: prost::Message + Default + fmt::Debug,
+impl<T, S> fmt::Debug for ResponseFuture<T, S>
+where T: StreamingService<S> + fmt::Debug,
+      S: Stream<Error = ::Error> + fmt::Debug,
+      S::Item: prost::Message + Default + fmt::Debug,
       T::Response: prost::Message + fmt::Debug,
-      T::RequestStream: fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
 {

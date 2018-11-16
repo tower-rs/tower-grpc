@@ -1,10 +1,10 @@
+use Body;
 use super::streaming;
-use codec::Streaming;
+use codec::{Streaming};
 
 use futures::{Future, Poll};
 use http::Response;
 use prost::Message;
-use tower_h2::{Body, Data};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, U> {
@@ -21,7 +21,7 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      B: Body<Data = Data>,
+      B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
     type Error = ::Error<U::Error>;

@@ -1,11 +1,10 @@
+use body::{Body, BoxBody};
 use generic::{EncodeBuf, DecodeBuf};
 
 use futures::{Stream, Poll};
-use h2;
 use bytes::BufMut;
 use http;
 use prost::Message;
-use tower_h2;
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -21,7 +20,7 @@ pub struct Encoder<T>(PhantomData<T>);
 pub struct Decoder<T>(PhantomData<T>);
 
 /// A stream of inbound gRPC messages
-pub type Streaming<T, B = tower_h2::RecvBody> = ::generic::Streaming<Decoder<T>, B>;
+pub type Streaming<T, B = BoxBody> = ::generic::Streaming<Decoder<T>, B>;
 
 pub use ::generic::Direction;
 
@@ -143,7 +142,7 @@ where T: Stream<Error = ::Error>,
     }
 }
 
-impl<T> ::tower_h2::Body for Encode<T>
+impl<T> Body for Encode<T>
 where T: Stream<Error = ::Error>,
       T::Item: ::prost::Message,
 {
@@ -153,12 +152,34 @@ where T: Stream<Error = ::Error>,
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
         self.inner.poll_data()
     }
 
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, h2::Error> {
-        self.inner.poll_trailers()
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Error> {
+        self.inner.poll_metadata()
+    }
+}
+
+#[cfg(feature = "tower-h2")]
+impl<T> ::tower_h2::Body for Encode<T>
+where T: Stream<Error = ::Error>,
+      T::Item: ::prost::Message,
+{
+    type Data = ::bytes::Bytes;
+
+    fn is_end_stream(&self) -> bool {
+        Body::is_end_stream(self)
+    }
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
+        Body::poll_data(self)
+            .map_err(From::from)
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, ::h2::Error> {
+        Body::poll_metadata(self)
+            .map_err(From::from)
     }
 }
 
@@ -173,3 +194,4 @@ where T: Stream + fmt::Debug,
             .finish()
     }
 }
+

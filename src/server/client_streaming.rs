@@ -2,12 +2,14 @@ use codec::{Encode, Encoder};
 use generic::server::{ClientStreamingService, client_streaming, unary};
 
 use {h2, http, prost};
-use futures::{Future, Poll};
+use futures::{Future, Poll, Stream};
 
 use std::fmt;
 
-pub struct ResponseFuture<T>
-where T: ClientStreamingService
+pub struct ResponseFuture<T, S>
+where
+    T: ClientStreamingService<S>,
+    S: Stream<Error = ::Error>,
 {
     inner: Inner<T::Future, T::Response>,
 }
@@ -15,20 +17,24 @@ where T: ClientStreamingService
 type Inner<T, U> =
     client_streaming::ResponseFuture<T, Encoder<U>>;
 
-impl<T> ResponseFuture<T>
-where T: ClientStreamingService,
-      T::Request: prost::Message + Default,
-      T::Response: prost::Message,
+impl<T, S> ResponseFuture<T, S>
+where
+    T: ClientStreamingService<S>,
+    S: Stream<Error = ::Error>,
+    S::Item: prost::Message + Default,
+    T::Response: prost::Message,
 {
     pub(crate) fn new(inner: Inner<T::Future, T::Response>) -> Self {
         ResponseFuture { inner }
     }
 }
 
-impl<T> Future for ResponseFuture<T>
-where T: ClientStreamingService,
-      T::Request: prost::Message + Default,
-      T::Response: prost::Message,
+impl<T, S> Future for ResponseFuture<T, S>
+where
+    T: ClientStreamingService<S>,
+    S: Stream<Error = ::Error>,
+    S::Item: prost::Message + Default,
+    T::Response: prost::Message,
 {
     type Item = http::Response<Encode<unary::Once<T::Response>>>;
     type Error = h2::Error;
@@ -41,12 +47,12 @@ where T: ClientStreamingService,
     }
 }
 
-impl<T> fmt::Debug for ResponseFuture<T>
-where T: ClientStreamingService + fmt::Debug,
-      T::Request: fmt::Debug,
-      T::RequestStream: fmt::Debug,
-      T::Response: fmt::Debug,
-      T::Future: fmt::Debug,
+impl<T, S> fmt::Debug for ResponseFuture<T, S>
+where
+    T: ClientStreamingService<S> + fmt::Debug,
+    S: Stream<Error = ::Error> + fmt::Debug,
+    T::Response: fmt::Debug,
+    T::Future: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("client_streaming::ResponseFuture")

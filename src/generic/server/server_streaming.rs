@@ -10,13 +10,17 @@ use std::fmt;
 
 /// A server streaming response future
 pub struct ResponseFuture<T, E, S>
-where T: ServerStreamingService,
+where
+    T: ServerStreamingService<S::Item>,
+    S: Stream,
 {
     inner: streaming::ResponseFuture<Inner<T, S>, E>,
 }
 
 struct Inner<T, S>
-where T: ServerStreamingService,
+where
+    T: ServerStreamingService<S::Item>,
+    S: Stream,
 {
     inner: T,
     state: Option<State<T::Future, S>>,
@@ -34,7 +38,7 @@ enum State<T, S> {
 // ===== impl ResponseFuture ======
 
 impl<T, E, S> ResponseFuture<T, E, S>
-where T: ServerStreamingService<Request = S::Item, Response = E::Item>,
+where T: ServerStreamingService<S::Item, Response = E::Item>,
       E: Encoder,
       S: Stream<Error = ::Error>,
 {
@@ -50,7 +54,7 @@ where T: ServerStreamingService<Request = S::Item, Response = E::Item>,
 }
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
-where T: ServerStreamingService<Request = S::Item, Response = E::Item>,
+where T: ServerStreamingService<S::Item, Response = E::Item>,
       E: Encoder,
       S: Stream<Error = ::Error>,
 {
@@ -65,7 +69,7 @@ where T: ServerStreamingService<Request = S::Item, Response = E::Item>,
 // ===== impl Inner =====
 
 impl<T, S> Future for Inner<T, S>
-where T: ServerStreamingService<Request = S::Item>,
+where T: ServerStreamingService<S::Item>,
       S: Stream<Error = ::Error>,
 {
     type Item = Response<T::ResponseStream>;
@@ -106,13 +110,12 @@ where T: ServerStreamingService<Request = S::Item>,
 }
 
 impl<T, E, S> fmt::Debug for ResponseFuture<T, E, S>
-where T: ServerStreamingService + fmt::Debug,
-      T::Request: fmt::Debug,
+where T: ServerStreamingService<S::Item> + fmt::Debug,
       T::Response: fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
       E: fmt::Debug,
-      S: fmt::Debug,
+      S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
@@ -122,12 +125,11 @@ where T: ServerStreamingService + fmt::Debug,
 }
 
 impl<T, S> fmt::Debug for Inner<T, S>
-where T: ServerStreamingService + fmt::Debug,
-      T::Request: fmt::Debug,
+where T: ServerStreamingService<S::Item> + fmt::Debug,
       T::Response: fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
-      S: fmt::Debug,
+      S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Inner")

@@ -32,7 +32,7 @@ mod tests {
 
         #[allow(dead_code)]
         fn zomg<T>(client: &mut Hello<T>)
-        where T: tower_h2::HttpService<RequestBody = BoxBody>,
+        where T: tower_h2::HttpService<BoxBody>,
         {
             let request = HelloRequest {
                 name: "hello".to_string(),

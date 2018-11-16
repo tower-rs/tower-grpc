@@ -16,13 +16,7 @@ use tower_service::Service;
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
-pub trait StreamingService {
-    /// Protobuf request message type
-    type Request;
-
-    /// Stream of inbound request messages
-    type RequestStream: Stream<Item = Self::Request, Error = ::Error>;
-
+pub trait StreamingService<RequestStream> {
     /// Protobuf response message type
     type Response;
 
@@ -33,23 +27,22 @@ pub trait StreamingService {
     type Future: Future<Item = ::Response<Self::ResponseStream>, Error = ::Error>;
 
     /// Call the service
-    fn call(&mut self, request: Request<Self::RequestStream>) -> Self::Future;
+    fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
 }
 
-impl<T, S1, S2> StreamingService for T
-where T: Service<Request = Request<S1>,
+impl<T, S1, S2> StreamingService<S1> for T
+where T: Service<Request<S1>,
                 Response = Response<S2>,
                    Error = ::Error>,
       S1: Stream<Error = ::Error>,
       S2: Stream<Error = ::Error>,
 {
-    type Request = S1::Item;
-    type RequestStream = S1;
+
     type Response = S2::Item;
     type ResponseStream = S2;
     type Future = T::Future;
 
-    fn call(&mut self, request: T::Request) -> Self::Future {
+    fn call(&mut self, request: Request<S1>) -> Self::Future {
         Service::call(self, request)
     }
 }
@@ -58,9 +51,7 @@ where T: Service<Request = Request<S1>,
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait UnaryService {
-    /// Protobuf request message type
-    type Request;
+pub trait UnaryService<R> {
 
     /// Protobuf response message type
     type Response;
@@ -69,19 +60,18 @@ pub trait UnaryService {
     type Future: Future<Item = ::Response<Self::Response>, Error = ::Error>;
 
     /// Call the service
-    fn call(&mut self, request: Request<Self::Request>) -> Self::Future;
+    fn call(&mut self, request: Request<R>) -> Self::Future;
 }
 
-impl<T, M1, M2> UnaryService for T
-where T: Service<Request = Request<M1>,
+impl<T, M1, M2> UnaryService<M1> for T
+where T: Service<Request<M1>,
                 Response = Response<M2>,
                    Error = ::Error>,
 {
-    type Request = M1;
     type Response = M2;
     type Future = T::Future;
 
-    fn call(&mut self, request: T::Request) -> Self::Future {
+    fn call(&mut self, request: Request<M1>) -> Self::Future {
         Service::call(self, request)
     }
 }
@@ -90,13 +80,7 @@ where T: Service<Request = Request<M1>,
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait ClientStreamingService {
-    /// Protobuf request message type
-    type Request;
-
-    /// Stream of inbound request messages
-    type RequestStream: Stream<Item = Self::Request, Error = ::Error>;
-
+pub trait ClientStreamingService<RequestStream> {
     /// Protobuf response message type
     type Response;
 
@@ -104,21 +88,19 @@ pub trait ClientStreamingService {
     type Future: Future<Item = ::Response<Self::Response>, Error = ::Error>;
 
     /// Call the service
-    fn call(&mut self, request: Request<Self::RequestStream>) -> Self::Future;
+    fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
 }
 
-impl<T, M, S> ClientStreamingService for T
-where T: Service<Request = Request<S>,
+impl<T, M, S> ClientStreamingService<S> for T
+where T: Service<Request<S>,
                 Response = Response<M>,
                    Error = ::Error>,
       S: Stream<Error = ::Error>,
 {
-    type Request = S::Item;
-    type RequestStream = S;
     type Response = M;
     type Future = T::Future;
 
-    fn call(&mut self, request: T::Request) -> Self::Future {
+    fn call(&mut self, request: Request<S>) -> Self::Future {
         Service::call(self, request)
     }
 }
@@ -127,9 +109,7 @@ where T: Service<Request = Request<S>,
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait ServerStreamingService {
-    /// Protobuf request message type
-    type Request;
+pub trait ServerStreamingService<R> {
 
     /// Protobuf response message type
     type Response;
@@ -141,21 +121,20 @@ pub trait ServerStreamingService {
     type Future: Future<Item = ::Response<Self::ResponseStream>, Error = ::Error>;
 
     /// Call the service
-    fn call(&mut self, request: Request<Self::Request>) -> Self::Future;
+    fn call(&mut self, request: Request<R>) -> Self::Future;
 }
 
-impl<T, M, S> ServerStreamingService for T
-where T: Service<Request = Request<M>,
+impl<T, M, S> ServerStreamingService<M> for T
+where T: Service<Request<M>,
                 Response = Response<S>,
                    Error = ::Error>,
       S: Stream<Error = ::Error>,
 {
-    type Request = M;
     type Response = S::Item;
     type ResponseStream = S;
     type Future = T::Future;
 
-    fn call(&mut self, request: T::Request) -> Self::Future {
+    fn call(&mut self, request: Request<M>) -> Self::Future {
         Service::call(self, request)
     }
 }
