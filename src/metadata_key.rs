@@ -5,7 +5,20 @@ use http::header::HeaderName;
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt;
+use std::hash::Hash;
+use std::marker::PhantomData;
 use std::str::FromStr;
+
+// TODO(pgron): Make sealed
+pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Ascii {}
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Binary {}
+
+impl ValueEncoding for Ascii {}
+impl ValueEncoding for Binary {}
 
 /// Represents a custom metadata field name.
 ///
@@ -14,10 +27,11 @@ use std::str::FromStr;
 /// [`HeaderMap`]: struct.HeaderMap.html
 #[derive(Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-pub struct MetadataKey {
+pub struct MetadataKey<VE: ValueEncoding> {
     // Note: There are unsafe transmutes that assume that the memory layout
     // of MetadataValue is identical to HeaderName
     pub(crate) inner: http::header::HeaderName,
+    pub(crate) phantom: PhantomData<VE>,
 }
 
 /// A possible error when converting a `MetadataKey` from another type.
@@ -26,13 +40,19 @@ pub struct InvalidMetadataKey {
     _priv: (),
 }
 
-impl MetadataKey {
+pub type AsciiMetadataKey = MetadataKey<Ascii>;
+pub type BinaryMetadataKey = MetadataKey<Binary>;
+
+impl<VE: ValueEncoding> MetadataKey<VE> {
     /// Converts a slice of bytes to a `MetadataKey`.
     ///
     /// This function normalizes the input.
-    pub fn from_bytes(src: &[u8]) -> Result<MetadataKey, InvalidMetadataKey> {
+    pub fn from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataKey> {
         match HeaderName::from_bytes(src) {
-            Ok(name) => Ok(MetadataKey { inner: name }),
+            Ok(name) => Ok(MetadataKey {
+                inner: name,
+                phantom: PhantomData
+            }),
             Err(_) => Err(InvalidMetadataKey::new())
         }
     }
@@ -53,23 +73,28 @@ impl MetadataKey {
     /// // Parsing a metadata key
     /// let CUSTOM_KEY: &'static str = "custom-key";
     /// 
-    /// let a = MetadataKey::from_bytes(b"custom-key").unwrap();
-    /// let b = MetadataKey::from_static(CUSTOM_KEY);
+    /// let a = AsciiMetadataKey::from_bytes(b"custom-key").unwrap();
+    /// let b = AsciiMetadataKey::from_static(CUSTOM_KEY);
     /// assert_eq!(a, b);
     /// ```
     /// 
     /// ```should_panic
     /// # use tower_grpc::metadata::*;
-    /// #
     /// // Parsing a metadata key that contains invalid symbols(s):
-    /// MetadataKey::from_static("content{}{}length"); // This line panics!
-    /// 
-    /// // Parsing a metadata key that contains invalid uppercase characters.
-    /// let a = MetadataKey::from_static("foobar");
-    /// let b = MetadataKey::from_static("FOOBAR"); // This line panics!
+    /// AsciiMetadataKey::from_static("content{}{}length"); // This line panics!
     /// ```
-    pub fn from_static(src: &'static str) -> MetadataKey {
-        MetadataKey { inner: HeaderName::from_static(src) }
+    /// 
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// // Parsing a metadata key that contains invalid uppercase characters.
+    /// let a = AsciiMetadataKey::from_static("foobar");
+    /// let b = AsciiMetadataKey::from_static("FOOBAR"); // This line panics!
+    /// ```
+    pub fn from_static(src: &'static str) -> Self {
+        MetadataKey {
+            inner: HeaderName::from_static(src),
+            phantom: PhantomData,
+        }
     }
 
     /// Returns a `str` representation of the metadata key.
@@ -86,40 +111,40 @@ impl MetadataKey {
     }
 }
 
-impl FromStr for MetadataKey {
+impl<VE: ValueEncoding> FromStr for MetadataKey<VE> {
     type Err = InvalidMetadataKey;
 
-    fn from_str(s: &str) -> Result<MetadataKey, InvalidMetadataKey> {
+    fn from_str(s: &str) -> Result<Self, InvalidMetadataKey> {
         MetadataKey::from_bytes(s.as_bytes())
             .map_err(|_| InvalidMetadataKey::new())
     }
 }
 
-impl AsRef<str> for MetadataKey {
+impl<VE: ValueEncoding> AsRef<str> for MetadataKey<VE> {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl AsRef<[u8]> for MetadataKey {
+impl<VE: ValueEncoding> AsRef<[u8]> for MetadataKey<VE> {
     fn as_ref(&self) -> &[u8] {
         self.as_str().as_bytes()
     }
 }
 
-impl Borrow<str> for MetadataKey {
+impl<VE: ValueEncoding> Borrow<str> for MetadataKey<VE> {
     fn borrow(&self) -> &str {
         self.as_str()
     }
 }
 
-impl fmt::Debug for MetadataKey {
+impl<VE: ValueEncoding> fmt::Debug for MetadataKey<VE> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), fmt)
     }
 }
 
-impl fmt::Display for MetadataKey {
+impl<VE: ValueEncoding> fmt::Display for MetadataKey<VE> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), fmt)
     }
@@ -131,35 +156,35 @@ impl InvalidMetadataKey {
     }
 }
 
-impl<'a> From<&'a MetadataKey> for MetadataKey {
-    fn from(src: &'a MetadataKey) -> MetadataKey {
+impl<'a, VE: ValueEncoding> From<&'a MetadataKey<VE>> for MetadataKey<VE> {
+    fn from(src: &'a MetadataKey<VE>) -> MetadataKey<VE> {
         src.clone()
     }
 }
 
-impl From<MetadataKey> for Bytes {
+impl<VE: ValueEncoding> From<MetadataKey<VE>> for Bytes {
     #[inline]
-    fn from(name: MetadataKey) -> Bytes {
+    fn from(name: MetadataKey<VE>) -> Bytes {
         name.inner.into()
     }
 }
 
-impl<'a> PartialEq<&'a MetadataKey> for MetadataKey {
+impl<'a, VE: ValueEncoding> PartialEq<&'a MetadataKey<VE>> for MetadataKey<VE> {
     #[inline]
-    fn eq(&self, other: &&'a MetadataKey) -> bool {
+    fn eq(&self, other: &&'a MetadataKey<VE>) -> bool {
         *self == **other
     }
 }
 
 
-impl<'a> PartialEq<MetadataKey> for &'a MetadataKey {
+impl<'a, VE: ValueEncoding> PartialEq<MetadataKey<VE>> for &'a MetadataKey<VE> {
     #[inline]
-    fn eq(&self, other: &MetadataKey) -> bool {
+    fn eq(&self, other: &MetadataKey<VE>) -> bool {
         *other == *self
     }
 }
 
-impl PartialEq<str> for MetadataKey {
+impl<VE: ValueEncoding> PartialEq<str> for MetadataKey<VE> {
     /// Performs a case-insensitive comparison of the string against the header
     /// name
     ///
@@ -167,7 +192,7 @@ impl PartialEq<str> for MetadataKey {
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
-    /// let content_length = MetadataKey::from_static("content-length");
+    /// let content_length = AsciiMetadataKey::from_static("content-length");
     ///
     /// assert_eq!(content_length, "content-length");
     /// assert_eq!(content_length, "Content-Length");
@@ -180,7 +205,7 @@ impl PartialEq<str> for MetadataKey {
 }
 
 
-impl PartialEq<MetadataKey> for str {
+impl<VE: ValueEncoding> PartialEq<MetadataKey<VE>> for str {
     /// Performs a case-insensitive comparison of the string against the header
     /// name
     ///
@@ -188,19 +213,19 @@ impl PartialEq<MetadataKey> for str {
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
-    /// let content_length = MetadataKey::from_static("content-length");
+    /// let content_length = AsciiMetadataKey::from_static("content-length");
     ///
     /// assert_eq!(content_length, "content-length");
     /// assert_eq!(content_length, "Content-Length");
     /// assert_ne!(content_length, "content length");
     /// ```
     #[inline]
-    fn eq(&self, other: &MetadataKey) -> bool {
+    fn eq(&self, other: &MetadataKey<VE>) -> bool {
         (*other).inner == *self
     }
 }
 
-impl<'a> PartialEq<&'a str> for MetadataKey {
+impl<'a, VE: ValueEncoding> PartialEq<&'a str> for MetadataKey<VE> {
     /// Performs a case-insensitive comparison of the string against the header
     /// name
     #[inline]
@@ -210,11 +235,11 @@ impl<'a> PartialEq<&'a str> for MetadataKey {
 }
 
 
-impl<'a> PartialEq<MetadataKey> for &'a str {
+impl<'a, VE: ValueEncoding> PartialEq<MetadataKey<VE>> for &'a str {
     /// Performs a case-insensitive comparison of the string against the header
     /// name
     #[inline]
-    fn eq(&self, other: &MetadataKey) -> bool {
+    fn eq(&self, other: &MetadataKey<VE>) -> bool {
         *other == *self
     }
 }

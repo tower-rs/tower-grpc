@@ -6,6 +6,7 @@ use std::error::Error;
 use std::str::FromStr;
 
 use metadata_key::MetadataKey;
+use metadata_key::ValueEncoding;
 
 /// Represents a custom metadata field value.
 ///
@@ -110,11 +111,11 @@ impl MetadataValue {
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
-    /// let val = MetadataValue::from_name("accept".parse().unwrap());
+    /// let val = MetadataValue::from_name::<Ascii>("accept".parse().unwrap());
     /// assert_eq!(val, MetadataValue::from_bytes(b"accept").unwrap());
     /// ```
     #[inline]
-    pub fn from_name(name: MetadataKey) -> MetadataValue {
+    pub fn from_name<VE: ValueEncoding>(name: MetadataKey<VE>) -> MetadataValue {
         name.into()
     }
 
@@ -314,9 +315,9 @@ impl fmt::Debug for MetadataValue {
     }
 }
 
-impl From<MetadataKey> for MetadataValue {
+impl<VE: ValueEncoding> From<MetadataKey<VE>> for MetadataValue {
     #[inline]
-    fn from(h: MetadataKey) -> MetadataValue {
+    fn from(h: MetadataKey<VE>) -> MetadataValue {
         MetadataValue {
             inner: h.inner.into()
         }
