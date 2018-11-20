@@ -9,6 +9,7 @@ use metadata_value::MetadataValue;
 use std::marker::PhantomData;
 
 pub use self::as_metadata_key::AsMetadataKey;
+pub use self::as_encoding_agnostic_metadata_key::AsEncodingAgnosticMetadataKey;
 pub use self::into_metadata_key::IntoMetadataKey;
 
 /// A set of gRPC custom metadata entries.
@@ -17,6 +18,7 @@ pub use self::into_metadata_key::IntoMetadataKey;
 ///
 /// Basic usage
 ///
+// TODO(pgron): Go through all docs and add -bin stuff where appropriate
 /// ```
 /// # use tower_grpc::metadata::*;
 /// let mut map = MetadataMap::new();
@@ -524,37 +526,15 @@ impl MetadataMap {
     /// let mut map = MetadataMap::new();
     /// assert!(!map.contains_key("x-host"));
     ///
-    /// map.insert("x-host", "world".parse().unwrap());
-    /// assert!(map.contains_key("x-host"));
-    ///
-    /// // Checking for presence of a key of key of the wrong type fails
-    /// // by not finding anything.
     /// map.append_bin("host-bin", "world".parse().unwrap());
-    /// assert!(!map.contains_key("host-bin"));
-    /// assert!(!map.contains_key("host-bin".to_string()));
-    /// assert!(!map.contains_key(&("host-bin".to_string())));
+    /// map.insert("x-host", "world".parse().unwrap());
+    ///
+    /// // contains_key works for both Binary and Ascii keys:
+    /// assert!(map.contains_key("x-host"));
+    /// assert!(map.contains_key("host-bin"));
     /// ```
     pub fn contains_key<K>(&self, key: K) -> bool
-        where K: AsMetadataKey<Ascii>
-    {
-        key.contains_key(self)
-    }
-
-    // TODO(pgron): Can this be merged with contains_key?
-    /// Like contains_key, but for Binary keys (for example "trace-proto-bin").
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let mut map = MetadataMap::new();
-    /// assert!(!map.contains_key_bin("trace-proto-bin"));
-    ///
-    /// map.insert_bin("trace-proto-bin", "world".parse().unwrap());
-    /// assert!(map.contains_key_bin("trace-proto-bin"));
-    /// ```
-    pub fn contains_key_bin<K>(&self, key: K) -> bool
-        where K: AsMetadataKey<Binary>
+        where K: AsEncodingAgnosticMetadataKey
     {
         key.contains_key(self)
     }
@@ -1858,9 +1838,6 @@ mod as_metadata_key {
         fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>>;
 
         #[doc(hidden)]
-        fn contains_key(&self, map: &MetadataMap) -> bool;
-
-        #[doc(hidden)]
         fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey>;
 
         #[doc(hidden)]
@@ -1888,12 +1865,6 @@ mod as_metadata_key {
         #[inline]
         fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
             Some(map.headers.get_all(self.inner))
-        }
-
-        #[doc(hidden)]
-        #[inline]
-        fn contains_key(&self, map: &MetadataMap) -> bool {
-            map.headers.contains_key(&self.inner)
         }
 
         #[doc(hidden)]
@@ -1933,12 +1904,6 @@ mod as_metadata_key {
         #[inline]
         fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
             Some(map.headers.get_all(&self.inner))
-        }
-
-        #[doc(hidden)]
-        #[inline]
-        fn contains_key(&self, map: &MetadataMap) -> bool {
-            map.headers.contains_key(&self.inner)
         }
 
         #[doc(hidden)]
@@ -1987,15 +1952,6 @@ mod as_metadata_key {
                 return None;
             }
             Some(map.headers.get_all(self))
-        }
-
-        #[doc(hidden)]
-        #[inline]
-        fn contains_key(&self, map: &MetadataMap) -> bool {
-            if !VE::is_valid_key(self) {
-                return false;
-            }
-            map.headers.contains_key(*self)
         }
 
         #[doc(hidden)]
@@ -2054,15 +2010,6 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn contains_key(&self, map: &MetadataMap) -> bool {
-            if !VE::is_valid_key(self.as_str()) {
-                return false;
-            }
-            map.headers.contains_key(self.as_str())
-        }
-
-        #[doc(hidden)]
-        #[inline]
         fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self.as_str()) {
                 return Err(InvalidMetadataKey::new());
@@ -2117,16 +2064,6 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn contains_key(&self, map: &MetadataMap) -> bool {
-            // TODO(pgron): Try to de-dup this
-            if !VE::is_valid_key(self) {
-                return false;
-            }
-            map.headers.contains_key(self.as_str())
-        }
-
-        #[doc(hidden)]
-        #[inline]
         fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self) {
                 return Err(InvalidMetadataKey::new());
@@ -2148,6 +2085,81 @@ mod as_metadata_key {
     }
 
     impl<'a, VE: ValueEncoding> AsMetadataKey<VE> for &'a String {}
+}
+
+mod as_encoding_agnostic_metadata_key {
+    use super::{MetadataMap, ValueEncoding};
+    use metadata_key::MetadataKey;
+
+    /// A marker trait used to identify values that can be used as search keys
+    /// to a `MetadataMap`, for operations that don't expose the actual value.
+    pub trait AsEncodingAgnosticMetadataKey: Sealed {}
+
+    // All methods are on this pub(super) trait, instead of
+    // `AsEncodingAgnosticMetadataKey`, so that they aren't publicly exposed to
+    // the world.
+    //
+    // Being on the `AsEncodingAgnosticMetadataKey` trait would mean users could
+    // call `"host".contains_key(&map)`.
+    //
+    // Ultimately, this allows us to adjust the signatures of these methods
+    // without breaking any external crate.
+    pub trait Sealed {
+        #[doc(hidden)]
+        fn contains_key(&self, map: &MetadataMap) -> bool;
+    }
+
+    // ==== impls ====
+
+    impl<VE: ValueEncoding> Sealed for MetadataKey<VE> {
+        #[doc(hidden)]
+        #[inline]
+        fn contains_key(&self, map: &MetadataMap) -> bool {
+            map.headers.contains_key(&self.inner)
+        }
+    }
+
+    impl<VE: ValueEncoding> AsEncodingAgnosticMetadataKey for MetadataKey<VE> {}
+
+    impl<'a, VE: ValueEncoding> Sealed for &'a MetadataKey<VE> {
+        #[doc(hidden)]
+        #[inline]
+        fn contains_key(&self, map: &MetadataMap) -> bool {
+            map.headers.contains_key(&self.inner)
+        }
+    }
+
+    impl<'a, VE: ValueEncoding> AsEncodingAgnosticMetadataKey for &'a MetadataKey<VE> {}
+
+    impl<'a> Sealed for &'a str {
+        #[doc(hidden)]
+        #[inline]
+        fn contains_key(&self, map: &MetadataMap) -> bool {
+            map.headers.contains_key(*self)
+        }
+    }
+
+    impl<'a> AsEncodingAgnosticMetadataKey for &'a str {}
+
+    impl Sealed for String {
+        #[doc(hidden)]
+        #[inline]
+        fn contains_key(&self, map: &MetadataMap) -> bool {
+            map.headers.contains_key(self.as_str())
+        }
+    }
+
+    impl AsEncodingAgnosticMetadataKey for String {}
+
+    impl<'a> Sealed for &'a String {
+        #[doc(hidden)]
+        #[inline]
+        fn contains_key(&self, map: &MetadataMap) -> bool {
+            map.headers.contains_key(self.as_str())
+        }
+    }
+
+    impl<'a> AsEncodingAgnosticMetadataKey for &'a String {}
 }
 
 #[cfg(test)]
