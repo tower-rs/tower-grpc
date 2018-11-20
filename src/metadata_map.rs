@@ -30,28 +30,28 @@ pub use self::into_metadata_key::IntoMetadataKey;
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct MetadataMap {
-    headers: http::HeaderMap<MetadataValue>,
+    headers: http::HeaderMap,
 }
 
 /// `HeaderMap` entry iterator.
 ///
-/// Yields `(&HeaderName, &value)` tuples. The same header name may be yielded
+/// Yields `(&MetadataKey, &value)` tuples. The same header name may be yielded
 /// more than once if it has more than one associated value.
 #[derive(Debug)]
-pub struct Iter<'a, T: 'a> {
-    inner: http::header::Iter<'a, T>,
+pub struct Iter<'a> {
+    inner: http::header::Iter<'a, http::header::HeaderValue>,
 }
 
 /// A drain iterator of all values associated with a single metadata key.
 #[derive(Debug)]
-pub struct ValueDrain<'a, T: 'a> {
-    inner: http::header::ValueDrain<'a, T>,
+pub struct ValueDrain<'a> {
+    inner: http::header::ValueDrain<'a, http::header::HeaderValue>,
 }
 
 /// A drain iterator for `MetadataMap`.
 #[derive(Debug)]
-pub struct Drain<'a, T: 'a> {
-    inner: http::header::Drain<'a, T>,
+pub struct Drain<'a> {
+    inner: http::header::Drain<'a, http::header::HeaderValue>,
 }
 
 /// An iterator over `MetadataMap` keys.
@@ -59,28 +59,28 @@ pub struct Drain<'a, T: 'a> {
 /// Each header name is yielded only once, even if it has more than one
 /// associated value.
 #[derive(Debug)]
-pub struct Keys<'a, T: 'a> {
-    inner: http::header::Keys<'a, T>,
+pub struct Keys<'a> {
+    inner: http::header::Keys<'a, http::header::HeaderValue>,
 }
 
 /// `MetadataMap` value iterator.
 ///
 /// Each value contained in the `MetadataMap` will be yielded.
 #[derive(Debug)]
-pub struct Values<'a, T: 'a> {
-    inner: http::header::Values<'a, T>,
+pub struct Values<'a> {
+    inner: http::header::Values<'a, http::header::HeaderValue>,
 }
 
 /// An iterator of all values associated with a single metadata key.
 #[derive(Debug)]
-pub struct ValueIter<'a, T: 'a> {
-    inner: http::header::ValueIter<'a, T>,
+pub struct ValueIter<'a> {
+    inner: http::header::ValueIter<'a, http::header::HeaderValue>,
 }
 
 /// An iterator of all values associated with a single metadata key.
 #[derive(Debug)]
-pub struct ValueIterMut<'a, T: 'a> {
-    inner: http::header::ValueIterMut<'a, T>,
+pub struct ValueIterMut<'a> {
+    inner: http::header::ValueIterMut<'a, http::header::HeaderValue>,
 }
 
 /// A view to all values stored in a single entry.
@@ -88,33 +88,33 @@ pub struct ValueIterMut<'a, T: 'a> {
 /// This struct is returned by `MetadataMap::get_all`.
 #[derive(Debug)]
 pub struct GetAll<'a> {
-    inner: http::header::GetAll<'a, MetadataValue>
+    inner: http::header::GetAll<'a, http::header::HeaderValue>
 }
 
 /// A view into a single location in a `MetadataMap`, which may be vacant or occupied.
 #[derive(Debug)]
-pub enum Entry<'a, T: 'a> {
+pub enum Entry<'a> {
     /// An occupied entry
-    Occupied(OccupiedEntry<'a, T>),
+    Occupied(OccupiedEntry<'a>),
 
     /// A vacant entry
-    Vacant(VacantEntry<'a, T>),
+    Vacant(VacantEntry<'a>),
 }
 
 /// A view into a single empty location in a `MetadataMap`.
 ///
 /// This struct is returned as part of the `Entry` enum.
 #[derive(Debug)]
-pub struct VacantEntry<'a, T: 'a> {
-    inner: http::header::VacantEntry<'a, T>,
+pub struct VacantEntry<'a> {
+    inner: http::header::VacantEntry<'a, http::header::HeaderValue>,
 }
 
 /// A view into a single occupied location in a `MetadataMap`.
 ///
 /// This struct is returned as part of the `Entry` enum.
 #[derive(Debug)]
-pub struct OccupiedEntry<'a, T: 'a> {
-    inner: http::header::OccupiedEntry<'a, T>,
+pub struct OccupiedEntry<'a> {
+    inner: http::header::OccupiedEntry<'a, http::header::HeaderValue>,
 }
 
 // ===== impl MetadataMap =====
@@ -139,15 +139,8 @@ impl MetadataMap {
     }
 
     /// Convert an HTTP HeaderMap to a MetadataMap
-    pub fn from_headers(mut headers: http::HeaderMap) -> Self {
-        let mut map = Self::with_capacity(headers.len());
-        for (name, values) in headers.drain() {
-            let key = MetadataKey { inner: name };
-            for value in values {
-                map.append(&key, MetadataValue { inner: value });
-            }
-        }
-        map
+    pub fn from_headers(headers: http::HeaderMap) -> Self {
+        MetadataMap { headers: headers }
     }
 
     /// Convert a MetadataMap into a HTTP HeaderMap
@@ -163,14 +156,8 @@ impl MetadataMap {
     ///
     /// assert_eq!(http_map.get("x-host").unwrap(), "example.com");
     /// ```
-    pub fn into_headers(mut self) -> http::HeaderMap {
-        let mut map = http::HeaderMap::with_capacity(self.len());
-        for (key, values) in self.drain() {
-            for value in values {
-                map.append(&key.inner, value.inner);
-            }
-        }
-        map
+    pub fn into_headers(self) -> http::HeaderMap {
+        self.headers
     }
 
     /// Create an empty `MetadataMap` with the specified capacity.
@@ -450,7 +437,7 @@ impl MetadataMap {
     ///     println!("{:?}: {:?}", key, value);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<MetadataValue> {
+    pub fn iter(&self) -> Iter {
         Iter { inner: self.headers.iter() }
     }
 
@@ -500,7 +487,7 @@ impl MetadataMap {
     ///     println!("{:?}", key);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys<MetadataValue> {
+    pub fn keys(&self) -> Keys {
         Keys { inner: self.headers.keys() }
     }
 
@@ -523,7 +510,7 @@ impl MetadataMap {
     ///     println!("{:?}", value);
     /// }
     /// ```
-    pub fn values(&self) -> Values<MetadataValue> {
+    pub fn values(&self) -> Values {
         Values { inner: self.headers.values() }
     }
 
@@ -581,7 +568,7 @@ impl MetadataMap {
     /// assert_eq!("123", vals.next().unwrap());
     /// assert!(vals.next().is_none());
     /// ```
-    pub fn drain(&mut self) -> Drain<MetadataValue> {
+    pub fn drain(&mut self) -> Drain {
         Drain { inner: self.headers.drain() }
     }
 
@@ -609,7 +596,7 @@ impl MetadataMap {
     /// assert_eq!(map.get("content-length").unwrap(), "11");
     /// assert_eq!(map.get("x-hello").unwrap(), "1");
     /// ```
-    pub fn entry<K>(&mut self, key: K) -> Result<Entry<MetadataValue>, InvalidMetadataKey>
+    pub fn entry<K>(&mut self, key: K) -> Result<Entry, InvalidMetadataKey>
         where K: AsMetadataKey
     {
         match key.entry(self) {
@@ -716,13 +703,16 @@ impl MetadataMap {
 
 // ===== impl Iter =====
 
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = (&'a str, &'a T);
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a str, &'a MetadataValue);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|item| {
-            let (ref name, ref value) = item;
-            let item : Self::Item = (&name.as_str(), &value);
+            let (ref name, value) = item;
+            let item : Self::Item = (
+                &name.as_str(),
+                MetadataValue::from_header_value(value)
+            );
             item
         })
     }
@@ -732,16 +722,18 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sync> Sync for Iter<'a, T> {}
-unsafe impl<'a, T: Sync> Send for Iter<'a, T> {}
+unsafe impl<'a> Sync for Iter<'a> {}
+unsafe impl<'a> Send for Iter<'a> {}
 
 // ===== impl ValueDrain =====
 
-impl<'a, T> Iterator for ValueDrain<'a, T> {
-    type Item = T;
+impl<'a> Iterator for ValueDrain<'a> {
+    type Item = MetadataValue;
 
-    fn next(&mut self) -> Option<T> {
-        self.inner.next()
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|value| {
+            MetadataValue { inner: value }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -749,13 +741,13 @@ impl<'a, T> Iterator for ValueDrain<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sync> Sync for ValueDrain<'a, T> {}
-unsafe impl<'a, T: Send> Send for ValueDrain<'a, T> {}
+unsafe impl<'a> Sync for ValueDrain<'a> {}
+unsafe impl<'a> Send for ValueDrain<'a> {}
 
 // ===== impl Drain =====
 
-impl<'a, T> Iterator for Drain<'a, T> {
-    type Item = (MetadataKey, ValueDrain<'a, T>);
+impl<'a> Iterator for Drain<'a> {
+    type Item = (MetadataKey, ValueDrain<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|item| {
@@ -769,12 +761,12 @@ impl<'a, T> Iterator for Drain<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sync> Sync for Drain<'a, T> {}
-unsafe impl<'a, T: Send> Send for Drain<'a, T> {}
+unsafe impl<'a> Sync for Drain<'a> {}
+unsafe impl<'a> Send for Drain<'a> {}
 
 // ===== impl Keys =====
 
-impl<'a, T> Iterator for Keys<'a, T> {
+impl<'a> Iterator for Keys<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -786,15 +778,15 @@ impl<'a, T> Iterator for Keys<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Keys<'a, T> {}
+impl<'a> ExactSizeIterator for Keys<'a> {}
 
 // ===== impl Values ====
 
-impl<'a, T> Iterator for Values<'a, T> {
-    type Item = &'a T;
+impl<'a> Iterator for Values<'a> {
+    type Item = &'a MetadataValue;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(&MetadataValue::from_header_value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -804,11 +796,11 @@ impl<'a, T> Iterator for Values<'a, T> {
 
 // ===== impl ValueIter =====
 
-impl<'a, T: 'a> Iterator for ValueIter<'a, T> {
-    type Item = &'a T;
+impl<'a> Iterator for ValueIter<'a> {
+    type Item = &'a MetadataValue;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(&MetadataValue::from_header_value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -816,34 +808,34 @@ impl<'a, T: 'a> Iterator for ValueIter<'a, T> {
     }
 }
 
-impl<'a, T: 'a> DoubleEndedIterator for ValueIter<'a, T> {
+impl<'a> DoubleEndedIterator for ValueIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.inner.next_back()
+        self.inner.next_back().map(&MetadataValue::from_header_value)
     }
 }
 
 // ===== impl ValueIterMut =====
 
-impl<'a, T: 'a> Iterator for ValueIterMut<'a, T> {
-    type Item = &'a mut T;
+impl<'a> Iterator for ValueIterMut<'a> {
+    type Item = &'a mut MetadataValue;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(&MetadataValue::from_mut_header_value)
     }
 }
 
-impl<'a, T: 'a> DoubleEndedIterator for ValueIterMut<'a, T> {
+impl<'a> DoubleEndedIterator for ValueIterMut<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.inner.next_back()
+        self.inner.next_back().map(&MetadataValue::from_mut_header_value)
     }
 }
 
-unsafe impl<'a, T: Sync> Sync for ValueIterMut<'a, T> {}
-unsafe impl<'a, T: Send> Send for ValueIterMut<'a, T> {}
+unsafe impl<'a> Sync for ValueIterMut<'a> {}
+unsafe impl<'a> Send for ValueIterMut<'a> {}
 
 // ===== impl Entry =====
 
-impl<'a, T> Entry<'a, T> {
+impl<'a> Entry<'a> {
     /// Ensures a value is in the entry by inserting the default if empty.
     ///
     /// Returns a mutable reference to the **first** value in the entry.
@@ -871,7 +863,7 @@ impl<'a, T> Entry<'a, T> {
     /// assert_eq!(map.get("content-length").unwrap(), "11");
     /// assert_eq!(map.get("x-hello").unwrap(), "1");
     /// ```
-    pub fn or_insert(self, default: T) -> &'a mut T {
+    pub fn or_insert(self, default: MetadataValue) -> &'a mut MetadataValue {
         use self::Entry::*;
 
         match self {
@@ -914,7 +906,8 @@ impl<'a, T> Entry<'a, T> {
     ///
     /// assert_eq!(res, "world");
     /// ```
-    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> &'a mut T {
+    pub fn or_insert_with<F: FnOnce() -> MetadataValue>(self, default: F)
+            -> &'a mut MetadataValue {
         use self::Entry::*;
 
         match self {
@@ -945,7 +938,7 @@ impl<'a, T> Entry<'a, T> {
 
 // ===== impl VacantEntry =====
 
-impl<'a, T> VacantEntry<'a, T> {
+impl<'a> VacantEntry<'a> {
     /// Returns a reference to the entry's key
     ///
     /// # Examples
@@ -993,8 +986,8 @@ impl<'a, T> VacantEntry<'a, T> {
     ///
     /// assert_eq!(map.get("x-hello").unwrap(), "world");
     /// ```
-    pub fn insert(self, value: T) -> &'a mut T {
-        self.inner.insert(value)
+    pub fn insert(self, value: MetadataValue) -> &'a mut MetadataValue {
+        MetadataValue::from_mut_header_value(self.inner.insert(value.inner))
     }
 
     /// Insert the value into the entry.
@@ -1015,16 +1008,16 @@ impl<'a, T> VacantEntry<'a, T> {
     ///
     /// assert_eq!(map.get("x-hello").unwrap(), "world2");
     /// ```
-    pub fn insert_entry(self, value: T) -> OccupiedEntry<'a, T> {
+    pub fn insert_entry(self, value: MetadataValue) -> OccupiedEntry<'a> {
         OccupiedEntry {
-            inner: self.inner.insert_entry(value)
+            inner: self.inner.insert_entry(value.inner)
         }
     }
 }
 
 // ===== impl OccupiedEntry =====
 
-impl<'a, T> OccupiedEntry<'a, T> {
+impl<'a> OccupiedEntry<'a> {
     /// Returns a reference to the entry's key.
     ///
     /// # Examples
@@ -1065,8 +1058,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///     assert_eq!(e.get(), &"hello.world");
     /// }
     /// ```
-    pub fn get(&self) -> &T {
-        self.inner.get()
+    pub fn get(&self) -> &MetadataValue {
+        MetadataValue::from_header_value(self.inner.get())
     }
 
     /// Get a mutable reference to the first value in the entry.
@@ -1090,8 +1083,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///     assert!(e.get().is_sensitive());
     /// }
     /// ```
-    pub fn get_mut(&mut self) -> &mut T {
-        self.inner.get_mut()
+    pub fn get_mut(&mut self) -> &mut MetadataValue {
+        MetadataValue::from_mut_header_value(self.inner.get_mut())
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the **first**
@@ -1117,8 +1110,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///
     /// assert!(map.get("host").unwrap().is_sensitive());
     /// ```
-    pub fn into_mut(self) -> &'a mut T {
-        self.inner.into_mut()
+    pub fn into_mut(self) -> &'a mut MetadataValue {
+        MetadataValue::from_mut_header_value(self.inner.into_mut())
     }
 
     /// Sets the value of the entry.
@@ -1140,8 +1133,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///
     /// assert_eq!("earth", map.get("host").unwrap());
     /// ```
-    pub fn insert(&mut self, value: T) -> T {
-        self.inner.insert(value)
+    pub fn insert(&mut self, value: MetadataValue) -> MetadataValue {
+        MetadataValue { inner: self.inner.insert(value.inner) }
     }
 
     /// Sets the value of the entry.
@@ -1166,8 +1159,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///
     /// assert_eq!("earth", map.get("host").unwrap());
     /// ```
-    pub fn insert_mult(&mut self, value: T) -> ValueDrain<T> {
-        ValueDrain { inner: self.inner.insert_mult(value) }
+    pub fn insert_mult(&mut self, value: MetadataValue) -> ValueDrain {
+        ValueDrain { inner: self.inner.insert_mult(value.inner) }
     }
 
     /// Insert the value into the entry.
@@ -1191,8 +1184,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     /// assert_eq!("world", *i.next().unwrap());
     /// assert_eq!("earth", *i.next().unwrap());
     /// ```
-    pub fn append(&mut self, value: T) {
-        self.inner.append(value)
+    pub fn append(&mut self, value: MetadataValue) {
+        self.inner.append(value.inner)
     }
 
     /// Remove the entry from the map.
@@ -1214,8 +1207,8 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///
     /// assert!(!map.contains_key("host"));
     /// ```
-    pub fn remove(self) -> T {
-        self.inner.remove()
+    pub fn remove(self) -> MetadataValue {
+        MetadataValue { inner: self.inner.remove() }
     }
 
     /// Remove the entry from the map.
@@ -1239,16 +1232,16 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///
     /// assert!(!map.contains_key("host"));
     /// ```
-    pub fn remove_entry(self) -> (MetadataKey, T) {
+    pub fn remove_entry(self) -> (MetadataKey, MetadataValue) {
         let (name, value) = self.inner.remove_entry();
-        (MetadataKey { inner: name }, value)
+        (MetadataKey { inner: name }, MetadataValue { inner: value })
     }
 
     /// Remove the entry from the map.
     ///
     /// The key and all values associated with the entry are removed and
     /// returned.
-    pub fn remove_entry_mult(self) -> (MetadataKey, ValueDrain<'a, T>) {
+    pub fn remove_entry_mult(self) -> (MetadataKey, ValueDrain<'a>) {
         let (name, value_drain) = self.inner.remove_entry_mult();
         (MetadataKey { inner: name }, ValueDrain { inner: value_drain })
     }
@@ -1272,7 +1265,7 @@ impl<'a, T> OccupiedEntry<'a, T> {
     ///     assert!(iter.next().is_none());
     /// }
     /// ```
-    pub fn iter(&self) -> ValueIter<T> {
+    pub fn iter(&self) -> ValueIter {
         ValueIter { inner: self.inner.iter() }
     }
 
@@ -1300,34 +1293,34 @@ impl<'a, T> OccupiedEntry<'a, T> {
     /// assert!(i.next().unwrap().is_sensitive());
     /// assert!(i.next().unwrap().is_sensitive());
     /// ```
-    pub fn iter_mut(&mut self) -> ValueIterMut<T> {
+    pub fn iter_mut(&mut self) -> ValueIterMut {
         ValueIterMut { inner: self.inner.iter_mut() }
     }
 }
 
-impl<'a, T> IntoIterator for OccupiedEntry<'a, T> {
-    type Item = &'a mut T;
-    type IntoIter = ValueIterMut<'a, T>;
+impl<'a> IntoIterator for OccupiedEntry<'a> {
+    type Item = &'a mut MetadataValue;
+    type IntoIter = ValueIterMut<'a>;
 
-    fn into_iter(self) -> ValueIterMut<'a, T> {
+    fn into_iter(self) -> ValueIterMut<'a> {
         ValueIterMut { inner: self.inner.into_iter() }
     }
 }
 
-impl<'a, 'b: 'a, T> IntoIterator for &'b OccupiedEntry<'a, T> {
-    type Item = &'a T;
-    type IntoIter = ValueIter<'a, T>;
+impl<'a, 'b: 'a> IntoIterator for &'b OccupiedEntry<'a> {
+    type Item = &'a MetadataValue;
+    type IntoIter = ValueIter<'a>;
 
-    fn into_iter(self) -> ValueIter<'a, T> {
+    fn into_iter(self) -> ValueIter<'a> {
         self.iter()
     }
 }
 
-impl<'a, 'b: 'a, T> IntoIterator for &'b mut OccupiedEntry<'a, T> {
-    type Item = &'a mut T;
-    type IntoIter = ValueIterMut<'a, T>;
+impl<'a, 'b: 'a> IntoIterator for &'b mut OccupiedEntry<'a> {
+    type Item = &'a mut MetadataValue;
+    type IntoIter = ValueIterMut<'a>;
 
-    fn into_iter(self) -> ValueIterMut<'a, T> {
+    fn into_iter(self) -> ValueIterMut<'a> {
         self.iter_mut()
     }
 }
@@ -1353,7 +1346,7 @@ impl<'a> GetAll<'a> {
     /// assert_eq!(&"hello.earth", iter.next().unwrap());
     /// assert!(iter.next().is_none());
     /// ```
-    pub fn iter(&self) -> ValueIter<'a, MetadataValue> {
+    pub fn iter(&self) -> ValueIter<'a> {
         ValueIter { inner: self.inner.iter() }
     }
 }
@@ -1366,18 +1359,18 @@ impl<'a> PartialEq for GetAll<'a> {
 
 impl<'a> IntoIterator for GetAll<'a> {
     type Item = &'a MetadataValue;
-    type IntoIter = ValueIter<'a, MetadataValue>;
+    type IntoIter = ValueIter<'a>;
 
-    fn into_iter(self) -> ValueIter<'a, MetadataValue> {
+    fn into_iter(self) -> ValueIter<'a> {
         ValueIter { inner: self.inner.into_iter() }
     }
 }
 
 impl<'a, 'b: 'a> IntoIterator for &'b GetAll<'a> {
     type Item = &'a MetadataValue;
-    type IntoIter = ValueIter<'a, MetadataValue>;
+    type IntoIter = ValueIter<'a>;
 
-    fn into_iter(self) -> ValueIter<'a, MetadataValue> {
+    fn into_iter(self) -> ValueIter<'a> {
         ValueIter {
             inner: (&self.inner).into_iter()
         }
@@ -1416,13 +1409,15 @@ mod into_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
-            map.headers.insert(self.inner, val)
+            map.headers.insert(self.inner, val.inner).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
 
         #[doc(hidden)]
         #[inline]
         fn append(self, map: &mut MetadataMap, val: MetadataValue) -> bool {
-            map.headers.append(self.inner, val)
+            map.headers.append(self.inner, val.inner)
         }
     }
 
@@ -1432,12 +1427,14 @@ mod into_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
-            map.headers.insert(&self.inner, val)
+            map.headers.insert(&self.inner, val.inner).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
         #[doc(hidden)]
         #[inline]
         fn append(self, map: &mut MetadataMap, val: MetadataValue) -> bool {
-            map.headers.append(&self.inner, val)
+            map.headers.append(&self.inner, val.inner)
         }
     }
 
@@ -1447,12 +1444,14 @@ mod into_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
-            map.headers.insert(self, val)
+            map.headers.insert(self, val.inner).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
         #[doc(hidden)]
         #[inline]
         fn append(self, map: &mut MetadataMap, val: MetadataValue) -> bool {
-            map.headers.append(self, val)
+            map.headers.append(self, val.inner)
         }
     }
 
@@ -1462,7 +1461,7 @@ mod into_metadata_key {
 mod as_metadata_key {
     use super::{MetadataMap, MetadataValue};
     use metadata_key::MetadataKey;
-    use http::header::{Entry, GetAll, InvalidHeaderName};
+    use http::header::{Entry, GetAll, HeaderValue, InvalidHeaderName};
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`.
@@ -1484,13 +1483,13 @@ mod as_metadata_key {
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue>;
 
         #[doc(hidden)]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue>;
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue>;
 
         #[doc(hidden)]
         fn contains_key(&self, map: &MetadataMap) -> bool;
 
         #[doc(hidden)]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName>;
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName>;
 
         #[doc(hidden)]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue>;
@@ -1503,17 +1502,19 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
             map.headers.get(self.inner)
+                .map(&MetadataValue::from_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
             map.headers.get_mut(self.inner)
+                .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue> {
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
             map.headers.get_all(self.inner)
         }
 
@@ -1525,14 +1526,16 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
             map.headers.entry(self.inner)
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
-            map.headers.remove(self.inner)
+            map.headers.remove(self.inner).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
     }
 
@@ -1543,17 +1546,19 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
             map.headers.get(&self.inner)
+                .map(&MetadataValue::from_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
             map.headers.get_mut(&self.inner)
+                .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue> {
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
             map.headers.get_all(&self.inner)
         }
 
@@ -1565,14 +1570,16 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
             map.headers.entry(&self.inner)
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
-            map.headers.remove(&self.inner)
+            map.headers.remove(&self.inner).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
     }
 
@@ -1583,17 +1590,19 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
             map.headers.get(self)
+                .map(&MetadataValue::from_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
             map.headers.get_mut(self)
+                .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue> {
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
             map.headers.get_all(self)
         }
 
@@ -1605,14 +1614,16 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
             map.headers.entry(self)
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
-            map.headers.remove(self)
+            map.headers.remove(self).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
     }
 
@@ -1623,17 +1634,19 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
             map.headers.get(self.as_str())
+                .map(&MetadataValue::from_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
             map.headers.get_mut(self.as_str())
+                .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue> {
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
             map.headers.get_all(self.as_str())
         }
 
@@ -1645,14 +1658,16 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
             map.headers.entry(self.as_str())
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
-            map.headers.remove(self.as_str())
+            map.headers.remove(self.as_str()).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
     }
 
@@ -1663,17 +1678,19 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
             map.headers.get(self.as_str())
+                .map(&MetadataValue::from_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
             map.headers.get_mut(self.as_str())
+                .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<MetadataValue> {
+        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
             map.headers.get_all(self.as_str())
         }
 
@@ -1685,14 +1702,16 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<MetadataValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
             map.headers.entry(self.as_str())
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
-            map.headers.remove(self.as_str())
+            map.headers.remove(self.as_str()).map(|value| {
+                MetadataValue { inner: value }
+            })
         }
     }
 

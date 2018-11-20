@@ -14,6 +14,8 @@ use metadata_key::MetadataKey;
 /// [`HeaderMap`]: struct.HeaderMap.html
 #[derive(Clone, Hash)]
 pub struct MetadataValue {
+    // Note: There are unsafe transmutes that assume that the memory layout
+    // of MetadataValue is identical to HeaderValue
     pub(crate) inner: HeaderValue,
 }
 
@@ -285,6 +287,16 @@ impl MetadataValue {
     #[inline]
     pub fn is_sensitive(&self) -> bool {
         self.inner.is_sensitive()
+    }
+
+    #[inline]
+    pub(crate) fn from_header_value(header_value: &HeaderValue) -> &Self {
+        unsafe { &*(header_value as *const HeaderValue as *const Self) }
+    }
+
+    #[inline]
+    pub(crate) fn from_mut_header_value(header_value: &mut HeaderValue) -> &mut Self {
+        unsafe { &mut *(header_value as *mut HeaderValue as *mut Self) }
     }
 }
 
