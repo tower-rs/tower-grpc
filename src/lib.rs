@@ -34,13 +34,11 @@ pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
 
+/// The metadata module contains data structures and utilities for handling
+/// gRPC custom metadata.
 pub mod metadata {
     pub use metadata_key::MetadataKey;
-    pub use metadata_key::InvalidMetadataKey;
     pub use metadata_value::MetadataValue;
-    pub use metadata_value::InvalidMetadataValue;
-    pub use metadata_value::InvalidMetadataValueBytes;
-    pub use metadata_value::ToStrError;
     pub use metadata_map::MetadataMap;
     pub use metadata_map::Iter;
     pub use metadata_map::ValueDrain;
@@ -52,6 +50,15 @@ pub mod metadata {
     pub use metadata_map::Entry;
     pub use metadata_map::VacantEntry;
     pub use metadata_map::OccupiedEntry;
+
+    /// The metadata::errors module contains types for errors that can occur
+    /// while handling gRPC custom metadata.
+    pub mod errors {
+        pub use metadata_key::InvalidMetadataKey;
+        pub use metadata_value::InvalidMetadataValue;
+        pub use metadata_value::InvalidMetadataValueBytes;
+        pub use metadata_value::ToStrError;
+    }
 }
 
 #[cfg(feature = "protobuf")]
