@@ -934,13 +934,13 @@ impl<'a> Entry<'a> {
     ///
     /// assert_eq!(map.entry("x-hello").unwrap().key(), "x-hello");
     /// ```
-    pub fn key(&self) -> &str {
+    pub fn key(&self) -> &MetadataKey {
         use self::Entry::*;
 
-        match *self {
-            Vacant(ref e) => e.inner.key().as_str(),
-            Occupied(ref e) => e.inner.key().as_str(),
-        }
+        MetadataKey::from_header_name(match *self {
+            Vacant(ref e) => e.inner.key(),
+            Occupied(ref e) => e.inner.key(),
+        })
     }
 }
 
@@ -957,8 +957,8 @@ impl<'a> VacantEntry<'a> {
     ///
     /// assert_eq!(map.entry("x-hello").unwrap().key(), "x-hello");
     /// ```
-    pub fn key(&self) -> &str {
-        self.inner.key().as_str()
+    pub fn key(&self) -> &MetadataKey {
+        MetadataKey::from_header_name(self.inner.key())
     }
 
     /// Take ownership of the key
@@ -1039,8 +1039,8 @@ impl<'a> OccupiedEntry<'a> {
     ///     assert_eq!("host", e.key());
     /// }
     /// ```
-    pub fn key(&self) -> &str {
-        self.inner.key().as_str()
+    pub fn key(&self) -> &MetadataKey {
+        MetadataKey::from_header_name(self.inner.key())
     }
 
     /// Get a reference to the first value in the entry.

@@ -14,6 +14,8 @@ use std::str::FromStr;
 /// [`HeaderMap`]: struct.HeaderMap.html
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct MetadataKey {
+    // Note: There are unsafe transmutes that assume that the memory layout
+    // of MetadataValue is identical to HeaderName
     pub(crate) inner: http::header::HeaderName,
 }
 
@@ -75,6 +77,11 @@ impl MetadataKey {
     #[inline]
     pub fn as_str(&self) -> &str {
         self.inner.as_str()
+    }
+
+    #[inline]
+    pub(crate) fn from_header_name(header_name: &HeaderName) -> &Self {
+        unsafe { &*(header_name as *const HeaderName as *const Self) }
     }
 }
 
