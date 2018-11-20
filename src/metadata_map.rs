@@ -216,7 +216,7 @@ impl MetadataMap {
     ///
     /// assert_eq!(2, map.len());
     ///
-    /// map.append("x-mime-type", "text/html".parse().unwrap());
+    /// map.append("x-host-ip", "text/html".parse().unwrap());
     ///
     /// assert_eq!(3, map.len());
     /// ```
@@ -237,17 +237,17 @@ impl MetadataMap {
     ///
     /// assert_eq!(0, map.keys_len());
     ///
-    /// map.insert("x-mime", "text/plain".parse().unwrap());
-    /// map.insert("x-host", "localhost".parse().unwrap());
+    /// map.insert("x-host-ip", "127.0.0.1".parse().unwrap());
+    /// map.insert("x-host-name", "localhost".parse().unwrap());
     ///
     /// assert_eq!(2, map.keys_len());
     ///
-    /// map.insert("x-mime", "text/html".parse().unwrap());
+    /// map.append("x-host-ip", "text/html".parse().unwrap());
     ///
     /// assert_eq!(2, map.keys_len());
     /// ```
     pub fn keys_len(&self) -> usize {
-        self.headers.len()
+        self.headers.keys_len()
     }
 
     /// Returns true if the map contains no elements.
@@ -355,7 +355,6 @@ impl MetadataMap {
     pub fn get<K>(&self, key: K) -> Option<&MetadataValue>
         where K: AsMetadataKey
     {
-
         key.get(self)
     }
 

@@ -34,31 +34,6 @@ impl MetadataKey {
         }
     }
 
-    /// Converts a slice of bytes to a `MetadataKey`.
-    ///
-    /// This function expects the input to only contain lowercase characters.
-    /// This is useful when decoding HTTP/2.0 headers. The HTTP/2.0
-    /// specification requires that all headers be represented in lower case.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    ///
-    /// // Parsing a lower case metadata key
-    /// let hdr = MetadataKey::from_lowercase(b"content-length").unwrap();
-    /// assert_eq!("content-length", hdr);
-    ///
-    /// // Parsing a metadata key that contains uppercase characters
-    /// assert!(MetadataKey::from_lowercase(b"Content-Length").is_err());
-    /// ```
-    pub fn from_lowercase(src: &[u8]) -> Result<MetadataKey, InvalidMetadataKey> {
-        match HeaderName::from_lowercase(src) {
-            Ok(name) => Ok(MetadataKey { inner: name }),
-            Err(_) => Err(InvalidMetadataKey { _priv: () })
-        }
-    }
-
     /// Converts a static string to a `MetadataKey`.
     ///
     /// This function panics when the static string is a invalid metadata key.
@@ -75,7 +50,7 @@ impl MetadataKey {
     /// // Parsing a metadata key
     /// let CUSTOM_KEY: &'static str = "custom-key";
     /// 
-    /// let a = MetadataKey::from_lowercase(b"custom-key").unwrap();
+    /// let a = MetadataKey::from_bytes(b"custom-key").unwrap();
     /// let b = MetadataKey::from_static(CUSTOM_KEY);
     /// assert_eq!(a, b);
     /// ```
