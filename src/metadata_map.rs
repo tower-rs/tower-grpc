@@ -97,7 +97,7 @@ pub struct ValuesMut<'a> {
 /// An iterator of all values associated with a single metadata key.
 #[derive(Debug)]
 pub struct ValueIter<'a> {
-    inner: http::header::ValueIter<'a, http::header::HeaderValue>,
+    inner: Option<http::header::ValueIter<'a, http::header::HeaderValue>>,
 }
 
 /// An iterator of all values associated with a single metadata key.
@@ -106,12 +106,14 @@ pub struct ValueIterMut<'a> {
     inner: http::header::ValueIterMut<'a, http::header::HeaderValue>,
 }
 
+// TODO(pgron): Document all panic-prone implicit conversions
+
 /// A view to all values stored in a single entry.
 ///
 /// This struct is returned by `MetadataMap::get_all`.
 #[derive(Debug)]
 pub struct GetAll<'a> {
-    inner: http::header::GetAll<'a, http::header::HeaderValue>
+    inner: Option<http::header::GetAll<'a, http::header::HeaderValue>>
 }
 
 /// A view into a single location in a `MetadataMap`, which may be vacant or occupied.
@@ -363,6 +365,13 @@ impl MetadataMap {
     ///
     /// map.append("x-host", "world".parse().unwrap());
     /// assert_eq!(map.get("x-host").unwrap(), &"hello");
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(map.get("host-bin").is_none());
+    /// assert!(map.get("host-bin".to_string()).is_none());
+    /// assert!(map.get(&("host-bin".to_string())).is_none());
     /// ```
     pub fn get<K>(&self, key: K) -> Option<&MetadataValue>
         where K: AsMetadataKey<Ascii>
@@ -379,11 +388,11 @@ impl MetadataMap {
     /// let mut map = MetadataMap::new();
     /// assert!(map.get_bin("trace-proto-bin").is_none());
     ///
-    /// map.insert("trace-proto-bin", "hello".parse().unwrap());
+    /// map.insert_bin("trace-proto-bin", "hello".parse().unwrap());
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     ///
-    /// map.append("trace-proto-bin", "world".parse().unwrap());
+    /// map.append_bin("trace-proto-bin", "world".parse().unwrap());
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     /// ```
     pub fn get_bin<K>(&self, key: K) -> Option<&MetadataValue>
@@ -407,6 +416,13 @@ impl MetadataMap {
     /// map.get_mut("x-host").unwrap().set_sensitive(true);
     ///
     /// assert!(map.get("x-host").unwrap().is_sensitive());
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(map.get_mut("host-bin").is_none());
+    /// assert!(map.get_mut("host-bin".to_string()).is_none());
+    /// assert!(map.get_mut(&("host-bin".to_string())).is_none());
     /// ```
     pub fn get_mut<K>(&mut self, key: K) -> Option<&mut MetadataValue>
         where K: AsMetadataKey<Ascii>
@@ -449,12 +465,21 @@ impl MetadataMap {
     /// map.insert("x-host", "hello".parse().unwrap());
     /// map.append("x-host", "goodbye".parse().unwrap());
     ///
-    /// let view = map.get_all("x-host");
+    /// {
+    ///     let view = map.get_all("x-host");
     ///
-    /// let mut iter = view.iter();
-    /// assert_eq!(&"hello", iter.next().unwrap());
-    /// assert_eq!(&"goodbye", iter.next().unwrap());
-    /// assert!(iter.next().is_none());
+    ///     let mut iter = view.iter();
+    ///     assert_eq!(&"hello", iter.next().unwrap());
+    ///     assert_eq!(&"goodbye", iter.next().unwrap());
+    ///     assert!(iter.next().is_none());
+    /// }
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(map.get_all("host-bin").iter().next().is_none());
+    /// assert!(map.get_all("host-bin".to_string()).iter().next().is_none());
+    /// assert!(map.get_all(&("host-bin".to_string())).iter().next().is_none());
     /// ```
     pub fn get_all<K>(&self, key: K) -> GetAll
         where K: AsMetadataKey<Ascii>
@@ -501,6 +526,13 @@ impl MetadataMap {
     ///
     /// map.insert("x-host", "world".parse().unwrap());
     /// assert!(map.contains_key("x-host"));
+    ///
+    /// // Checking for presence of a key of key of the wrong type fails
+    /// // by not finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(!map.contains_key("host-bin"));
+    /// assert!(!map.contains_key("host-bin".to_string()));
+    /// assert!(!map.contains_key(&("host-bin".to_string())));
     /// ```
     pub fn contains_key<K>(&self, key: K) -> bool
         where K: AsMetadataKey<Ascii>
@@ -508,6 +540,7 @@ impl MetadataMap {
         key.contains_key(self)
     }
 
+    // TODO(pgron): Can this be merged with contains_key?
     /// Like contains_key, but for Binary keys (for example "trace-proto-bin").
     ///
     /// # Examples
@@ -695,9 +728,9 @@ impl MetadataMap {
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
     ///
-    /// map.insert("word-bin", "hello".parse().unwrap());
-    /// map.append("word-bin", "goodbye".parse().unwrap());
-    /// map.insert("number-bin", "123".parse().unwrap());
+    /// map.insert_bin("word-bin", "hello".parse().unwrap());
+    /// map.append_bin("word-bin", "goodbye".parse().unwrap());
+    /// map.insert_bin("number-bin", "123".parse().unwrap());
     ///
     /// let mut drain = map.drain();
     ///
@@ -744,6 +777,16 @@ impl MetadataMap {
     ///
     /// assert_eq!(map.get("content-length").unwrap(), "11");
     /// assert_eq!(map.get("x-hello").unwrap(), "1");
+    ///
+    /// // Gracefully handles parting invalid key strings
+    /// assert!(!map.entry("a{}b").is_ok());
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(!map.entry("host-bin").is_ok());
+    /// assert!(!map.entry("host-bin".to_string()).is_ok());
+    /// assert!(!map.entry(&("host-bin".to_string())).is_ok());
     /// ```
     pub fn entry<K>(&mut self, key: K) -> Result<Entry<Ascii>, InvalidMetadataKey>
         where K: AsMetadataKey<Ascii>
@@ -793,7 +836,7 @@ impl MetadataMap {
                         Entry::Vacant(VacantEntry { inner: e, phantom: PhantomData, }),
                 })
             }
-            Err(_) => Err(InvalidMetadataKey::new()),
+            Err(err) => Err(err),
         }
     }
 
@@ -841,6 +884,13 @@ impl MetadataMap {
     ///
     /// let mut prev = map.insert_bin("trace-proto-bin", "earth".parse().unwrap()).unwrap();
     /// assert_eq!("world", prev);
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::default();
+    /// // Attempting to add a binary metadata entry with an invalid name
+    /// map.insert_bin("trace-proto", "hello".parse().unwrap()); // This line panics!
     /// ```
     pub fn insert_bin<K>(&mut self, key: K, val: MetadataValue) -> Option<MetadataValue>
         where K: IntoMetadataKey<Binary>
@@ -921,6 +971,13 @@ impl MetadataMap {
     /// assert_eq!("hello.world", prev);
     ///
     /// assert!(map.remove("x-host").is_none());
+    ///
+    /// // Attempting to remove a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append_bin("host-bin", "world".parse().unwrap());
+    /// assert!(map.remove("host-bin").is_none());
+    /// assert!(map.remove("host-bin".to_string()).is_none());
+    /// assert!(map.remove(&("host-bin".to_string())).is_none());
     /// ```
     pub fn remove<K>(&mut self, key: K) -> Option<MetadataValue>
         where K: AsMetadataKey<Ascii>
@@ -1022,10 +1079,11 @@ impl<'a, VE: ValueEncoding> Iterator for Drain<'a, VE> {
     type Item = (MetadataKey<VE>, ValueDrain<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
+        // TODO(pgron): Make this make sense with -bin vs non--bin
         self.inner.next().map(|item| {
             let (name, drain) = item;
             (
-                MetadataKey { inner: name, phantom: PhantomData, },
+                MetadataKey::unchecked_from_header_name(name),
                 ValueDrain { inner: drain }
             )
         })
@@ -1089,17 +1147,28 @@ impl<'a> Iterator for ValueIter<'a> {
     type Item = &'a MetadataValue;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(&MetadataValue::from_header_value)
+        match self.inner {
+            Some(ref mut inner) =>
+                inner.next().map(&MetadataValue::from_header_value),
+            None => None
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
+        match self.inner {
+            Some(ref inner) => inner.size_hint(),
+            None => (0, Some(0))
+        }
     }
 }
 
 impl<'a> DoubleEndedIterator for ValueIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.inner.next_back().map(&MetadataValue::from_header_value)
+        match self.inner {
+            Some(ref mut inner) =>
+                inner.next_back().map(&MetadataValue::from_header_value),
+            None => None
+        }
     }
 }
 
@@ -1218,7 +1287,7 @@ impl<'a, VE: ValueEncoding> Entry<'a, VE> {
     pub fn key(&self) -> &MetadataKey<VE> {
         use self::Entry::*;
 
-        MetadataKey::from_header_name(match *self {
+        MetadataKey::unchecked_from_header_name_ref(match *self {
             Vacant(ref e) => e.inner.key(),
             Occupied(ref e) => e.inner.key(),
         })
@@ -1239,7 +1308,7 @@ impl<'a, VE: ValueEncoding> VacantEntry<'a, VE> {
     /// assert_eq!(map.entry("x-hello").unwrap().key(), "x-hello");
     /// ```
     pub fn key(&self) -> &MetadataKey<VE> {
-        MetadataKey::from_header_name(self.inner.key())
+        MetadataKey::unchecked_from_header_name_ref(self.inner.key())
     }
 
     /// Take ownership of the key
@@ -1255,7 +1324,7 @@ impl<'a, VE: ValueEncoding> VacantEntry<'a, VE> {
     /// }
     /// ```
     pub fn into_key(self) -> MetadataKey<VE> {
-        MetadataKey { inner: self.inner.into_key(), phantom: PhantomData, }
+        MetadataKey::unchecked_from_header_name(self.inner.into_key())
     }
 
     /// Insert the value into the entry.
@@ -1322,7 +1391,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// }
     /// ```
     pub fn key(&self) -> &MetadataKey<VE> {
-        MetadataKey::from_header_name(self.inner.key())
+        MetadataKey::unchecked_from_header_name_ref(self.inner.key())
     }
 
     /// Get a reference to the first value in the entry.
@@ -1525,7 +1594,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     pub fn remove_entry(self) -> (MetadataKey<VE>, MetadataValue) {
         let (name, value) = self.inner.remove_entry();
         (
-            MetadataKey { inner: name, phantom: PhantomData, },
+            MetadataKey::unchecked_from_header_name(name),
             MetadataValue { inner: value }
         )
     }
@@ -1537,7 +1606,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     pub fn remove_entry_mult(self) -> (MetadataKey<VE>, ValueDrain<'a>) {
         let (name, value_drain) = self.inner.remove_entry_mult();
         (
-            MetadataKey { inner: name, phantom: PhantomData, },
+            MetadataKey::unchecked_from_header_name(name),
             ValueDrain { inner: value_drain }
         )
     }
@@ -1562,7 +1631,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// }
     /// ```
     pub fn iter(&self) -> ValueIter {
-        ValueIter { inner: self.inner.iter() }
+        ValueIter { inner: Some(self.inner.iter()) }
     }
 
     /// Returns an iterator mutably visiting all values associated with the
@@ -1643,7 +1712,9 @@ impl<'a> GetAll<'a> {
     /// assert!(iter.next().is_none());
     /// ```
     pub fn iter(&self) -> ValueIter<'a> {
-        ValueIter { inner: self.inner.iter() }
+        ValueIter {
+            inner: self.inner.as_ref().map(|inner| { inner.iter() })
+        }
     }
 }
 
@@ -1658,7 +1729,9 @@ impl<'a> IntoIterator for GetAll<'a> {
     type IntoIter = ValueIter<'a>;
 
     fn into_iter(self) -> ValueIter<'a> {
-        ValueIter { inner: self.inner.into_iter() }
+        ValueIter {
+            inner: self.inner.map(|inner| { inner.into_iter() })
+        }
     }
 }
 
@@ -1668,7 +1741,7 @@ impl<'a, 'b: 'a> IntoIterator for &'b GetAll<'a> {
 
     fn into_iter(self) -> ValueIter<'a> {
         ValueIter {
-            inner: (&self.inner).into_iter()
+            inner: (&self.inner).as_ref().map(|inner| { inner.into_iter() })
         }
     }
 }
@@ -1681,7 +1754,7 @@ mod into_metadata_key {
 
     /// A marker trait used to identify values that can be used as insert keys
     /// to a `MetadataMap`.
-    pub trait IntoMetadataKey<VE: ValueEncoding>: Sealed {}
+    pub trait IntoMetadataKey<VE: ValueEncoding>: Sealed<VE> {}
 
     // All methods are on this pub(super) trait, instead of `IntoMetadataKey`,
     // so that they aren't publicly exposed to the world.
@@ -1691,7 +1764,7 @@ mod into_metadata_key {
     //
     // Ultimately, this allows us to adjust the signatures of these methods
     // without breaking any external crate.
-    pub trait Sealed {
+    pub trait Sealed<VE: ValueEncoding> {
         #[doc(hidden)]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue>;
 
@@ -1701,7 +1774,7 @@ mod into_metadata_key {
 
     // ==== impls ====
 
-    impl<VE: ValueEncoding> Sealed for MetadataKey<VE> {
+    impl<VE: ValueEncoding> Sealed<VE> for MetadataKey<VE> {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
@@ -1719,7 +1792,7 @@ mod into_metadata_key {
 
     impl<VE: ValueEncoding> IntoMetadataKey<VE> for MetadataKey<VE> {}
 
-    impl<'a, VE: ValueEncoding> Sealed for &'a MetadataKey<VE> {
+    impl<'a, VE: ValueEncoding> Sealed<VE> for &'a MetadataKey<VE> {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
@@ -1736,11 +1809,14 @@ mod into_metadata_key {
 
     impl<'a, VE: ValueEncoding> IntoMetadataKey<VE> for &'a MetadataKey<VE> {}
 
-    impl Sealed for &'static str {
+    impl<VE: ValueEncoding> Sealed<VE> for &'static str {
         #[doc(hidden)]
         #[inline]
         fn insert(self, map: &mut MetadataMap, val: MetadataValue) -> Option<MetadataValue> {
-            map.headers.insert(self, val.inner).map(|value| {
+            // Perform name validation
+            let key = MetadataKey::<VE>::from_static(self);
+
+            map.headers.insert(key.inner, val.inner).map(|value| {
                 MetadataValue { inner: value }
             })
         }
@@ -1756,12 +1832,12 @@ mod into_metadata_key {
 
 mod as_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
-    use metadata_key::MetadataKey;
-    use http::header::{Entry, GetAll, HeaderValue, InvalidHeaderName};
+    use metadata_key::{InvalidMetadataKey, MetadataKey};
+    use http::header::{Entry, GetAll, HeaderValue};
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`.
-    pub trait AsMetadataKey<VE: ValueEncoding>: Sealed {}
+    pub trait AsMetadataKey<VE: ValueEncoding>: Sealed<VE> {}
 
     // All methods are on this pub(super) trait, instead of `AsMetadataKey`,
     // so that they aren't publicly exposed to the world.
@@ -1771,7 +1847,7 @@ mod as_metadata_key {
     //
     // Ultimately, this allows us to adjust the signatures of these methods
     // without breaking any external crate.
-    pub trait Sealed {
+    pub trait Sealed<VE: ValueEncoding> {
         #[doc(hidden)]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue>;
 
@@ -1779,13 +1855,13 @@ mod as_metadata_key {
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue>;
 
         #[doc(hidden)]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue>;
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>>;
 
         #[doc(hidden)]
         fn contains_key(&self, map: &MetadataMap) -> bool;
 
         #[doc(hidden)]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName>;
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey>;
 
         #[doc(hidden)]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue>;
@@ -1793,7 +1869,7 @@ mod as_metadata_key {
 
     // ==== impls ====
 
-    impl<VE: ValueEncoding> Sealed for MetadataKey<VE> {
+    impl<VE: ValueEncoding> Sealed<VE> for MetadataKey<VE> {
         #[doc(hidden)]
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
@@ -1810,8 +1886,8 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
-            map.headers.get_all(self.inner)
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+            Some(map.headers.get_all(self.inner))
         }
 
         #[doc(hidden)]
@@ -1822,8 +1898,9 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
             map.headers.entry(self.inner)
+                .map_err(|_| { InvalidMetadataKey::new() })
         }
 
         #[doc(hidden)]
@@ -1837,7 +1914,7 @@ mod as_metadata_key {
 
     impl<VE: ValueEncoding> AsMetadataKey<VE> for MetadataKey<VE> {}
 
-    impl<'a, VE: ValueEncoding> Sealed for &'a MetadataKey<VE> {
+    impl<'a, VE: ValueEncoding> Sealed<VE> for &'a MetadataKey<VE> {
         #[doc(hidden)]
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
@@ -1854,8 +1931,8 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
-            map.headers.get_all(&self.inner)
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+            Some(map.headers.get_all(&self.inner))
         }
 
         #[doc(hidden)]
@@ -1866,8 +1943,9 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
             map.headers.entry(&self.inner)
+                .map_err(|_| { InvalidMetadataKey::new() })
         }
 
         #[doc(hidden)]
@@ -1881,10 +1959,13 @@ mod as_metadata_key {
 
     impl<'a, VE: ValueEncoding> AsMetadataKey<VE> for &'a MetadataKey<VE> {}
 
-    impl<'a> Sealed for &'a str {
+    impl<'a, VE: ValueEncoding> Sealed<VE> for &'a str {
         #[doc(hidden)]
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.get(self)
                 .map(&MetadataValue::from_header_value)
         }
@@ -1892,31 +1973,47 @@ mod as_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.get_mut(self)
                 .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
-            map.headers.get_all(self)
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
+            Some(map.headers.get_all(self))
         }
 
         #[doc(hidden)]
         #[inline]
         fn contains_key(&self, map: &MetadataMap) -> bool {
+            if !VE::is_valid_key(self) {
+                return false;
+            }
             map.headers.contains_key(*self)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+            if !VE::is_valid_key(self) {
+                return Err(InvalidMetadataKey::new());
+            }
             map.headers.entry(self)
+                .map_err(|_| { InvalidMetadataKey::new() })
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.remove(self).map(|value| {
                 MetadataValue { inner: value }
             })
@@ -1925,10 +2022,13 @@ mod as_metadata_key {
 
     impl<'a, VE: ValueEncoding> AsMetadataKey<VE> for &'a str {}
 
-    impl Sealed for String {
+    impl<VE: ValueEncoding> Sealed<VE> for String {
         #[doc(hidden)]
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
+            if !VE::is_valid_key(self.as_str()) {
+                return None;
+            }
             map.headers.get(self.as_str())
                 .map(&MetadataValue::from_header_value)
         }
@@ -1936,31 +2036,47 @@ mod as_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
+            if !VE::is_valid_key(self.as_str()) {
+                return None;
+            }
             map.headers.get_mut(self.as_str())
                 .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
-            map.headers.get_all(self.as_str())
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+            if !VE::is_valid_key(self.as_str()) {
+                return None;
+            }
+            Some(map.headers.get_all(self.as_str()))
         }
 
         #[doc(hidden)]
         #[inline]
         fn contains_key(&self, map: &MetadataMap) -> bool {
+            if !VE::is_valid_key(self.as_str()) {
+                return false;
+            }
             map.headers.contains_key(self.as_str())
         }
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+            if !VE::is_valid_key(self.as_str()) {
+                return Err(InvalidMetadataKey::new());
+            }
             map.headers.entry(self.as_str())
+                .map_err(|_| { InvalidMetadataKey::new() })
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
+            if !VE::is_valid_key(self.as_str()) {
+                return None;
+            }
             map.headers.remove(self.as_str()).map(|value| {
                 MetadataValue { inner: value }
             })
@@ -1969,10 +2085,13 @@ mod as_metadata_key {
 
     impl<VE: ValueEncoding> AsMetadataKey<VE> for String {}
 
-    impl<'a> Sealed for &'a String {
+    impl<'a, VE: ValueEncoding> Sealed<VE> for &'a String {
         #[doc(hidden)]
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.get(self.as_str())
                 .map(&MetadataValue::from_header_value)
         }
@@ -1980,31 +2099,48 @@ mod as_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.get_mut(self.as_str())
                 .map(&MetadataValue::from_mut_header_value)
         }
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> GetAll<HeaderValue> {
-            map.headers.get_all(self.as_str())
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
+            Some(map.headers.get_all(self.as_str()))
         }
 
         #[doc(hidden)]
         #[inline]
         fn contains_key(&self, map: &MetadataMap) -> bool {
+            // TODO(pgron): Try to de-dup this
+            if !VE::is_valid_key(self) {
+                return false;
+            }
             map.headers.contains_key(self.as_str())
         }
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidHeaderName> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+            if !VE::is_valid_key(self) {
+                return Err(InvalidMetadataKey::new());
+            }
             map.headers.entry(self.as_str())
+                .map_err(|_| { InvalidMetadataKey::new() })
         }
 
         #[doc(hidden)]
         #[inline]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue> {
+            if !VE::is_valid_key(self) {
+                return None;
+            }
             map.headers.remove(self.as_str()).map(|value| {
                 MetadataValue { inner: value }
             })

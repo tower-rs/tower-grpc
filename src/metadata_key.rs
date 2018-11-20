@@ -10,15 +10,27 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 // TODO(pgron): Make sealed
-pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {}
+pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
+    #[doc(hidden)]
+    fn is_valid_key(key: &str) -> bool;
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Ascii {}
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Binary {}
 
-impl ValueEncoding for Ascii {}
-impl ValueEncoding for Binary {}
+impl ValueEncoding for Ascii {
+    fn is_valid_key(key: &str) -> bool {
+        !Binary::is_valid_key(key)
+    }
+}
+
+impl ValueEncoding for Binary {
+    fn is_valid_key(key: &str) -> bool {
+        key.ends_with("-bin")
+    }
+}
 
 /// Represents a custom metadata field name.
 ///
@@ -31,7 +43,7 @@ pub struct MetadataKey<VE: ValueEncoding> {
     // Note: There are unsafe transmutes that assume that the memory layout
     // of MetadataValue is identical to HeaderName
     pub(crate) inner: http::header::HeaderName,
-    pub(crate) phantom: PhantomData<VE>,
+    phantom: PhantomData<VE>,
 }
 
 /// A possible error when converting a `MetadataKey` from another type.
@@ -49,10 +61,16 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
     /// This function normalizes the input.
     pub fn from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataKey> {
         match HeaderName::from_bytes(src) {
-            Ok(name) => Ok(MetadataKey {
-                inner: name,
-                phantom: PhantomData
-            }),
+            Ok(name) => {
+                if !VE::is_valid_key(name.as_str()) {
+                    panic!("invalid metadata key")
+                }
+
+                Ok(MetadataKey {
+                    inner: name,
+                    phantom: PhantomData
+                })
+            },
             Err(_) => Err(InvalidMetadataKey::new())
         }
     }
@@ -77,22 +95,39 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
     /// let b = AsciiMetadataKey::from_static(CUSTOM_KEY);
     /// assert_eq!(a, b);
     /// ```
-    /// 
+    ///
     /// ```should_panic
     /// # use tower_grpc::metadata::*;
     /// // Parsing a metadata key that contains invalid symbols(s):
     /// AsciiMetadataKey::from_static("content{}{}length"); // This line panics!
     /// ```
-    /// 
+    ///
     /// ```should_panic
     /// # use tower_grpc::metadata::*;
     /// // Parsing a metadata key that contains invalid uppercase characters.
     /// let a = AsciiMetadataKey::from_static("foobar");
     /// let b = AsciiMetadataKey::from_static("FOOBAR"); // This line panics!
     /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// // Parsing a -bin metadata key as an Ascii key.
+    /// let b = AsciiMetadataKey::from_static("hello-bin"); // This line panics!
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// // Parsing a non-bin metadata key as an Binary key.
+    /// let b = BinaryMetadataKey::from_static("hello"); // This line panics!
+    /// ```
     pub fn from_static(src: &'static str) -> Self {
+        let name = HeaderName::from_static(src);
+        if !VE::is_valid_key(name.as_str()) {
+            panic!("invalid metadata key")
+        }
+
         MetadataKey {
-            inner: HeaderName::from_static(src),
+            inner: name,
             phantom: PhantomData,
         }
     }
@@ -105,9 +140,20 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
         self.inner.as_str()
     }
 
+    /// Converts a HeaderName reference to a MetadataKey. This method assumes
+    /// that the caller has made sure that the header name has the correct
+    /// "-bin" or non-"-bin" suffix, it does not validate its input.
     #[inline]
-    pub(crate) fn from_header_name(header_name: &HeaderName) -> &Self {
+    pub(crate) fn unchecked_from_header_name_ref(header_name: &HeaderName) -> &Self {
         unsafe { &*(header_name as *const HeaderName as *const Self) }
+    }
+
+    /// Converts a HeaderName reference to a MetadataKey. This method assumes
+    /// that the caller has made sure that the header name has the correct
+    /// "-bin" or non-"-bin" suffix, it does not validate its input.
+    #[inline]
+    pub(crate) fn unchecked_from_header_name(name: HeaderName) -> Self {
+        MetadataKey { inner: name, phantom: PhantomData, }
     }
 }
 
