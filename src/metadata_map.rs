@@ -442,6 +442,10 @@ impl MetadataMap {
     }
 
     /*
+    TODO(pgron): Add this once
+    https://github.com/hyperium/http/commit/22ec10aaa331c5e2414b7ea8ecfd4b4d0d19b6ee
+    has been released.
+
     /// An iterator visiting all key-value pairs, with mutable value references.
     ///
     /// The iterator order is arbitrary, but consistent across platforms for the
@@ -462,7 +466,6 @@ impl MetadataMap {
     ///     value.set_sensitive(true);
     /// }
     /// ```
-    // TODO(pgron): Expose this. Blocked by https://github.com/hyperium/http/pull/278
     pub fn iter_mut(&mut self) -> http::header::map::IterMut<MetadataValue> {
         self.headers.iter_mut()
     }*/
@@ -514,7 +517,11 @@ impl MetadataMap {
         Values { inner: self.headers.values() }
     }
 
-/*
+    /*
+    TODO(pgron): Add this once
+    https://github.com/hyperium/http/commit/22ec10aaa331c5e2414b7ea8ecfd4b4d0d19b6ee
+    has been released.
+
     /// An iterator visiting all values mutably.
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
@@ -537,7 +544,8 @@ impl MetadataMap {
     // TODO(pgron): Expose this. Blocked by https://github.com/hyperium/http/pull/278
     pub fn values_mut(&mut self) -> http::header::ValuesMut<MetadataValue> {
         self.headers.values_mut()
-    }*/
+    }
+    */
 
     /// Clears the map, returning all entries as an iterator.
     ///
