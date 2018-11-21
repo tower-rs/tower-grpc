@@ -64,13 +64,6 @@ pub struct ValueDrain<'a> {
     inner: http::header::ValueDrain<'a, http::header::HeaderValue>,
 }
 
-/// A drain iterator for `MetadataMap`.
-#[derive(Debug)]
-pub struct Drain<'a, VE: ValueEncoding> {
-    inner: http::header::Drain<'a, http::header::HeaderValue>,
-    phantom: PhantomData<VE>,
-}
-
 /// An iterator over `MetadataMap` keys.
 ///
 /// Each header name is yielded only once, even if it has more than one
@@ -660,80 +653,6 @@ impl MetadataMap {
         ValuesMut { inner: self.headers.values_mut() }
     }
 
-    // TODO(pgron): This needs to be updated (example code)
-    /// Clears the map, returning all ASCII entries as an iterator.
-    ///
-    /// The internal memory is kept for reuse.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let mut map = MetadataMap::new();
-    ///
-    /// map.insert("x-word", "hello".parse().unwrap());
-    /// map.append("x-word", "goodbye".parse().unwrap());
-    /// map.insert("x-number", "123".parse().unwrap());
-    ///
-    /// let mut drain = map.drain();
-    ///
-    /// let (key, mut vals) = drain.next().unwrap();
-    ///
-    /// assert_eq!("x-word", key);
-    /// assert_eq!("hello", vals.next().unwrap());
-    /// assert_eq!("goodbye", vals.next().unwrap());
-    /// assert!(vals.next().is_none());
-    ///
-    /// let (key, mut vals) = drain.next().unwrap();
-    ///
-    /// assert_eq!("x-number", key);
-    /// assert_eq!("123", vals.next().unwrap());
-    /// assert!(vals.next().is_none());
-    /// ```
-    pub fn drain(&mut self) -> Drain<Ascii> {
-        Drain {
-            inner: self.headers.drain(),
-            phantom: PhantomData,
-        }
-    }
-
-    // TODO(pgron): This needs to be updated (example code)
-    /// Clears the map, returning all Binary entries as an iterator.
-    ///
-    /// The internal memory is kept for reuse.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let mut map = MetadataMap::new();
-    ///
-    /// map.insert_bin("word-bin", "hello".parse().unwrap());
-    /// map.append_bin("word-bin", "goodbye".parse().unwrap());
-    /// map.insert_bin("number-bin", "123".parse().unwrap());
-    ///
-    /// let mut drain = map.drain();
-    ///
-    /// let (key, mut vals) = drain.next().unwrap();
-    ///
-    /// assert_eq!("word-bin", key);
-    /// assert_eq!("hello", vals.next().unwrap());
-    /// assert_eq!("goodbye", vals.next().unwrap());
-    /// assert!(vals.next().is_none());
-    ///
-    /// let (key, mut vals) = drain.next().unwrap();
-    ///
-    /// assert_eq!("number-bin", key);
-    /// assert_eq!("123", vals.next().unwrap());
-    /// assert!(vals.next().is_none());
-    /// ```
-    pub fn drain_bin(&mut self) -> Drain<Binary> {
-        Drain {
-            inner: self.headers.drain(),
-            phantom: PhantomData,
-        }
-    }
-
     /// Gets the given Ascii key's corresponding entry in the map for in-place
     /// manipulation.
     ///
@@ -1052,30 +971,6 @@ impl<'a> Iterator for ValueDrain<'a> {
 
 unsafe impl<'a> Sync for ValueDrain<'a> {}
 unsafe impl<'a> Send for ValueDrain<'a> {}
-
-// ===== impl Drain =====
-
-impl<'a, VE: ValueEncoding> Iterator for Drain<'a, VE> {
-    type Item = (MetadataKey<VE>, ValueDrain<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // TODO(pgron): Make this make sense with -bin vs non--bin
-        self.inner.next().map(|item| {
-            let (name, drain) = item;
-            (
-                MetadataKey::unchecked_from_header_name(name),
-                ValueDrain { inner: drain }
-            )
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
-unsafe impl<'a, VE: ValueEncoding> Sync for Drain<'a, VE> {}
-unsafe impl<'a, VE: ValueEncoding> Send for Drain<'a, VE> {}
 
 // ===== impl Keys =====
 
