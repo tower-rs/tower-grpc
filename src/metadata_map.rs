@@ -135,8 +135,6 @@ pub struct ValueIterMut<'a, VE: ValueEncoding> {
     phantom: PhantomData<VE>,
 }
 
-// TODO(pgron): Document and test all panic-prone implicit conversions.
-
 /// A view to all values stored in a single entry.
 ///
 /// This struct is returned by `MetadataMap::get_all` and
@@ -890,6 +888,9 @@ impl MetadataMap {
     /// Inserts an ascii key-value pair into the map. To insert a binary entry,
     /// use `insert_bin`.
     ///
+    /// This method panics when the given key is a string and it cannot be
+    /// converted to a MetadataKey<Ascii>.
+    ///
     /// If the map did not previously have this key present, then `None` is
     /// returned.
     ///
@@ -914,6 +915,20 @@ impl MetadataMap {
     /// let mut prev = map.insert("x-host", "earth".parse().unwrap()).unwrap();
     /// assert_eq!("world", prev);
     /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to insert a key that is not valid panics.
+    /// map.insert("x{}host", "world".parse().unwrap());
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to insert a key that is binary panics (use insert_bin).
+    /// map.insert("x-host-bin", "world".parse().unwrap());
+    /// ```
     pub fn insert<K>(&mut self, key: K, val: MetadataValue<Ascii>) -> Option<MetadataValue<Ascii>>
         where K: IntoMetadataKey<Ascii>
     {
@@ -921,6 +936,9 @@ impl MetadataMap {
     }
 
     /// Like insert, but for Binary keys (for example "trace-proto-bin").
+    ///
+    /// This method panics when the given key is a string and it cannot be
+    /// converted to a MetadataKey<Binary>.
     ///
     /// # Examples
     ///
@@ -940,6 +958,13 @@ impl MetadataMap {
     /// // Attempting to add a binary metadata entry with an invalid name
     /// map.insert_bin("trace-proto", "hello".parse().unwrap()); // This line panics!
     /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to insert a key that is not valid panics.
+    /// map.insert_bin("x{}host-bin", "world".parse().unwrap()); // This line panics!
+    /// ```
     pub fn insert_bin<K>(&mut self, key: K, val: MetadataValue<Binary>) -> Option<MetadataValue<Binary>>
         where K: IntoMetadataKey<Binary>
     {
@@ -948,6 +973,9 @@ impl MetadataMap {
 
     /// Inserts an ascii key-value pair into the map. To insert a binary entry,
     /// use `append_bin`.
+    ///
+    /// This method panics when the given key is a string and it cannot be
+    /// converted to a MetadataKey<Ascii>.
     ///
     /// If the map did not previously have this key present, then `false` is
     /// returned.
@@ -972,6 +1000,20 @@ impl MetadataMap {
     /// assert_eq!("world", *i.next().unwrap());
     /// assert_eq!("earth", *i.next().unwrap());
     /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to append a key that is not valid panics.
+    /// map.append("x{}host", "world".parse().unwrap()); // This line panics!
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to append a key that is binary panics (use append_bin).
+    /// map.append("x-host-bin", "world".parse().unwrap()); // This line panics!
+    /// ```
     pub fn append<K>(&mut self, key: K, value: MetadataValue<Ascii>) -> bool
         where K: IntoMetadataKey<Ascii>
     {
@@ -979,6 +1021,9 @@ impl MetadataMap {
     }
 
     /// Like append, but for binary keys (for example "trace-proto-bin").
+    ///
+    /// This method panics when the given key is a string and it cannot be
+    /// converted to a MetadataKey<Binary>.
     ///
     /// # Examples
     ///
@@ -994,6 +1039,20 @@ impl MetadataMap {
     /// let mut i = values.iter();
     /// assert_eq!("world", *i.next().unwrap());
     /// assert_eq!("earth", *i.next().unwrap());
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to append a key that is not valid panics.
+    /// map.append_bin("x{}host-bin", "world".parse().unwrap()); // This line panics!
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use tower_grpc::metadata::*;
+    /// let mut map = MetadataMap::new();
+    /// // Trying to append a key that is ascii panics (use append).
+    /// map.append_bin("x-host", "world".parse().unwrap()); // This line panics!
     /// ```
     pub fn append_bin<K>(&mut self, key: K, value: MetadataValue<Binary>) -> bool
         where K: IntoMetadataKey<Binary>
@@ -1904,7 +1963,10 @@ mod into_metadata_key {
         #[doc(hidden)]
         #[inline]
         fn append(self, map: &mut MetadataMap, val: MetadataValue<VE>) -> bool {
-            map.headers.append(self, val.inner)
+            // Perform name validation
+            let key = MetadataKey::<VE>::from_static(self);
+
+            map.headers.append(key.inner, val.inner)
         }
     }
 
