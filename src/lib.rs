@@ -51,6 +51,7 @@ pub mod metadata {
     pub use metadata_map::Iter;
     pub use metadata_map::ValueDrain;
     pub use metadata_map::Keys;
+    pub use metadata_map::KeyAndValueRef;
     pub use metadata_map::Values;
     pub use metadata_map::ValueIter;
     pub use metadata_map::GetAll;
