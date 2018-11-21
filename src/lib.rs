@@ -44,6 +44,8 @@ pub mod metadata {
     pub use metadata_key::AsciiMetadataKey;
     pub use metadata_key::BinaryMetadataKey;
     pub use metadata_key::MetadataKey;
+    pub use metadata_value::AsciiMetadataValue;
+    pub use metadata_value::BinaryMetadataValue;
     pub use metadata_value::MetadataValue;
     pub use metadata_map::MetadataMap;
     pub use metadata_map::Iter;

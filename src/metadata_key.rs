@@ -1,15 +1,16 @@
 use bytes::Bytes;
 use http;
 use http::header::HeaderName;
-use metadata_encoding::Ascii;
-use metadata_encoding::Binary;
-use metadata_encoding::ValueEncoding;
 
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt;
 use std::marker::PhantomData;
 use std::str::FromStr;
+
+use metadata_encoding::Ascii;
+use metadata_encoding::Binary;
+use metadata_encoding::ValueEncoding;
 
 /// Represents a custom metadata field name.
 ///
