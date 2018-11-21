@@ -76,25 +76,40 @@ pub struct ValueDrain<'a, VE: ValueEncoding> {
     phantom: PhantomData<VE>,
 }
 
-/// An iterator over `MetadataMap` keys of a given type (either Ascii or
-/// binary).
+/// An iterator over `MetadataMap` keys.
 ///
-/// Each header name is yielded only once, even if it has more than one
-/// associated value.
+/// Yields `KeyRef` values. Each header name is yielded only once, even if it
+/// has more than one associated value.
 #[derive(Debug)]
-pub struct Keys<'a, VE: ValueEncoding> {
+pub struct Keys<'a> {
     inner: http::header::Keys<'a, http::header::HeaderValue>,
-    phantom: PhantomData<VE>,
+}
+
+/// Reference to a key in a `MetadataMap`. It can point
+/// to either an ascii or a binary ("*-bin") key.
+#[derive(Debug)]
+pub enum KeyRef<'a> {
+    Ascii(&'a MetadataKey<Ascii>),
+    Binary(&'a MetadataKey<Binary>),
 }
 
 /// `MetadataMap` value iterator.
 ///
-/// Each value contained in the `MetadataMap` of a given type (either Ascii or
-/// binary) will be yielded.
+/// Yields `ValueRef` values. Each value contained in the `MetadataMap` will be
+/// yielded.
 #[derive(Debug)]
-pub struct Values<'a, VE: ValueEncoding> {
-    inner: http::header::Values<'a, http::header::HeaderValue>,
-    phantom: PhantomData<VE>,
+pub struct Values<'a> {
+    // Need to use http::header::Iter and not http::header::Values to be able
+    // to know if a value is binary or not.
+    inner: http::header::Iter<'a, http::header::HeaderValue>,
+}
+
+/// Reference to a value in a `MetadataMap`. It can point
+/// to either an ascii or a binary ("*-bin" key) value.
+#[derive(Debug)]
+pub enum ValueRef<'a> {
+    Ascii(&'a MetadataValue<Ascii>),
+    Binary(&'a MetadataValue<Binary>),
 }
 
 /// `MetadataMap` value iterator.
@@ -642,7 +657,6 @@ impl MetadataMap {
         }
     }
 
-    // TODO(pgron): This needs to be updated
     /// An iterator visiting all keys.
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
@@ -657,20 +671,22 @@ impl MetadataMap {
     ///
     /// map.insert("x-word", "hello".parse().unwrap());
     /// map.append("x-word", "goodbye".parse().unwrap());
-    /// map.insert("x-number", "123".parse().unwrap());
+    /// map.insert_bin("x-number-bin", "123".parse().unwrap());
     ///
     /// for key in map.keys() {
+    ///     match key {
+    ///         KeyRef::Ascii(ref key) =>
+    ///             println!("Ascii key: {:?}", key),
+    ///         KeyRef::Binary(ref key) =>
+    ///             println!("Binary key: {:?}", key),
+    ///     }
     ///     println!("{:?}", key);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys<Ascii> {
-        Keys {
-            inner: self.headers.keys(),
-            phantom: PhantomData,
-        }
+    pub fn keys(&self) -> Keys {
+        Keys { inner: self.headers.keys() }
     }
 
-    // TODO(pgron): This needs to be updated
     /// An iterator visiting all values.
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
@@ -684,17 +700,20 @@ impl MetadataMap {
     ///
     /// map.insert("x-word", "hello".parse().unwrap());
     /// map.append("x-word", "goodbye".parse().unwrap());
-    /// map.insert("x-number", "123".parse().unwrap());
+    /// map.insert_bin("x-number-bin", "123".parse().unwrap());
     ///
     /// for value in map.values() {
+    ///     match value {
+    ///         ValueRef::Ascii(ref value) =>
+    ///             println!("Ascii value: {:?}", value),
+    ///         ValueRef::Binary(ref value) =>
+    ///             println!("Binary value: {:?}", value),
+    ///     }
     ///     println!("{:?}", value);
     /// }
     /// ```
-    pub fn values(&self) -> Values<Ascii> {
-        Values {
-            inner: self.headers.values(),
-            phantom: PhantomData,
-        }
+    pub fn values(&self) -> Values {
+        Values { inner: self.headers.iter() }
     }
 
     /// An iterator visiting all values mutably.
@@ -1050,12 +1069,17 @@ unsafe impl<'a, VE: ValueEncoding> Send for ValueDrain<'a, VE> {}
 
 // ===== impl Keys =====
 
-impl<'a, VE: ValueEncoding> Iterator for Keys<'a, VE> where VE: 'a {
-    type Item = &'a MetadataKey<VE>;
+impl<'a> Iterator for Keys<'a> {
+    type Item = KeyRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO(pgron): Update me
-        self.inner.next().map(&MetadataKey::unchecked_from_header_name_ref)
+        self.inner.next().map(|key| {
+            if Ascii::is_valid_key(key.as_str()) {
+                KeyRef::Ascii(MetadataKey::unchecked_from_header_name_ref(key))
+            } else {
+                KeyRef::Binary(MetadataKey::unchecked_from_header_name_ref(key))
+            }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1063,17 +1087,26 @@ impl<'a, VE: ValueEncoding> Iterator for Keys<'a, VE> where VE: 'a {
     }
 }
 
-// TODO(pgron): This is probably not right anymore.
-impl<'a, VE: ValueEncoding> ExactSizeIterator for Keys<'a, VE> where VE: 'a {}
+impl<'a> ExactSizeIterator for Keys<'a> {}
 
 // ===== impl Values ====
 
-impl<'a, VE: ValueEncoding> Iterator for Values<'a, VE> where VE: 'a {
-    type Item = &'a MetadataValue<VE>;
+impl<'a> Iterator for Values<'a> {
+    type Item = ValueRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO(pgron): Update me, needs runtime check
-        self.inner.next().map(&MetadataValue::unchecked_from_header_value_ref)
+        self.inner.next().map(|item| {
+            let (ref name, value) = item;
+            if Ascii::is_valid_key(name.as_str()) {
+                ValueRef::Ascii(
+                    MetadataValue::unchecked_from_header_value_ref(value)
+                )
+            } else {
+                ValueRef::Binary(
+                    MetadataValue::unchecked_from_header_value_ref(value)
+                )
+            }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1566,7 +1599,6 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
         let (name, value_drain) = self.inner.remove_entry_mult();
         (
             MetadataKey::unchecked_from_header_name(name),
-            // TODO(pgron): Perform conversion
             ValueDrain { inner: value_drain, phantom: PhantomData, }
         )
     }
@@ -2193,6 +2225,92 @@ mod tests {
         for key_and_value in map.iter() {
             if let KeyAndValueRef::Binary(ref key, ref _value) = key_and_value {
                 if key.as_str() == "x-word-bin" {
+                    found_x_word_bin = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_word_bin);
+    }
+
+    #[test]
+    fn test_keys_categorizes_ascii_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.append_bin("x-word-bin", "goodbye".parse().unwrap());
+        map.insert_bin("x-number-bin", "123".parse().unwrap());
+
+        let mut found_x_word = false;
+        for key in map.keys() {
+            if let KeyRef::Ascii(ref key) = key {
+                if key.as_str() == "x-word" {
+                    found_x_word = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_word);
+    }
+
+    #[test]
+    fn test_keys_categorizes_binary_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.insert_bin("x-number-bin", "123".parse().unwrap());
+
+        let mut found_x_number_bin = false;
+        for key in map.keys() {
+            if let KeyRef::Binary(ref key) = key {
+                if key.as_str() == "x-number-bin" {
+                    found_x_number_bin = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_number_bin);
+    }
+
+    #[test]
+    fn test_values_categorizes_ascii_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.append_bin("x-word-bin", "goodbye".parse().unwrap());
+        map.insert_bin("x-number-bin", "123".parse().unwrap());
+
+        let mut found_x_word = false;
+        for value in map.values() {
+            if let ValueRef::Ascii(ref value) = value {
+                if *value == "hello" {
+                    found_x_word = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_word);
+    }
+
+    #[test]
+    fn test_values_categorizes_binary_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.append_bin("x-word-bin", "goodbye".parse().unwrap());
+
+        let mut found_x_word_bin = false;
+        for value in map.values() {
+            if let ValueRef::Binary(ref value) = value {
+                if *value == "goodbye" {
                     found_x_word_bin = true;
                 } else {
                     // Unexpected key
