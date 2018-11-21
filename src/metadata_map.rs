@@ -1,9 +1,9 @@
 use http;
+use metadata_encoding::Ascii;
+use metadata_encoding::Binary;
+use metadata_encoding::ValueEncoding;
 use metadata_key::InvalidMetadataKey;
-use metadata_key::Ascii;
-use metadata_key::Binary;
 use metadata_key::MetadataKey;
-use metadata_key::ValueEncoding;
 use metadata_value::MetadataValue;
 
 use std::marker::PhantomData;

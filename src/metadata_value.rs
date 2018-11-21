@@ -5,8 +5,8 @@ use std::{cmp, fmt};
 use std::error::Error;
 use std::str::FromStr;
 
+use metadata_encoding::ValueEncoding;
 use metadata_key::MetadataKey;
-use metadata_key::ValueEncoding;
 
 /// Represents a custom metadata field value.
 ///

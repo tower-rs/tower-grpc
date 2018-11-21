@@ -1,36 +1,15 @@
 use bytes::Bytes;
 use http;
 use http::header::HeaderName;
+use metadata_encoding::Ascii;
+use metadata_encoding::Binary;
+use metadata_encoding::ValueEncoding;
 
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt;
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::str::FromStr;
-
-// TODO(pgron): Make sealed
-pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
-    #[doc(hidden)]
-    fn is_valid_key(key: &str) -> bool;
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Ascii {}
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Binary {}
-
-impl ValueEncoding for Ascii {
-    fn is_valid_key(key: &str) -> bool {
-        !Binary::is_valid_key(key)
-    }
-}
-
-impl ValueEncoding for Binary {
-    fn is_valid_key(key: &str) -> bool {
-        key.ends_with("-bin")
-    }
-}
 
 /// Represents a custom metadata field name.
 ///
