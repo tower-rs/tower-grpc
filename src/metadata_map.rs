@@ -978,7 +978,7 @@ impl<'a, VE: ValueEncoding> Iterator for Iter<'a, VE> where VE: 'a {
             let (ref name, value) = item;
             let item : Self::Item = (
                 &name.as_str(),
-                MetadataValue::from_header_value_ref(value)
+                MetadataValue::unchecked_from_header_value_ref(value)
             );
             item
         })
@@ -1002,7 +1002,7 @@ impl<'a, VE: ValueEncoding> Iterator for IterMut<'a, VE> where VE: 'a {
             let (name, value) = item;
             let item : Self::Item = (
                 &name.as_str(),
-                MetadataValue::from_mut_header_value_ref(value)
+                MetadataValue::unchecked_from_mut_header_value_ref(value)
             );
             item
         })
@@ -1060,7 +1060,7 @@ impl<'a, VE: ValueEncoding> Iterator for Values<'a, VE> where VE: 'a {
 
     fn next(&mut self) -> Option<Self::Item> {
         // TODO(pgron): Update me, needs runtime check
-        self.inner.next().map(&MetadataValue::from_header_value_ref)
+        self.inner.next().map(&MetadataValue::unchecked_from_header_value_ref)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1074,7 +1074,7 @@ impl<'a, VE: ValueEncoding> Iterator for ValuesMut<'a, VE> where VE: 'a {
     type Item = &'a mut MetadataValue<VE>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(&MetadataValue::from_mut_header_value_ref)
+        self.inner.next().map(&MetadataValue::unchecked_from_mut_header_value_ref)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1090,7 +1090,7 @@ impl<'a, VE: ValueEncoding> Iterator for ValueIter<'a, VE> where VE: 'a {
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner {
             Some(ref mut inner) =>
-                inner.next().map(&MetadataValue::from_header_value_ref),
+                inner.next().map(&MetadataValue::unchecked_from_header_value_ref),
             None => None
         }
     }
@@ -1107,7 +1107,7 @@ impl<'a, VE: ValueEncoding> DoubleEndedIterator for ValueIter<'a, VE> where VE: 
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.inner {
             Some(ref mut inner) =>
-                inner.next_back().map(&MetadataValue::from_header_value_ref),
+                inner.next_back().map(&MetadataValue::unchecked_from_header_value_ref),
             None => None
         }
     }
@@ -1119,13 +1119,13 @@ impl<'a, VE: ValueEncoding> Iterator for ValueIterMut<'a, VE> where VE: 'a {
     type Item = &'a mut MetadataValue<VE>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(&MetadataValue::from_mut_header_value_ref)
+        self.inner.next().map(&MetadataValue::unchecked_from_mut_header_value_ref)
     }
 }
 
 impl<'a, VE: ValueEncoding> DoubleEndedIterator for ValueIterMut<'a, VE> where VE: 'a {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.inner.next_back().map(&MetadataValue::from_mut_header_value_ref)
+        self.inner.next_back().map(&MetadataValue::unchecked_from_mut_header_value_ref)
     }
 }
 
@@ -1286,7 +1286,7 @@ impl<'a, VE: ValueEncoding> VacantEntry<'a, VE> {
     /// assert_eq!(map.get("x-hello").unwrap(), "world");
     /// ```
     pub fn insert(self, value: MetadataValue<VE>) -> &'a mut MetadataValue<VE> {
-        MetadataValue::from_mut_header_value_ref(self.inner.insert(value.inner))
+        MetadataValue::unchecked_from_mut_header_value_ref(self.inner.insert(value.inner))
     }
 
     /// Insert the value into the entry.
@@ -1359,7 +1359,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// }
     /// ```
     pub fn get(&self) -> &MetadataValue<VE> {
-        MetadataValue::from_header_value_ref(self.inner.get())
+        MetadataValue::unchecked_from_header_value_ref(self.inner.get())
     }
 
     /// Get a mutable reference to the first value in the entry.
@@ -1384,7 +1384,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// }
     /// ```
     pub fn get_mut(&mut self) -> &mut MetadataValue<VE> {
-        MetadataValue::from_mut_header_value_ref(self.inner.get_mut())
+        MetadataValue::unchecked_from_mut_header_value_ref(self.inner.get_mut())
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the **first**
@@ -1411,7 +1411,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// assert!(map.get("host").unwrap().is_sensitive());
     /// ```
     pub fn into_mut(self) -> &'a mut MetadataValue<VE> {
-        MetadataValue::from_mut_header_value_ref(self.inner.into_mut())
+        MetadataValue::unchecked_from_mut_header_value_ref(self.inner.into_mut())
     }
 
     /// Sets the value of the entry.
@@ -1827,14 +1827,14 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue<VE>> {
             map.headers.get(self.inner)
-                .map(&MetadataValue::from_header_value_ref)
+                .map(&MetadataValue::unchecked_from_header_value_ref)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue<VE>> {
             map.headers.get_mut(self.inner)
-                .map(&MetadataValue::from_mut_header_value_ref)
+                .map(&MetadataValue::unchecked_from_mut_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -1865,14 +1865,14 @@ mod as_metadata_key {
         #[inline]
         fn get(self, map: &MetadataMap) -> Option<&MetadataValue<VE>> {
             map.headers.get(&self.inner)
-                .map(&MetadataValue::from_header_value_ref)
+                .map(&MetadataValue::unchecked_from_header_value_ref)
         }
 
         #[doc(hidden)]
         #[inline]
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue<VE>> {
             map.headers.get_mut(&self.inner)
-                .map(&MetadataValue::from_mut_header_value_ref)
+                .map(&MetadataValue::unchecked_from_mut_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -1906,7 +1906,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get(self)
-                .map(&MetadataValue::from_header_value_ref)
+                .map(&MetadataValue::unchecked_from_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -1916,7 +1916,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get_mut(self)
-                .map(&MetadataValue::from_mut_header_value_ref)
+                .map(&MetadataValue::unchecked_from_mut_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -1959,7 +1959,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get(self.as_str())
-                .map(&MetadataValue::from_header_value_ref)
+                .map(&MetadataValue::unchecked_from_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -1969,7 +1969,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get_mut(self.as_str())
-                .map(&MetadataValue::from_mut_header_value_ref)
+                .map(&MetadataValue::unchecked_from_mut_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -2012,7 +2012,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get(self.as_str())
-                .map(&MetadataValue::from_header_value_ref)
+                .map(&MetadataValue::unchecked_from_header_value_ref)
         }
 
         #[doc(hidden)]
@@ -2022,7 +2022,7 @@ mod as_metadata_key {
                 return None;
             }
             map.headers.get_mut(self.as_str())
-                .map(&MetadataValue::from_mut_header_value_ref)
+                .map(&MetadataValue::unchecked_from_mut_header_value_ref)
         }
 
         #[doc(hidden)]

@@ -319,18 +319,16 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// Converts a HeaderValue reference to a MetadataValue. This method assumes
     /// that the caller has made sure that the value is of the correct Ascii or
     /// Binary value encoding.
-    // TODO(pgron): Rename to unchecked_
     #[inline]
-    pub(crate) fn from_header_value_ref(header_value: &HeaderValue) -> &Self {
+    pub(crate) fn unchecked_from_header_value_ref(header_value: &HeaderValue) -> &Self {
         unsafe { &*(header_value as *const HeaderValue as *const Self) }
     }
 
     /// Converts a HeaderValue reference to a MetadataValue. This method assumes
     /// that the caller has made sure that the value is of the correct Ascii or
     /// Binary value encoding.
-    // TODO(pgron): Rename to unchecked_
     #[inline]
-    pub(crate) fn from_mut_header_value_ref(header_value: &mut HeaderValue) -> &mut Self {
+    pub(crate) fn unchecked_from_mut_header_value_ref(header_value: &mut HeaderValue) -> &mut Self {
         unsafe { &mut *(header_value as *mut HeaderValue as *mut Self) }
     }
 }
