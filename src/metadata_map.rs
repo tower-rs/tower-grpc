@@ -20,13 +20,13 @@ pub use self::into_metadata_key::IntoMetadataKey;
 ///
 /// Basic usage
 ///
-// TODO(pgron): Go through all docs and add -bin stuff where appropriate
 /// ```
 /// # use tower_grpc::metadata::*;
 /// let mut map = MetadataMap::new();
 ///
 /// map.insert("x-host", "example.com".parse().unwrap());
 /// map.insert("x-number", "123".parse().unwrap());
+/// map.insert_bin("trace-proto-bin", "[binary data]".parse().unwrap());
 ///
 /// assert!(map.contains_key("x-host"));
 /// assert!(!map.contains_key("x-location"));
@@ -140,14 +140,16 @@ pub struct ValueIterMut<'a, VE: ValueEncoding> {
 
 /// A view to all values stored in a single entry.
 ///
-/// This struct is returned by `MetadataMap::get_all`.
+/// This struct is returned by `MetadataMap::get_all` and
+/// `MetadataMap::get_all_bin`.
 #[derive(Debug)]
 pub struct GetAll<'a, VE: ValueEncoding> {
     inner: Option<http::header::GetAll<'a, http::header::HeaderValue>>,
     phantom: PhantomData<VE>,
 }
 
-/// A view into a single location in a `MetadataMap`, which may be vacant or occupied.
+/// A view into a single location in a `MetadataMap`, which may be vacant or
+/// occupied.
 #[derive(Debug)]
 pub enum Entry<'a, VE: ValueEncoding> {
     /// An occupied entry
@@ -601,7 +603,7 @@ impl MetadataMap {
         key.contains_key(self)
     }
 
-    /// An iterator visiting all key-value pairs.
+    /// An iterator visiting all key-value pairs (both ascii and binary).
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
     /// the same crate version. Each key will be yielded once per associated
@@ -687,7 +689,7 @@ impl MetadataMap {
         Keys { inner: self.headers.keys() }
     }
 
-    /// An iterator visiting all values.
+    /// An iterator visiting all values (both ascii and binary).
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
     /// the same crate version.
@@ -742,8 +744,8 @@ impl MetadataMap {
         }
     }
 
-    /// Gets the given Ascii key's corresponding entry in the map for in-place
-    /// manipulation.
+    /// Gets the given ascii key's corresponding entry in the map for in-place
+    /// manipulation. For binary keys, use `entry_bin`.
     ///
     /// # Examples
     ///
@@ -805,6 +807,13 @@ impl MetadataMap {
     ///
     /// assert_eq!(map.get_bin("content-length-bin").unwrap(), "11");
     /// assert_eq!(map.get_bin("x-hello-bin").unwrap(), "1");
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append("host", "world".parse().unwrap());
+    /// assert!(!map.entry_bin("host").is_ok());
+    /// assert!(!map.entry_bin("host".to_string()).is_ok());
+    /// assert!(!map.entry_bin(&("host".to_string())).is_ok());
     /// ```
     pub fn entry_bin<K>(&mut self, key: K) -> Result<Entry<Binary>, InvalidMetadataKey>
         where K: AsMetadataKey<Binary>
@@ -828,7 +837,8 @@ impl MetadataMap {
         }
     }
 
-    /// Inserts a key-value pair into the map.
+    /// Inserts an ascii key-value pair into the map. To insert a binary entry,
+    /// use `insert_bin`.
     ///
     /// If the map did not previously have this key present, then `None` is
     /// returned.
@@ -886,7 +896,8 @@ impl MetadataMap {
         key.insert(self, val)
     }
 
-    /// Inserts a key-value pair into the map.
+    /// Inserts an ascii key-value pair into the map. To insert a binary entry,
+    /// use `append_bin`.
     ///
     /// If the map did not previously have this key present, then `false` is
     /// returned.
@@ -917,7 +928,7 @@ impl MetadataMap {
         key.append(self, value)
     }
 
-    /// Like append, but for Binary keys (for example "trace-proto-bin").
+    /// Like append, but for binary keys (for example "trace-proto-bin").
     ///
     /// # Examples
     ///
@@ -940,8 +951,8 @@ impl MetadataMap {
         key.append(self, value)
     }
 
-    // TOOD(pgron): Update the doc comments for all Ascii methods and state that they are for Ascii.
-    /// Removes a key from the map, returning the value associated with the key.
+    /// Removes an ascii key from the map, returning the value associated with
+    /// the key. To remove a binary key, use `remove_bin`.
     ///
     /// Returns `None` if the map does not contain the key. If there are
     /// multiple values associated with the key, then the first one is returned.
@@ -986,6 +997,13 @@ impl MetadataMap {
     /// assert_eq!("hello.world", prev);
     ///
     /// assert!(map.remove_bin("trace-proto-bin").is_none());
+    ///
+    /// // Attempting to remove a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append("host", "world".parse().unwrap());
+    /// assert!(map.remove_bin("host").is_none());
+    /// assert!(map.remove_bin("host".to_string()).is_none());
+    /// assert!(map.remove_bin(&("host".to_string())).is_none());
     /// ```
     pub fn remove_bin<K>(&mut self, key: K) -> Option<MetadataValue<Binary>>
         where K: AsMetadataKey<Binary>
