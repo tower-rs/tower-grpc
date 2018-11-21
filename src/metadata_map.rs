@@ -135,8 +135,7 @@ pub struct ValueIterMut<'a, VE: ValueEncoding> {
     phantom: PhantomData<VE>,
 }
 
-// TODO(pgron): Document all panic-prone implicit conversions.
-// TODO(pgron): Ensure that the non-panicing string getters actually don't panic.
+// TODO(pgron): Document and test all panic-prone implicit conversions.
 
 /// A view to all values stored in a single entry.
 ///
@@ -408,6 +407,12 @@ impl MetadataMap {
     /// assert!(map.get("host-bin").is_none());
     /// assert!(map.get("host-bin".to_string()).is_none());
     /// assert!(map.get(&("host-bin".to_string())).is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get("host{}bin").is_none());
+    /// assert!(map.get("host{}bin".to_string()).is_none());
+    /// assert!(map.get(&("host{}bin".to_string())).is_none());
     /// ```
     pub fn get<K>(&self, key: K) -> Option<&MetadataValue<Ascii>>
         where K: AsMetadataKey<Ascii>
@@ -437,6 +442,12 @@ impl MetadataMap {
     /// assert!(map.get_bin("host").is_none());
     /// assert!(map.get_bin("host".to_string()).is_none());
     /// assert!(map.get_bin(&("host".to_string())).is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get_bin("host{}-bin").is_none());
+    /// assert!(map.get_bin("host{}-bin".to_string()).is_none());
+    /// assert!(map.get_bin(&("host{}-bin".to_string())).is_none());
     /// ```
     pub fn get_bin<K>(&self, key: K) -> Option<&MetadataValue<Binary>>
         where K: AsMetadataKey<Binary>
@@ -468,6 +479,12 @@ impl MetadataMap {
     /// assert!(map.get_mut("host-bin").is_none());
     /// assert!(map.get_mut("host-bin".to_string()).is_none());
     /// assert!(map.get_mut(&("host-bin".to_string())).is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get_mut("host{}").is_none());
+    /// assert!(map.get_mut("host{}".to_string()).is_none());
+    /// assert!(map.get_mut(&("host{}".to_string())).is_none());
     /// ```
     pub fn get_mut<K>(&mut self, key: K) -> Option<&mut MetadataValue<Ascii>>
         where K: AsMetadataKey<Ascii>
@@ -493,6 +510,12 @@ impl MetadataMap {
     /// assert!(map.get_bin_mut("host").is_none());
     /// assert!(map.get_bin_mut("host".to_string()).is_none());
     /// assert!(map.get_bin_mut(&("host".to_string())).is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get_bin_mut("host{}-bin").is_none());
+    /// assert!(map.get_bin_mut("host{}-bin".to_string()).is_none());
+    /// assert!(map.get_bin_mut(&("host{}-bin".to_string())).is_none());
     /// ```
     pub fn get_bin_mut<K>(&mut self, key: K) -> Option<&mut MetadataValue<Binary>>
         where K: AsMetadataKey<Binary>
@@ -534,6 +557,12 @@ impl MetadataMap {
     /// assert!(map.get_all("host-bin").iter().next().is_none());
     /// assert!(map.get_all("host-bin".to_string()).iter().next().is_none());
     /// assert!(map.get_all(&("host-bin".to_string())).iter().next().is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get_all("host{}").iter().next().is_none());
+    /// assert!(map.get_all("host{}".to_string()).iter().next().is_none());
+    /// assert!(map.get_all(&("host{}".to_string())).iter().next().is_none());
     /// ```
     pub fn get_all<K>(&self, key: K) -> GetAll<Ascii>
         where K: AsMetadataKey<Ascii>
@@ -570,6 +599,12 @@ impl MetadataMap {
     /// assert!(map.get_all_bin("host").iter().next().is_none());
     /// assert!(map.get_all_bin("host".to_string()).iter().next().is_none());
     /// assert!(map.get_all_bin(&("host".to_string())).iter().next().is_none());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.get_all_bin("host{}-bin").iter().next().is_none());
+    /// assert!(map.get_all_bin("host{}-bin".to_string()).iter().next().is_none());
+    /// assert!(map.get_all_bin(&("host{}-bin".to_string())).iter().next().is_none());
     /// ```
     pub fn get_all_bin<K>(&self, key: K) -> GetAll<Binary>
         where K: AsMetadataKey<Binary>
@@ -596,6 +631,9 @@ impl MetadataMap {
     /// // contains_key works for both Binary and Ascii keys:
     /// assert!(map.contains_key("x-host"));
     /// assert!(map.contains_key("host-bin"));
+    ///
+    /// // contains_key returns false for invalid keys:
+    /// assert!(!map.contains_key("x{}host"));
     /// ```
     pub fn contains_key<K>(&self, key: K) -> bool
         where K: AsEncodingAgnosticMetadataKey
@@ -777,6 +815,12 @@ impl MetadataMap {
     /// assert!(!map.entry("host-bin").is_ok());
     /// assert!(!map.entry("host-bin".to_string()).is_ok());
     /// assert!(!map.entry(&("host-bin".to_string())).is_ok());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(!map.entry("host{}").is_ok());
+    /// assert!(!map.entry("host{}".to_string()).is_ok());
+    /// assert!(!map.entry(&("host{}".to_string())).is_ok());
     /// ```
     pub fn entry<K>(&mut self, key: K) -> Result<Entry<Ascii>, InvalidMetadataKey>
         where K: AsMetadataKey<Ascii>
@@ -814,6 +858,12 @@ impl MetadataMap {
     /// assert!(!map.entry_bin("host").is_ok());
     /// assert!(!map.entry_bin("host".to_string()).is_ok());
     /// assert!(!map.entry_bin(&("host".to_string())).is_ok());
+    ///
+    /// // Attempting to read an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(!map.entry_bin("host{}-bin").is_ok());
+    /// assert!(!map.entry_bin("host{}-bin".to_string()).is_ok());
+    /// assert!(!map.entry_bin(&("host{}-bin".to_string())).is_ok());
     /// ```
     pub fn entry_bin<K>(&mut self, key: K) -> Result<Entry<Binary>, InvalidMetadataKey>
         where K: AsMetadataKey<Binary>
@@ -977,6 +1027,12 @@ impl MetadataMap {
     /// assert!(map.remove("host-bin").is_none());
     /// assert!(map.remove("host-bin".to_string()).is_none());
     /// assert!(map.remove(&("host-bin".to_string())).is_none());
+    ///
+    /// // Attempting to remove an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.remove("host{}").is_none());
+    /// assert!(map.remove("host{}".to_string()).is_none());
+    /// assert!(map.remove(&("host{}".to_string())).is_none());
     /// ```
     pub fn remove<K>(&mut self, key: K) -> Option<MetadataValue<Ascii>>
         where K: AsMetadataKey<Ascii>
@@ -1004,6 +1060,12 @@ impl MetadataMap {
     /// assert!(map.remove_bin("host").is_none());
     /// assert!(map.remove_bin("host".to_string()).is_none());
     /// assert!(map.remove_bin(&("host".to_string())).is_none());
+    ///
+    /// // Attempting to remove an invalid key string fails by not
+    /// // finding anything.
+    /// assert!(map.remove_bin("host{}-bin").is_none());
+    /// assert!(map.remove_bin("host{}-bin".to_string()).is_none());
+    /// assert!(map.remove_bin(&("host{}-bin".to_string())).is_none());
     /// ```
     pub fn remove_bin<K>(&mut self, key: K) -> Option<MetadataValue<Binary>>
         where K: AsMetadataKey<Binary>
