@@ -12,6 +12,8 @@ pub use self::as_metadata_key::AsMetadataKey;
 pub use self::as_encoding_agnostic_metadata_key::AsEncodingAgnosticMetadataKey;
 pub use self::into_metadata_key::IntoMetadataKey;
 
+// TODO(pgron): Implement the actual base64 encoding and decoding for -bin entries.
+
 /// A set of gRPC custom metadata entries.
 ///
 /// # Examples
@@ -101,7 +103,8 @@ pub struct ValueIterMut<'a> {
     inner: http::header::ValueIterMut<'a, http::header::HeaderValue>,
 }
 
-// TODO(pgron): Document all panic-prone implicit conversions
+// TODO(pgron): Document all panic-prone implicit conversions.
+// TODO(pgron): Ensure that the non-panicing string getters actually don't panic.
 
 /// A view to all values stored in a single entry.
 ///
@@ -206,7 +209,8 @@ impl MetadataMap {
         }
     }
 
-    /// Returns the number of metadata entries stored in the map.
+    /// Returns the number of metadata entries (ascii and binary) stored in the
+    /// map.
     ///
     /// This number represents the total number of **values** stored in the map.
     /// This number can be greater than or equal to the number of **keys**
@@ -221,7 +225,7 @@ impl MetadataMap {
     /// assert_eq!(0, map.len());
     ///
     /// map.insert("x-host-ip", "127.0.0.1".parse().unwrap());
-    /// map.insert("x-host-name", "localhost".parse().unwrap());
+    /// map.insert_bin("x-host-name-bin", "localhost".parse().unwrap());
     ///
     /// assert_eq!(2, map.len());
     ///
@@ -233,7 +237,7 @@ impl MetadataMap {
         self.headers.len()
     }
 
-    /// Returns the number of keys stored in the map.
+    /// Returns the number of keys (ascii and binary) stored in the map.
     ///
     /// This number will be less than or equal to `len()` as each key may have
     /// more than one associated value.
@@ -247,7 +251,7 @@ impl MetadataMap {
     /// assert_eq!(0, map.keys_len());
     ///
     /// map.insert("x-host-ip", "127.0.0.1".parse().unwrap());
-    /// map.insert("x-host-name", "localhost".parse().unwrap());
+    /// map.insert_bin("x-host-name-bin", "localhost".parse().unwrap());
     ///
     /// assert_eq!(2, map.keys_len());
     ///
@@ -341,7 +345,9 @@ impl MetadataMap {
         self.headers.reserve(additional);
     }
 
-    /// Returns a reference to the value associated with the key.
+    /// Returns a reference to the value associated with the key. This method
+    /// is for ascii metadata entries (those whose names don't end with
+    /// "-bin"). For binary entries, use get_bin.
     ///
     /// If there are multiple values associated with the key, then the first one
     /// is returned. Use `get_all` to get all values associated with a given
@@ -389,6 +395,13 @@ impl MetadataMap {
     ///
     /// map.append_bin("trace-proto-bin", "world".parse().unwrap());
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append("host", "world".parse().unwrap());
+    /// assert!(map.get_bin("host").is_none());
+    /// assert!(map.get_bin("host".to_string()).is_none());
+    /// assert!(map.get_bin(&("host".to_string())).is_none());
     /// ```
     pub fn get_bin<K>(&self, key: K) -> Option<&MetadataValue>
         where K: AsMetadataKey<Binary>
@@ -396,7 +409,9 @@ impl MetadataMap {
         key.get(self)
     }
 
-    /// Returns a mutable reference to the value associated with the key.
+    /// Returns a mutable reference to the value associated with the key. This
+    /// method is for ascii metadata entries (those whose names don't end with
+    /// "-bin"). For binary entries, use get_mut_bin.
     ///
     /// If there are multiple values associated with the key, then the first one
     /// is returned. Use `entry` to get all values associated with a given
@@ -436,6 +451,13 @@ impl MetadataMap {
     /// map.get_bin_mut("trace-proto-bin").unwrap().set_sensitive(true);
     ///
     /// assert!(map.get_bin("trace-proto-bin").unwrap().is_sensitive());
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append("host", "world".parse().unwrap());
+    /// assert!(map.get_bin_mut("host").is_none());
+    /// assert!(map.get_bin_mut("host".to_string()).is_none());
+    /// assert!(map.get_bin_mut(&("host".to_string())).is_none());
     /// ```
     pub fn get_bin_mut<K>(&mut self, key: K) -> Option<&mut MetadataValue>
         where K: AsMetadataKey<Binary>
@@ -443,7 +465,9 @@ impl MetadataMap {
         key.get_mut(self)
     }
 
-    /// Returns a view of all values associated with a key.
+    /// Returns a view of all values associated with a key. This method is for
+    /// ascii metadata entries (those whose names don't end with "-bin"). For
+    /// binary entries, use get_all_bin.
     ///
     /// The returned view does not incur any allocations and allows iterating
     /// the values associated with the key.  See [`GetAll`] for more details.
@@ -495,12 +519,21 @@ impl MetadataMap {
     /// map.insert_bin("trace-proto-bin", "hello".parse().unwrap());
     /// map.append_bin("trace-proto-bin", "goodbye".parse().unwrap());
     ///
-    /// let view = map.get_all_bin("trace-proto-bin");
+    /// {
+    ///     let view = map.get_all_bin("trace-proto-bin");
     ///
-    /// let mut iter = view.iter();
-    /// assert_eq!(&"hello", iter.next().unwrap());
-    /// assert_eq!(&"goodbye", iter.next().unwrap());
-    /// assert!(iter.next().is_none());
+    ///     let mut iter = view.iter();
+    ///     assert_eq!(&"hello", iter.next().unwrap());
+    ///     assert_eq!(&"goodbye", iter.next().unwrap());
+    ///     assert!(iter.next().is_none());
+    /// }
+    ///
+    /// // Attempting to read a key of the wrong type fails by not
+    /// // finding anything.
+    /// map.append("host", "world".parse().unwrap());
+    /// assert!(map.get_all_bin("host").iter().next().is_none());
+    /// assert!(map.get_all_bin("host".to_string()).iter().next().is_none());
+    /// assert!(map.get_all_bin(&("host".to_string())).iter().next().is_none());
     /// ```
     pub fn get_all_bin<K>(&self, key: K) -> GetAll
         where K: AsMetadataKey<Binary>
@@ -510,7 +543,8 @@ impl MetadataMap {
         }
     }
 
-    /// Returns true if the map contains a value for the specified key.
+    /// Returns true if the map contains a value for the specified key. This
+    /// method works for both ascii and binary entries.
     ///
     /// # Examples
     ///
