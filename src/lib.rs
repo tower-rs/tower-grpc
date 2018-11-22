@@ -53,6 +53,7 @@ pub mod metadata {
     pub use metadata_map::Keys;
     pub use metadata_map::KeyRef;
     pub use metadata_map::KeyAndValueRef;
+    pub use metadata_map::KeyAndMutValueRef;
     pub use metadata_map::Values;
     pub use metadata_map::ValueRef;
     pub use metadata_map::ValueIter;
