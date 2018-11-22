@@ -33,13 +33,22 @@ pub struct MetadataMap {
     headers: http::HeaderMap,
 }
 
-/// `HeaderMap` entry iterator.
+/// `MetadataMap` entry iterator.
 ///
 /// Yields `(&MetadataKey, &value)` tuples. The same header name may be yielded
 /// more than once if it has more than one associated value.
 #[derive(Debug)]
 pub struct Iter<'a> {
     inner: http::header::Iter<'a, http::header::HeaderValue>,
+}
+
+/// `MetadataMap` entry iterator.
+///
+/// Yields `(&MetadataKey, &mut value)` tuples. The same header name may be yielded
+/// more than once if it has more than one associated value.
+#[derive(Debug)]
+pub struct IterMut<'a> {
+    inner: http::header::IterMut<'a, http::header::HeaderValue>,
 }
 
 /// A drain iterator of all values associated with a single metadata key.
@@ -69,6 +78,14 @@ pub struct Keys<'a> {
 #[derive(Debug)]
 pub struct Values<'a> {
     inner: http::header::Values<'a, http::header::HeaderValue>,
+}
+
+/// `MetadataMap` value iterator.
+///
+/// Each value contained in the `MetadataMap` will be yielded.
+#[derive(Debug)]
+pub struct ValuesMut<'a> {
+    inner: http::header::ValuesMut<'a, http::header::HeaderValue>,
 }
 
 /// An iterator of all values associated with a single metadata key.
@@ -441,11 +458,6 @@ impl MetadataMap {
         Iter { inner: self.headers.iter() }
     }
 
-    /*
-    TODO(pgron): Add this once
-    https://github.com/hyperium/http/commit/22ec10aaa331c5e2414b7ea8ecfd4b4d0d19b6ee
-    has been released.
-
     /// An iterator visiting all key-value pairs, with mutable value references.
     ///
     /// The iterator order is arbitrary, but consistent across platforms for the
@@ -466,9 +478,9 @@ impl MetadataMap {
     ///     value.set_sensitive(true);
     /// }
     /// ```
-    pub fn iter_mut(&mut self) -> http::header::map::IterMut<MetadataValue> {
-        self.headers.iter_mut()
-    }*/
+    pub fn iter_mut(&mut self) -> IterMut {
+        IterMut { inner: self.headers.iter_mut() }
+    }
 
     /// An iterator visiting all keys.
     ///
@@ -517,11 +529,6 @@ impl MetadataMap {
         Values { inner: self.headers.values() }
     }
 
-    /*
-    TODO(pgron): Add this once
-    https://github.com/hyperium/http/commit/22ec10aaa331c5e2414b7ea8ecfd4b4d0d19b6ee
-    has been released.
-
     /// An iterator visiting all values mutably.
     ///
     /// The iteration order is arbitrary, but consistent across platforms for
@@ -541,11 +548,9 @@ impl MetadataMap {
     ///     value.set_sensitive(true);
     /// }
     /// ```
-    // TODO(pgron): Expose this. Blocked by https://github.com/hyperium/http/pull/278
-    pub fn values_mut(&mut self) -> http::header::ValuesMut<MetadataValue> {
-        self.headers.values_mut()
+    pub fn values_mut(&mut self) -> ValuesMut {
+        ValuesMut { inner: self.headers.values_mut() }
     }
-    */
 
     /// Clears the map, returning all entries as an iterator.
     ///
@@ -733,6 +738,30 @@ impl<'a> Iterator for Iter<'a> {
 unsafe impl<'a> Sync for Iter<'a> {}
 unsafe impl<'a> Send for Iter<'a> {}
 
+// ===== impl IterMut =====
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = (&'a str, &'a mut MetadataValue);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|item| {
+            let (name, value) = item;
+            let item : Self::Item = (
+                &name.as_str(),
+                MetadataValue::from_mut_header_value(value)
+            );
+            item
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+unsafe impl<'a> Sync for IterMut<'a> {}
+unsafe impl<'a> Send for IterMut<'a> {}
+
 // ===== impl ValueDrain =====
 
 impl<'a> Iterator for ValueDrain<'a> {
@@ -795,6 +824,20 @@ impl<'a> Iterator for Values<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(&MetadataValue::from_header_value)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+// ===== impl Values ====
+
+impl<'a> Iterator for ValuesMut<'a> {
+    type Item = &'a mut MetadataValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(&MetadataValue::from_mut_header_value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
