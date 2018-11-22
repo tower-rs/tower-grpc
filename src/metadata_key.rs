@@ -13,6 +13,7 @@ use std::str::FromStr;
 ///
 /// [`HeaderMap`]: struct.HeaderMap.html
 #[derive(Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct MetadataKey {
     // Note: There are unsafe transmutes that assume that the memory layout
     // of MetadataValue is identical to HeaderName

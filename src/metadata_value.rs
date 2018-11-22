@@ -13,6 +13,7 @@ use metadata_key::MetadataKey;
 ///
 /// [`HeaderMap`]: struct.HeaderMap.html
 #[derive(Clone, Hash)]
+#[repr(transparent)]
 pub struct MetadataValue {
     // Note: There are unsafe transmutes that assume that the memory layout
     // of MetadataValue is identical to HeaderValue
