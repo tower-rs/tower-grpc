@@ -52,6 +52,7 @@ pub type BinaryMetadataValue = MetadataValue<Binary>;
 impl<VE: ValueEncoding> MetadataValue<VE> {
     /// Convert a static string to a `MetadataValue`.
     ///
+    // TODO(pgron): Non-copying is not really possible for Binary
     /// This function will not perform any copying, however the string is
     /// checked to ensure that no invalid characters are present. Only visible
     /// ASCII characters (32-127) are permitted.
@@ -113,6 +114,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
             .map_err(|_| { InvalidMetadataValue { _priv: () } })
     }
 
+    // TODO(pgron): Test that this encodes
     /// Converts a MetadataKey into a MetadataValue
     ///
     /// Since every valid MetadataKey is a valid MetadataValue this is done
@@ -165,6 +167,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
             .map_err(|_| { InvalidMetadataValue { _priv: () } })
     }
 
+    // TODO(pgron): Test that this encodes
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
     ///
     /// If the argument contains invalid metadata value bytes, an error is
@@ -175,8 +178,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// implementation once the trait is stabilized in std.
     #[inline]
     pub fn from_shared(src: Bytes) -> Result<Self, InvalidMetadataValueBytes> {
-        // TODO(pgron): Perform conversion
-        HeaderValue::from_shared(src)
+        HeaderValue::from_shared(VE::encode(src))
             .map(|value| MetadataValue {
                 inner: value,
                 phantom: PhantomData,
@@ -187,12 +189,13 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     }
 
     /// Convert a `Bytes` directly into a `MetadataValue` without validating.
+    /// For MetadataValue<Binary> the provided parameter must be base64
+    /// encoded without padding bytes at the end.
     ///
     /// This function does NOT validate that illegal bytes are not contained
     /// within the buffer.
     #[inline]
     pub unsafe fn from_shared_unchecked(src: Bytes) -> Self {
-        // TODO(pgron): Perform conversion
         MetadataValue {
             inner: HeaderValue::from_shared_unchecked(src),
             phantom: PhantomData,
@@ -213,23 +216,8 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// assert_eq!(val.to_str().unwrap(), "hello");
     /// ```
     pub fn to_str(&self) -> Result<&str, ToStrError> {
+        // TOOD(pgron): Perform conversion here
         return self.inner.to_str().map_err(|_| { ToStrError { _priv: () } })
-    }
-
-    /// Returns the length of `self`.
-    ///
-    /// This length is in bytes.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_static("hello");
-    /// assert_eq!(val.len(), 5);
-    /// ```
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.inner.len()
     }
 
     /// Returns true if the `MetadataValue` has a length of zero bytes.
@@ -246,7 +234,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
+        VE::is_empty(self.inner.as_bytes())
     }
 
     /// Converts a `MetadataValue` to a byte slice.
@@ -260,6 +248,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// ```
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
+        // TOOD(pgron): Perform conversion here
         self.inner.as_bytes()
     }
 
@@ -330,6 +319,27 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     #[inline]
     pub(crate) fn unchecked_from_mut_header_value_ref(header_value: &mut HeaderValue) -> &mut Self {
         unsafe { &mut *(header_value as *mut HeaderValue as *mut Self) }
+    }
+}
+
+impl MetadataValue<Ascii> {
+    /// Returns the length of `self`, in bytes.
+    ///
+    /// This method is not available for MetadataValue<Binary> because that
+    /// cannot be implemented in constant time, which most people would probably
+    /// expect. To get the length of MetadataValue<Binary>, convert it to a
+    /// Bytes and measure its length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    /// assert_eq!(val.len(), 5);
+    /// ```
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.inner.len()
     }
 }
 
