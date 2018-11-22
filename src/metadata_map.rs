@@ -123,9 +123,18 @@ pub enum ValueRef<'a> {
 ///
 /// Each value contained in the `MetadataMap` will be yielded.
 #[derive(Debug)]
-pub struct ValuesMut<'a, VE: ValueEncoding> {
-    inner: http::header::ValuesMut<'a, http::header::HeaderValue>,
-    phantom: PhantomData<VE>,
+pub struct ValuesMut<'a> {
+    // Need to use http::header::IterMut and not http::header::ValuesMut to be
+    // able to know if a value is binary or not.
+    inner: http::header::IterMut<'a, http::header::HeaderValue>,
+}
+
+/// Reference to a value in a `MetadataMap`. It can point
+/// to either an ascii or a binary ("*-bin" key) value.
+#[derive(Debug)]
+pub enum ValueRefMut<'a> {
+    Ascii(&'a mut MetadataValue<Ascii>),
+    Binary(&'a mut MetadataValue<Binary>),
 }
 
 /// An iterator of all values associated with a single metadata key.
@@ -779,14 +788,16 @@ impl MetadataMap {
     /// map.insert("x-number", "123".parse().unwrap());
     ///
     /// for value in map.values_mut() {
-    ///     value.set_sensitive(true);
+    ///     match value {
+    ///         ValueRefMut::Ascii(mut value) =>
+    ///             value.set_sensitive(true),
+    ///         ValueRefMut::Binary(mut value) =>
+    ///             value.set_sensitive(false),
+    ///     }
     /// }
     /// ```
-    pub fn values_mut(&mut self) -> ValuesMut<Ascii> {
-        ValuesMut {
-            inner: self.headers.values_mut(),
-            phantom: PhantomData,
-        }
+    pub fn values_mut(&mut self) -> ValuesMut {
+        ValuesMut { inner: self.headers.iter_mut() }
     }
 
     /// Gets the given ascii key's corresponding entry in the map for in-place
@@ -1270,11 +1281,22 @@ impl<'a> Iterator for Values<'a> {
 
 // ===== impl Values ====
 
-impl<'a, VE: ValueEncoding> Iterator for ValuesMut<'a, VE> where VE: 'a {
-    type Item = &'a mut MetadataValue<VE>;
+impl<'a> Iterator for ValuesMut<'a> {
+    type Item = ValueRefMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(&MetadataValue::unchecked_from_mut_header_value_ref)
+        self.inner.next().map(|item| {
+            let (name, value) = item;
+            if Ascii::is_valid_key(name.as_str()) {
+                ValueRefMut::Ascii(
+                    MetadataValue::unchecked_from_mut_header_value_ref(value)
+                )
+            } else {
+                ValueRefMut::Binary(
+                    MetadataValue::unchecked_from_mut_header_value_ref(value)
+                )
+            }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -2510,6 +2532,49 @@ mod tests {
         let mut found_x_word_bin = false;
         for value in map.values() {
             if let ValueRef::Binary(ref value) = value {
+                if *value == "goodbye" {
+                    found_x_word_bin = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_word_bin);
+    }
+
+    #[test]
+    fn test_values_mut_categorizes_ascii_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.append_bin("x-word-bin", "goodbye".parse().unwrap());
+        map.insert_bin("x-number-bin", "123".parse().unwrap());
+
+        let mut found_x_word = false;
+        for value in map.values_mut() {
+            if let ValueRefMut::Ascii(ref value) = value {
+                if *value == "hello" {
+                    found_x_word = true;
+                } else {
+                    // Unexpected key
+                    assert!(false);
+                }
+            }
+        }
+        assert!(found_x_word);
+    }
+
+    #[test]
+    fn test_values_mut_categorizes_binary_entries() {
+        let mut map = MetadataMap::new();
+
+        map.insert("x-word", "hello".parse().unwrap());
+        map.append_bin("x-word-bin", "goodbye".parse().unwrap());
+
+        let mut found_x_word_bin = false;
+        for value in map.values_mut() {
+            if let ValueRefMut::Binary(ref value) = value {
                 if *value == "goodbye" {
                     found_x_word_bin = true;
                 } else {

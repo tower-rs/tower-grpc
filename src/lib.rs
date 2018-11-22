@@ -56,6 +56,7 @@ pub mod metadata {
     pub use metadata_map::KeyAndMutValueRef;
     pub use metadata_map::Values;
     pub use metadata_map::ValueRef;
+    pub use metadata_map::ValueRefMut;
     pub use metadata_map::ValueIter;
     pub use metadata_map::GetAll;
     pub use metadata_map::Entry;
