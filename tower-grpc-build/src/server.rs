@@ -292,7 +292,7 @@ macro_rules! try_ready {
             imp.new_fn("poll_ready")
                 .arg_mut_self()
                 .ret("futures::Poll<(), Self::Error>")
-                .line("<tower::Service<http::Request<grpc::BoxBody>, Response=_, Error=_, Future=_>>::poll_ready(self)")
+                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)")
                 ;
 
             imp.new_fn("call")
@@ -300,7 +300,7 @@ macro_rules! try_ready {
                 .arg("request", "http::Request<tower_h2::RecvBody>")
                 .ret("Self::Future")
                 .line("let request = request.map(|b| grpc::BoxBody::new(Box::new(b)));")
-                .line("<tower::Service<http::Request<grpc::BoxBody>, Response=_, Error=_, Future=_>>::call(self, request)")
+                .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)")
                 ;
         }
     }
