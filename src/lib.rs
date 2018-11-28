@@ -10,6 +10,7 @@ extern crate h2;
 extern crate log;
 extern crate tower_http;
 extern crate tower_service;
+extern crate tower_util;
 
 #[cfg(feature = "tower-h2")]
 extern crate tower_h2;

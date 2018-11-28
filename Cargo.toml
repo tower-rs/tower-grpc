@@ -34,6 +34,7 @@ log = "0.4"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
 tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-service = { git = "https://github.com/tower-rs/tower"  }
+tower-util = { git = "https://github.com/tower-rs/tower"  }
 
 # For protobuf
 prost = { version = "0.4", optional = true }
