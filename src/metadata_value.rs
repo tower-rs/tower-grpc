@@ -314,12 +314,12 @@ impl MetadataValue<Ascii> {
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_name::<Ascii>("accept".parse().unwrap());
+    /// let val = AsciiMetadataValue::from_key::<Ascii>("accept".parse().unwrap());
     /// assert_eq!(val, AsciiMetadataValue::from_bytes(b"accept").unwrap());
     /// ```
     #[inline]
-    pub fn from_name<KeyVE: ValueEncoding>(name: MetadataKey<KeyVE>) -> Self {
-        name.into()
+    pub fn from_key<KeyVE: ValueEncoding>(key: MetadataKey<KeyVE>) -> Self {
+        key.into()
     }
 
     /// Returns the length of `self`, in bytes.
