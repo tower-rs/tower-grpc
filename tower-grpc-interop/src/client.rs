@@ -22,7 +22,7 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use http::header::HeaderValue;
+use tower_grpc::metadata::MetadataValue;
 use http::uri::{self, Uri};
 use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
@@ -388,8 +388,8 @@ impl TestClients {
             ..Default::default()
         };
         let mut req = Request::new(req);
-        req.headers_mut()
-            .insert(" x-user-ip", HeaderValue::from_static("1.2.3.4"));
+        req.metadata_mut()
+            .insert(" x-user-ip", MetadataValue::from_static("1.2.3.4"));
         // core.run(client.unary_call(req)
         //     .then(|result| {
         //         unimplemented!()

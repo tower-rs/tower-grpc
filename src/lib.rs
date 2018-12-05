@@ -22,6 +22,9 @@ pub mod generic;
 
 mod body;
 mod error;
+mod metadata_key;
+mod metadata_value;
+mod metadata_map;
 mod request;
 mod response;
 mod status;
@@ -31,6 +34,33 @@ pub use error::{Error, ProtocolError};
 pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
+
+/// The metadata module contains data structures and utilities for handling
+/// gRPC custom metadata.
+pub mod metadata {
+    pub use metadata_key::MetadataKey;
+    pub use metadata_value::MetadataValue;
+    pub use metadata_map::MetadataMap;
+    pub use metadata_map::Iter;
+    pub use metadata_map::ValueDrain;
+    pub use metadata_map::Drain;
+    pub use metadata_map::Keys;
+    pub use metadata_map::Values;
+    pub use metadata_map::ValueIter;
+    pub use metadata_map::GetAll;
+    pub use metadata_map::Entry;
+    pub use metadata_map::VacantEntry;
+    pub use metadata_map::OccupiedEntry;
+
+    /// The metadata::errors module contains types for errors that can occur
+    /// while handling gRPC custom metadata.
+    pub mod errors {
+        pub use metadata_key::InvalidMetadataKey;
+        pub use metadata_value::InvalidMetadataValue;
+        pub use metadata_value::InvalidMetadataValueBytes;
+        pub use metadata_value::ToStrError;
+    }
+}
 
 #[cfg(feature = "protobuf")]
 pub mod server;

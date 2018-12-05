@@ -54,7 +54,7 @@ pub fn main() {
                 message: "Hello! Can I come in?".to_string(),
             });
 
-            request.headers_mut().insert("metadata", "Here is a cookie".parse().unwrap());
+            request.metadata_mut().insert("metadata", "Here is a cookie".parse().unwrap());
 
             client.ask_to_enter(request).map_err(|e| panic!("gRPC request failed; err={:?}", e))
         })
