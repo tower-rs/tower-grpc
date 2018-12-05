@@ -61,8 +61,12 @@ impl ValueEncoding for Binary {
     }
 
     fn is_empty(value: &[u8]) -> bool {
-        // TODO(pgron): Do this properly for base64
-        value.is_empty()
+        for c in value {
+            if *c != b'=' {
+                return false;
+            }
+        }
+        return true;
     }
 
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes> {

@@ -699,3 +699,22 @@ fn test_debug() {
     sensitive.set_sensitive(true);
     assert_eq!("Sensitive", format!("{:?}", sensitive));
 }
+
+
+#[test]
+fn test_is_empty() {
+    fn from_str<VE: ValueEncoding>(s: &str) -> MetadataValue<VE> {
+        MetadataValue::<VE>::unchecked_from_header_value(s.parse().unwrap())
+    }
+
+    assert!(from_str::<Ascii>("").is_empty());
+    assert!(from_str::<Binary>("").is_empty());
+    assert!(!from_str::<Ascii>("a").is_empty());
+    assert!(!from_str::<Binary>("a").is_empty());
+    assert!(!from_str::<Ascii>("=").is_empty());
+    assert!(from_str::<Binary>("=").is_empty());
+    assert!(!from_str::<Ascii>("===").is_empty());
+    assert!(from_str::<Binary>("===").is_empty());
+    assert!(!from_str::<Ascii>("=====").is_empty());
+    assert!(from_str::<Binary>("=====").is_empty());
+}
