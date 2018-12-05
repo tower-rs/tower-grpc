@@ -50,88 +50,6 @@ pub type AsciiMetadataValue = MetadataValue<Ascii>;
 pub type BinaryMetadataValue = MetadataValue<Binary>;
 
 impl<VE: ValueEncoding> MetadataValue<VE> {
-    /// Convert a static string to a `MetadataValue`.
-    ///
-    // TODO(pgron): Non-copying is not really possible for Binary
-    /// This function will not perform any copying, however the string is
-    /// checked to ensure that no invalid characters are present. Only visible
-    /// ASCII characters (32-127) are permitted.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the argument contains invalid metadata value
-    /// characters.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_static("hello");
-    /// assert_eq!(val, "hello");
-    /// ```
-    #[inline]
-    pub fn from_static(src: &'static str) -> Self {
-        // TODO(pgron): Perform conversion
-        MetadataValue {
-            inner: HeaderValue::from_static(src),
-            phantom: PhantomData,
-        }
-    }
-
-    /// Attempt to convert a string to a `MetadataValue`.
-    ///
-    /// If the argument contains invalid metadata value characters, an error is
-    /// returned. Only visible ASCII characters (32-127) are permitted. Use
-    /// `from_bytes` to create a `MetadataValue` that includes opaque octets
-    /// (128-255).
-    ///
-    /// This function is intended to be replaced in the future by a `TryFrom`
-    /// implementation once the trait is stabilized in std.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_str("hello").unwrap();
-    /// assert_eq!(val, "hello");
-    /// ```
-    ///
-    /// An invalid value
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_str("\n");
-    /// assert!(val.is_err());
-    /// ```
-    #[inline]
-    pub fn from_str(src: &str) -> Result<Self, InvalidMetadataValue> {
-        // TODO(pgron): Perform conversion
-        HeaderValue::from_str(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
-            .map_err(|_| { InvalidMetadataValue { _priv: () } })
-    }
-
-    // TODO(pgron): Test that this encodes
-    /// Converts a MetadataKey into a MetadataValue
-    ///
-    /// Since every valid MetadataKey is a valid MetadataValue this is done
-    /// infallibly.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_name::<Ascii>("accept".parse().unwrap());
-    /// assert_eq!(val, AsciiMetadataValue::from_bytes(b"accept").unwrap());
-    /// ```
-    #[inline]
-    pub fn from_name<KeyVE: ValueEncoding>(name: MetadataKey<KeyVE>) -> Self {
-        name.into()
-    }
-
     /// Attempt to convert a byte slice to a `MetadataValue`.
     ///
     /// If the argument contains invalid metadata value bytes, an error is
@@ -323,12 +241,93 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
 }
 
 impl MetadataValue<Ascii> {
+    /// Convert a static string to a `MetadataValue<Ascii>`.
+    ///
+    /// This function will not perform any copying, however the string is
+    /// checked to ensure that no invalid characters are present. Only visible
+    /// ASCII characters (32-127) are permitted.
+    ///
+    /// This method is not available for `MetadataValue<Binary>` because that
+    /// version is not implementable without copying.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the argument contains invalid metadata value
+    /// characters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    /// assert_eq!(val, "hello");
+    /// ```
+    #[inline]
+    pub fn from_static(src: &'static str) -> Self {
+        MetadataValue {
+            inner: HeaderValue::from_static(src),
+            phantom: PhantomData,
+        }
+    }
+
+    /// Attempt to convert a string to a `MetadataValue<Ascii>`.
+    ///
+    /// If the argument contains invalid metadata value characters, an error is
+    /// returned. Only visible ASCII characters (32-127) are permitted. Use
+    /// `from_bytes` to create a `MetadataValue` that includes opaque octets
+    /// (128-255).
+    ///
+    /// This function is intended to be replaced in the future by a `TryFrom`
+    /// implementation once the trait is stabilized in std.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_str("hello").unwrap();
+    /// assert_eq!(val, "hello");
+    /// ```
+    ///
+    /// An invalid value
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_str("\n");
+    /// assert!(val.is_err());
+    /// ```
+    #[inline]
+    pub fn from_str(src: &str) -> Result<Self, InvalidMetadataValue> {
+        HeaderValue::from_str(src)
+            .map(|value| MetadataValue {
+                inner: value,
+                phantom: PhantomData,
+            })
+            .map_err(|_| { InvalidMetadataValue { _priv: () } })
+    }
+
+    /// Converts a MetadataKey into a MetadataValue<Ascii>.
+    ///
+    /// Since every valid MetadataKey is a valid MetadataValue this is done
+    /// infallibly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_name::<Ascii>("accept".parse().unwrap());
+    /// assert_eq!(val, AsciiMetadataValue::from_bytes(b"accept").unwrap());
+    /// ```
+    #[inline]
+    pub fn from_name<KeyVE: ValueEncoding>(name: MetadataKey<KeyVE>) -> Self {
+        name.into()
+    }
+
     /// Returns the length of `self`, in bytes.
     ///
     /// This method is not available for MetadataValue<Binary> because that
     /// cannot be implemented in constant time, which most people would probably
     /// expect. To get the length of MetadataValue<Binary>, convert it to a
-    /// Bytes and measure its length.
+    /// Bytes value and measure its length.
     ///
     /// # Examples
     ///
@@ -442,12 +441,12 @@ mod from_metadata_name_tests {
     }
 }
 
-impl<VE: ValueEncoding> FromStr for MetadataValue<VE> {
+impl FromStr for MetadataValue<Ascii> {
     type Err = InvalidMetadataValue;
 
     #[inline]
-    fn from_str(s: &str) -> Result<MetadataValue<VE>, Self::Err> {
-        MetadataValue::<VE>::from_str(s)
+    fn from_str(s: &str) -> Result<MetadataValue<Ascii>, Self::Err> {
+        MetadataValue::<Ascii>::from_str(s)
     }
 }
 
