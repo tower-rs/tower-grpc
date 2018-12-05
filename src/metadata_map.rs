@@ -26,7 +26,7 @@ pub use self::into_metadata_key::IntoMetadataKey;
 ///
 /// map.insert("x-host", "example.com".parse().unwrap());
 /// map.insert("x-number", "123".parse().unwrap());
-/// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"[binary data]").unwrap());
+/// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"[binary data]"));
 ///
 /// assert!(map.contains_key("x-host"));
 /// assert!(!map.contains_key("x-location"));
@@ -273,7 +273,7 @@ impl MetadataMap {
     /// assert_eq!(0, map.len());
     ///
     /// map.insert("x-host-ip", "127.0.0.1".parse().unwrap());
-    /// map.insert_bin("x-host-name-bin", MetadataValue::from_bytes(b"localhost").unwrap());
+    /// map.insert_bin("x-host-name-bin", MetadataValue::from_bytes(b"localhost"));
     ///
     /// assert_eq!(2, map.len());
     ///
@@ -299,7 +299,7 @@ impl MetadataMap {
     /// assert_eq!(0, map.keys_len());
     ///
     /// map.insert("x-host-ip", "127.0.0.1".parse().unwrap());
-    /// map.insert_bin("x-host-name-bin", MetadataValue::from_bytes(b"localhost").unwrap());
+    /// map.insert_bin("x-host-name-bin", MetadataValue::from_bytes(b"localhost"));
     ///
     /// assert_eq!(2, map.keys_len());
     ///
@@ -417,7 +417,7 @@ impl MetadataMap {
     ///
     /// // Attempting to read a key of the wrong type fails by not
     /// // finding anything.
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// assert!(map.get("host-bin").is_none());
     /// assert!(map.get("host-bin".to_string()).is_none());
     /// assert!(map.get(&("host-bin".to_string())).is_none());
@@ -443,11 +443,11 @@ impl MetadataMap {
     /// let mut map = MetadataMap::new();
     /// assert!(map.get_bin("trace-proto-bin").is_none());
     ///
-    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello").unwrap());
+    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello"));
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     ///
-    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"world"));
     /// assert_eq!(map.get_bin("trace-proto-bin").unwrap(), &"hello");
     ///
     /// // Attempting to read a key of the wrong type fails by not
@@ -489,7 +489,7 @@ impl MetadataMap {
     ///
     /// // Attempting to read a key of the wrong type fails by not
     /// // finding anything.
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// assert!(map.get_mut("host-bin").is_none());
     /// assert!(map.get_mut("host-bin".to_string()).is_none());
     /// assert!(map.get_mut(&("host-bin".to_string())).is_none());
@@ -513,7 +513,7 @@ impl MetadataMap {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::default();
-    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello").unwrap());
+    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello"));
     /// map.get_bin_mut("trace-proto-bin").unwrap().set_sensitive(true);
     ///
     /// assert!(map.get_bin("trace-proto-bin").unwrap().is_sensitive());
@@ -567,7 +567,7 @@ impl MetadataMap {
     ///
     /// // Attempting to read a key of the wrong type fails by not
     /// // finding anything.
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// assert!(map.get_all("host-bin").iter().next().is_none());
     /// assert!(map.get_all("host-bin".to_string()).iter().next().is_none());
     /// assert!(map.get_all(&("host-bin".to_string())).iter().next().is_none());
@@ -595,8 +595,8 @@ impl MetadataMap {
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
     ///
-    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello").unwrap());
-    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
+    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello"));
+    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"goodbye"));
     ///
     /// {
     ///     let view = map.get_all_bin("trace-proto-bin");
@@ -639,7 +639,7 @@ impl MetadataMap {
     /// let mut map = MetadataMap::new();
     /// assert!(!map.contains_key("x-host"));
     ///
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// map.insert("x-host", "world".parse().unwrap());
     ///
     /// // contains_key works for both Binary and Ascii keys:
@@ -727,7 +727,7 @@ impl MetadataMap {
     ///
     /// map.insert("x-word", "hello".parse().unwrap());
     /// map.append("x-word", "goodbye".parse().unwrap());
-    /// map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+    /// map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
     ///
     /// for key in map.keys() {
     ///     match key {
@@ -756,7 +756,7 @@ impl MetadataMap {
     ///
     /// map.insert("x-word", "hello".parse().unwrap());
     /// map.append("x-word", "goodbye".parse().unwrap());
-    /// map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+    /// map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
     ///
     /// for value in map.values() {
     ///     match value {
@@ -829,7 +829,7 @@ impl MetadataMap {
     ///
     /// // Attempting to read a key of the wrong type fails by not
     /// // finding anything.
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// assert!(!map.entry("host-bin").is_ok());
     /// assert!(!map.entry("host-bin".to_string()).is_ok());
     /// assert!(!map.entry(&("host-bin".to_string())).is_ok());
@@ -863,8 +863,8 @@ impl MetadataMap {
     /// ];
     ///
     /// for &header in headers {
-    ///     let counter = map.entry_bin(header).unwrap().or_insert(MetadataValue::from_bytes(b"").unwrap());
-    ///     *counter = MetadataValue::from_bytes(format!("{}{}", counter.to_str().unwrap(), "1").as_bytes()).unwrap();
+    ///     let counter = map.entry_bin(header).unwrap().or_insert(MetadataValue::from_bytes(b""));
+    ///     *counter = MetadataValue::from_bytes(format!("{}{}", counter.to_str().unwrap(), "1").as_bytes());
     /// }
     ///
     /// assert_eq!(map.get_bin("content-length-bin").unwrap(), "11");
@@ -965,10 +965,10 @@ impl MetadataMap {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
-    /// assert!(map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"world").unwrap()).is_none());
+    /// assert!(map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"world")).is_none());
     /// assert!(!map.is_empty());
     ///
-    /// let mut prev = map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"earth").unwrap()).unwrap();
+    /// let mut prev = map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"earth")).unwrap();
     /// assert_eq!("world", prev);
     /// ```
     ///
@@ -976,14 +976,14 @@ impl MetadataMap {
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::default();
     /// // Attempting to add a binary metadata entry with an invalid name
-    /// map.insert_bin("trace-proto", MetadataValue::from_bytes(b"hello").unwrap()); // This line panics!
+    /// map.insert_bin("trace-proto", MetadataValue::from_bytes(b"hello")); // This line panics!
     /// ```
     ///
     /// ```should_panic
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
     /// // Trying to insert a key that is not valid panics.
-    /// map.insert_bin("x{}host-bin", MetadataValue::from_bytes(b"world").unwrap()); // This line panics!
+    /// map.insert_bin("x{}host-bin", MetadataValue::from_bytes(b"world")); // This line panics!
     /// ```
     pub fn insert_bin<K>(&mut self, key: K, val: MetadataValue<Binary>) -> Option<MetadataValue<Binary>>
         where K: IntoMetadataKey<Binary>
@@ -1050,10 +1050,10 @@ impl MetadataMap {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
-    /// assert!(map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"world").unwrap()).is_none());
+    /// assert!(map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"world")).is_none());
     /// assert!(!map.is_empty());
     ///
-    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"earth").unwrap());
+    /// map.append_bin("trace-proto-bin", MetadataValue::from_bytes(b"earth"));
     ///
     /// let values = map.get_all_bin("trace-proto-bin");
     /// let mut i = values.iter();
@@ -1065,14 +1065,14 @@ impl MetadataMap {
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
     /// // Trying to append a key that is not valid panics.
-    /// map.append_bin("x{}host-bin", MetadataValue::from_bytes(b"world").unwrap()); // This line panics!
+    /// map.append_bin("x{}host-bin", MetadataValue::from_bytes(b"world")); // This line panics!
     /// ```
     ///
     /// ```should_panic
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
     /// // Trying to append a key that is ascii panics (use append).
-    /// map.append_bin("x-host", MetadataValue::from_bytes(b"world").unwrap()); // This line panics!
+    /// map.append_bin("x-host", MetadataValue::from_bytes(b"world")); // This line panics!
     /// ```
     pub fn append_bin<K>(&mut self, key: K, value: MetadataValue<Binary>) -> bool
         where K: IntoMetadataKey<Binary>
@@ -1102,7 +1102,7 @@ impl MetadataMap {
     ///
     /// // Attempting to remove a key of the wrong type fails by not
     /// // finding anything.
-    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world").unwrap());
+    /// map.append_bin("host-bin", MetadataValue::from_bytes(b"world"));
     /// assert!(map.remove("host-bin").is_none());
     /// assert!(map.remove("host-bin".to_string()).is_none());
     /// assert!(map.remove(&("host-bin".to_string())).is_none());
@@ -1126,7 +1126,7 @@ impl MetadataMap {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let mut map = MetadataMap::new();
-    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello.world").unwrap());
+    /// map.insert_bin("trace-proto-bin", MetadataValue::from_bytes(b"hello.world"));
     ///
     /// let prev = map.remove_bin("trace-proto-bin").unwrap();
     /// assert_eq!("hello.world", prev);
@@ -2376,8 +2376,8 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
         for key_and_value in map.iter() {
@@ -2398,7 +2398,7 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
 
         let mut found_x_word_bin = false;
         for key_and_value in map.iter() {
@@ -2419,8 +2419,8 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
         for key_and_value in map.iter_mut() {
@@ -2441,7 +2441,7 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
 
         let mut found_x_word_bin = false;
         for key_and_value in map.iter_mut() {
@@ -2462,8 +2462,8 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
         for key in map.keys() {
@@ -2484,7 +2484,7 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_number_bin = false;
         for key in map.keys() {
@@ -2505,8 +2505,8 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
         for value in map.values() {
@@ -2527,7 +2527,7 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
 
         let mut found_x_word_bin = false;
         for value in map.values() {
@@ -2548,8 +2548,8 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
-        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
+        map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
         for value in map.values_mut() {
@@ -2570,7 +2570,7 @@ mod tests {
         let mut map = MetadataMap::new();
 
         map.insert("x-word", "hello".parse().unwrap());
-        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye").unwrap());
+        map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
 
         let mut found_x_word_bin = false;
         for value in map.values_mut() {

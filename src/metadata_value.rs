@@ -50,41 +50,6 @@ pub type AsciiMetadataValue = MetadataValue<Ascii>;
 pub type BinaryMetadataValue = MetadataValue<Binary>;
 
 impl<VE: ValueEncoding> MetadataValue<VE> {
-    /// Attempt to convert a byte slice to a `MetadataValue`.
-    ///
-    /// If the argument contains invalid metadata value bytes, an error is
-    /// returned. Only byte values between 32 and 255 (inclusive) are permitted,
-    /// excluding byte 127 (DEL).
-    ///
-    /// This function is intended to be replaced in the future by a `TryFrom`
-    /// implementation once the trait is stabilized in std.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_bytes(b"hello\xfa").unwrap();
-    /// assert_eq!(val, &b"hello\xfa"[..]);
-    /// ```
-    ///
-    /// An invalid value
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_bytes(b"\n");
-    /// assert!(val.is_err());
-    /// ```
-    #[inline]
-    pub fn from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataValue> {
-        // TODO(pgron): Perform conversion
-        HeaderValue::from_bytes(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
-            .map_err(|_| { InvalidMetadataValue { _priv: () } })
-    }
-
     // TODO(pgron): Test that this encodes
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
     ///
@@ -315,11 +280,45 @@ impl MetadataValue<Ascii> {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let val = AsciiMetadataValue::from_key::<Ascii>("accept".parse().unwrap());
-    /// assert_eq!(val, AsciiMetadataValue::from_bytes(b"accept").unwrap());
+    /// assert_eq!(val, AsciiMetadataValue::try_from_bytes(b"accept").unwrap());
     /// ```
     #[inline]
     pub fn from_key<KeyVE: ValueEncoding>(key: MetadataKey<KeyVE>) -> Self {
         key.into()
+    }
+
+    /// Attempt to convert a byte slice to a `MetadataValue<Ascii>`.
+    ///
+    /// If the argument contains invalid metadata value bytes, an error is
+    /// returned. Only byte values between 32 and 255 (inclusive) are permitted,
+    /// excluding byte 127 (DEL).
+    ///
+    /// This function is intended to be replaced in the future by a `TryFrom`
+    /// implementation once the trait is stabilized in std.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::try_from_bytes(b"hello\xfa").unwrap();
+    /// assert_eq!(val, &b"hello\xfa"[..]);
+    /// ```
+    ///
+    /// An invalid value
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::try_from_bytes(b"\n");
+    /// assert!(val.is_err());
+    /// ```
+    #[inline]
+    pub fn try_from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataValue> {
+        HeaderValue::from_bytes(src)
+            .map(|value| MetadataValue {
+                inner: value,
+                phantom: PhantomData,
+            })
+            .map_err(|_| { InvalidMetadataValue { _priv: () } })
     }
 
     /// Returns the length of `self`, in bytes.
@@ -339,6 +338,29 @@ impl MetadataValue<Ascii> {
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+impl MetadataValue<Binary> {
+    /// Convert a byte slice to a `MetadataValue<Binary>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = BinaryMetadataValue::from_bytes(b"hello\xfa");
+    /// assert_eq!(val, &b"hello\xfa"[..]);
+    /// ```
+    #[inline]
+    pub fn from_bytes(src: &[u8]) -> Self {
+        // TODO(pgron): Perform conversion
+        HeaderValue::from_bytes(src)
+            .map(|value| MetadataValue {
+                inner: value,
+                phantom: PhantomData,
+            })
+            .map_err(|_| { InvalidMetadataValue { _priv: () } })
+            .unwrap()
     }
 }
 
@@ -432,7 +454,7 @@ mod from_metadata_name_tests {
 
         assert_eq!(
             map.get("accept").unwrap(),
-            AsciiMetadataValue::from_bytes(b"hello-world").unwrap()
+            AsciiMetadataValue::try_from_bytes(b"hello-world").unwrap()
         );
     }
 }
@@ -660,7 +682,7 @@ fn test_debug() {
     ];
 
     for &(value, expected) in cases {
-        let val = AsciiMetadataValue::from_bytes(value.as_bytes()).unwrap();
+        let val = AsciiMetadataValue::try_from_bytes(value.as_bytes()).unwrap();
         let actual = format!("{:?}", val);
         assert_eq!(expected, actual);
     }
