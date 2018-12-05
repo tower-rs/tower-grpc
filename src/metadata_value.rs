@@ -155,6 +155,22 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
         self.inner.is_sensitive()
     }
 
+    /// Converts a `MetadataValue` to a byte slice. For Binary values, the
+    /// return value is base64 encoded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    // TODO(pgron): Add binary example
+    /// assert_eq!(val.as_encoded_bytes(), b"hello");
+    /// ```
+    #[inline]
+    pub fn as_encoded_bytes(&self) -> &[u8] {
+        self.inner.as_bytes()
+    }
+
     /// Converts a HeaderValue to a MetadataValue. This method assumes that the
     /// caller has made sure that the value is of the correct Ascii or Binary
     /// value encoding.
