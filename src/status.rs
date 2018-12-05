@@ -4,6 +4,7 @@ use http::{self, HeaderMap};
 use http::header::HeaderValue;
 use std::fmt::Display;
 use std::io;
+use percent_encoding::percent_decode;
 
 #[derive(Debug, Clone)]
 pub struct Status {
@@ -29,7 +30,10 @@ impl Status {
         header_map.get(GRPC_STATUS_HEADER_CODE).clone().map(|code| {
             let code = ::Code::from_bytes(code.as_ref());
             let error_message = header_map.get(GRPC_STATUS_MESSAGE_HEADER)
-                .map(|header| header.to_str().map(|header| header.to_owned()))
+                .map(|header|
+                    percent_decode(header.as_bytes())
+                        .decode_utf8()
+                        .map(|cow| cow.to_string()))
                 .unwrap_or_else(|| Ok(String::new()));
             let binary_error_details = header_map.get(GRPC_STATUS_DETAILS_HEADER)
                 .map(|h| Bytes::from(h.as_bytes())).unwrap_or_else(Bytes::new);
