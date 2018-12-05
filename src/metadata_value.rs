@@ -368,9 +368,8 @@ From<MetadataKey<KeyVE>> for MetadataValue<Ascii> {
 
 macro_rules! from_integers {
     ($($name:ident: $t:ident => $max_len:expr),*) => {$(
-        impl<VE: ValueEncoding> From<$t> for MetadataValue<VE> {
-            fn from(num: $t) -> MetadataValue<VE> {
-                // TODO(pgron): Perform conversion
+        impl From<$t> for MetadataValue<Ascii> {
+            fn from(num: $t) -> MetadataValue<Ascii> {
                 MetadataValue {
                     inner: HeaderValue::from(num),
                     phantom: PhantomData,
