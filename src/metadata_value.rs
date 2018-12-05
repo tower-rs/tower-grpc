@@ -355,11 +355,10 @@ impl<VE: ValueEncoding> fmt::Debug for MetadataValue<VE> {
     }
 }
 
-impl<KeyVE: ValueEncoding, ValueVE: ValueEncoding>
-From<MetadataKey<KeyVE>> for MetadataValue<ValueVE> {
+impl<KeyVE: ValueEncoding>
+From<MetadataKey<KeyVE>> for MetadataValue<Ascii> {
     #[inline]
-    fn from(h: MetadataKey<KeyVE>) -> MetadataValue<ValueVE> {
-        // TODO(pgron): Perform conversion
+    fn from(h: MetadataKey<KeyVE>) -> MetadataValue<Ascii> {
         MetadataValue {
             inner: h.inner.into(),
             phantom: PhantomData,
