@@ -11,7 +11,6 @@ pub struct InvalidMetadataValue {
     _priv: (),
 }
 
-// TODO(pgron): Make sealed
 pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
     #[doc(hidden)]
     fn is_valid_key(key: &str) -> bool;
