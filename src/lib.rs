@@ -67,8 +67,8 @@ pub mod metadata {
     /// while handling gRPC custom metadata.
     pub mod errors {
         pub use metadata_key::InvalidMetadataKey;
-        pub use metadata_value::InvalidMetadataValue;
-        pub use metadata_value::InvalidMetadataValueBytes;
+        pub use metadata_encoding::InvalidMetadataValue;
+        pub use metadata_encoding::InvalidMetadataValueBytes;
         pub use metadata_value::ToStrError;
     }
 }

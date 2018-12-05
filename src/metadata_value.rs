@@ -8,6 +8,8 @@ use std::marker::PhantomData;
 
 use metadata_encoding::Ascii;
 use metadata_encoding::Binary;
+use metadata_encoding::InvalidMetadataValue;
+use metadata_encoding::InvalidMetadataValueBytes;
 use metadata_encoding::ValueEncoding;
 use metadata_key::MetadataKey;
 
@@ -25,18 +27,6 @@ pub struct MetadataValue<VE: ValueEncoding> {
     phantom: PhantomData<VE>,
 }
 
-/// A possible error when converting a `MetadataValue` from a string or byte
-/// slice.
-#[derive(Debug)]
-pub struct InvalidMetadataValue {
-    _priv: (),
-}
-
-/// A possible error when converting a `MetadataValue` from a string or byte
-/// slice.
-#[derive(Debug)]
-pub struct InvalidMetadataValueBytes(InvalidMetadataValue);
-
 /// A possible error when converting a `MetadataValue` to a string representation.
 ///
 /// Metadata field values may contain opaque bytes, in which case it is not
@@ -53,21 +43,23 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     // TODO(pgron): Test that this encodes
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
     ///
-    /// If the argument contains invalid metadata value bytes, an error is
-    /// returned. Only byte values between 32 and 255 (inclusive) are permitted,
-    /// excluding byte 127 (DEL).
+    /// For `MetadataValue<Ascii>`, if the argument contains invalid metadata
+    /// value bytes, an error is returned. Only byte values between 32 and 255
+    /// (inclusive) are permitted, excluding byte 127 (DEL).
+    ///
+    /// For `MetadataValue<Binary>`, if the argument is not valid base64, an
+    /// error is returned. In use cases where the input is not base64 encoded,
+    /// use `from_bytes`; if the value has to be encoded it's not possible to
+    /// share the memory anyways.
     ///
     /// This function is intended to be replaced in the future by a `TryFrom`
     /// implementation once the trait is stabilized in std.
     #[inline]
     pub fn from_shared(src: Bytes) -> Result<Self, InvalidMetadataValueBytes> {
-        HeaderValue::from_shared(VE::encode(src))
+        VE::from_shared(src)
             .map(|value| MetadataValue {
                 inner: value,
                 phantom: PhantomData,
-            })
-            .map_err(|_| {
-                InvalidMetadataValueBytes(InvalidMetadataValue { _priv: () })
             })
     }
 
@@ -99,7 +91,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// assert_eq!(val.to_str().unwrap(), "hello");
     /// ```
     pub fn to_str(&self) -> Result<&str, ToStrError> {
-        // TOOD(pgron): Perform conversion here
+        // TODO(pgron): Perform conversion here
         return self.inner.to_str().map_err(|_| { ToStrError { _priv: () } })
     }
 
@@ -131,7 +123,7 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// ```
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
-        // TOOD(pgron): Perform conversion here
+        // TODO(pgron): Perform conversion here
         self.inner.as_bytes()
     }
 
@@ -267,7 +259,7 @@ impl MetadataValue<Ascii> {
                 inner: value,
                 phantom: PhantomData,
             })
-            .map_err(|_| { InvalidMetadataValue { _priv: () } })
+            .map_err(|_| { InvalidMetadataValue::new() })
     }
 
     /// Converts a MetadataKey into a MetadataValue<Ascii>.
@@ -318,7 +310,7 @@ impl MetadataValue<Ascii> {
                 inner: value,
                 phantom: PhantomData,
             })
-            .map_err(|_| { InvalidMetadataValue { _priv: () } })
+            .map_err(|_| { InvalidMetadataValue::new() })
     }
 
     /// Returns the length of `self`, in bytes.
@@ -359,7 +351,7 @@ impl MetadataValue<Binary> {
                 inner: value,
                 phantom: PhantomData,
             })
-            .map_err(|_| { InvalidMetadataValue { _priv: () } })
+            .map_err(|_| { InvalidMetadataValue::new() })
             .unwrap()
     }
 }
@@ -479,30 +471,6 @@ impl<'a, VE: ValueEncoding> From<&'a MetadataValue<VE>> for MetadataValue<VE> {
     #[inline]
     fn from(t: &'a MetadataValue<VE>) -> Self {
         t.clone()
-    }
-}
-
-impl fmt::Display for InvalidMetadataValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.description().fmt(f)
-    }
-}
-
-impl Error for InvalidMetadataValue {
-    fn description(&self) -> &str {
-        "failed to parse metadata value"
-    }
-}
-
-impl fmt::Display for InvalidMetadataValueBytes {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl Error for InvalidMetadataValueBytes {
-    fn description(&self) -> &str {
-        self.0.description()
     }
 }
 
