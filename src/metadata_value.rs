@@ -423,20 +423,18 @@ from_integers! {
 
 #[cfg(test)]
 mod from_metadata_name_tests {
-    //use super::*;
+    use super::*;
     use metadata_map::MetadataMap;
 
     #[test]
     fn it_can_insert_metadata_key_as_metadata_value() {
-        let mut _map = MetadataMap::new();
-/* TODO(pgron): Add me back
-        map.insert("accept", MetadataKey::from_bytes(b"hello-world").unwrap().into());
+        let mut map = MetadataMap::new();
+        map.insert("accept", MetadataKey::<Ascii>::from_bytes(b"hello-world").unwrap().into());
 
         assert_eq!(
             map.get("accept").unwrap(),
             AsciiMetadataValue::from_bytes(b"hello-world").unwrap()
         );
-        */
     }
 }
 
