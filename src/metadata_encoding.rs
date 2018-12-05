@@ -20,10 +20,19 @@ pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
     fn is_empty(value: &[u8]) -> bool;
 
     #[doc(hidden)]
+    fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes>;
+
+    #[doc(hidden)]
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes>;
 
     #[doc(hidden)]
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes>;
+
+    #[doc(hidden)]
+    fn equals(a: &HeaderValue, b: &[u8]) -> bool;
+
+    #[doc(hidden)]
+    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -42,6 +51,11 @@ impl ValueEncoding for Ascii {
         value.is_empty()
     }
 
+    fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes> {
+        HeaderValue::from_bytes(value)
+            .map_err(|_| { InvalidMetadataValueBytes::new() })
+    }
+
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes> {
        HeaderValue::from_shared(value)
             .map_err(|_| {
@@ -49,9 +63,16 @@ impl ValueEncoding for Ascii {
             })
     }
 
-    #[doc(hidden)]
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
         Ok(Bytes::from(value))
+    }
+
+    fn equals(a: &HeaderValue, b: &[u8]) -> bool {
+        return a.as_bytes() == b;
+    }
+
+    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(value, f)
     }
 }
 
@@ -66,21 +87,39 @@ impl ValueEncoding for Binary {
                 return false;
             }
         }
-        return true;
+        true
+    }
+
+    fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes> {
+        let encoded_value : String = base64::encode_config(value, base64::STANDARD_NO_PAD);
+        HeaderValue::from_shared(encoded_value.into())
+            .map_err(|_| { InvalidMetadataValueBytes::new() })
     }
 
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes> {
-        // TODO(pgron): Do this properly for base64
-       HeaderValue::from_shared(value)
-            .map_err(|_| {
-                InvalidMetadataValueBytes::new()
-            })
+        Self::from_bytes(value.as_ref())
     }
 
-    #[doc(hidden)]
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
-        // TODO(pgron): Do this properly for base64
-        Ok(Bytes::from(value))
+        base64::decode(value)
+            .map(|bytes_vec| bytes_vec.into())
+            .map_err(|_| { InvalidMetadataValueBytes::new() })
+    }
+
+    fn equals(a: &HeaderValue, b: &[u8]) -> bool {
+        if let Ok(decoded) = base64::decode(a.as_bytes()) {
+            decoded == b
+        } else {
+            a.as_bytes() == b
+        }
+    }
+
+    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Ok(decoded) = Self::decode(value.as_bytes()) {
+            write!(f, "{:?}", decoded)
+        } else {
+            write!(f, "b[invalid]{:?}", value)
+        }
     }
 }
 

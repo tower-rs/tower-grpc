@@ -1,6 +1,7 @@
 #![deny(warnings, missing_debug_implementations)]
 //#![deny(missing_docs)]
 
+extern crate base64;
 extern crate bytes;
 #[macro_use]
 extern crate futures;

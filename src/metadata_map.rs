@@ -2468,7 +2468,7 @@ mod tests {
 
         let mut found_x_word = false;
         for key in map.keys() {
-            if let KeyRef::Ascii(ref key) = key {
+            if let KeyRef::Ascii(key) = key {
                 if key.as_str() == "x-word" {
                     found_x_word = true;
                 } else {
@@ -2489,7 +2489,7 @@ mod tests {
 
         let mut found_x_number_bin = false;
         for key in map.keys() {
-            if let KeyRef::Binary(ref key) = key {
+            if let KeyRef::Binary(key) = key {
                 if key.as_str() == "x-number-bin" {
                     found_x_number_bin = true;
                 } else {
@@ -2511,7 +2511,7 @@ mod tests {
 
         let mut found_x_word = false;
         for value in map.values() {
-            if let ValueRef::Ascii(ref value) = value {
+            if let ValueRef::Ascii(value) = value {
                 if *value == "hello" {
                     found_x_word = true;
                 } else {
@@ -2531,14 +2531,10 @@ mod tests {
         map.append_bin("x-word-bin", MetadataValue::from_bytes(b"goodbye"));
 
         let mut found_x_word_bin = false;
-        for value in map.values() {
-            if let ValueRef::Binary(ref value) = value {
-                if *value == "goodbye" {
-                    found_x_word_bin = true;
-                } else {
-                    // Unexpected key
-                    assert!(false);
-                }
+        for value_ref in map.values() {
+            if let ValueRef::Binary(value) = value_ref {
+                assert_eq!(*value, "goodbye");
+                found_x_word_bin = true;
             }
         }
         assert!(found_x_word_bin);
@@ -2553,14 +2549,10 @@ mod tests {
         map.insert_bin("x-number-bin", MetadataValue::from_bytes(b"123"));
 
         let mut found_x_word = false;
-        for value in map.values_mut() {
-            if let ValueRefMut::Ascii(ref value) = value {
-                if *value == "hello" {
-                    found_x_word = true;
-                } else {
-                    // Unexpected key
-                    assert!(false);
-                }
+        for value_ref in map.values_mut() {
+            if let ValueRefMut::Ascii(value) = value_ref {
+                assert_eq!(*value, "hello");
+                found_x_word = true;
             }
         }
         assert!(found_x_word);
@@ -2575,13 +2567,9 @@ mod tests {
 
         let mut found_x_word_bin = false;
         for value in map.values_mut() {
-            if let ValueRefMut::Binary(ref value) = value {
-                if *value == "goodbye" {
-                    found_x_word_bin = true;
-                } else {
-                    // Unexpected key
-                    assert!(false);
-                }
+            if let ValueRefMut::Binary(value) = value {
+                assert_eq!(*value, "goodbye");
+                found_x_word_bin = true;
             }
         }
         assert!(found_x_word_bin);

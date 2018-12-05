@@ -40,6 +40,42 @@ pub type AsciiMetadataValue = MetadataValue<Ascii>;
 pub type BinaryMetadataValue = MetadataValue<Binary>;
 
 impl<VE: ValueEncoding> MetadataValue<VE> {
+    /// Attempt to convert a byte slice to a `MetadataValue`.
+    ///
+    /// For Ascii metadata values, If the argument contains invalid metadata
+    /// value bytes, an error is returned. Only byte values between 32 and 255
+    /// (inclusive) are permitted, excluding byte 127 (DEL).
+    ///
+    /// For Binary metadata values this method cannot fail. See also the Binary
+    /// only version of this method `from_bytes`.
+    ///
+    /// This function is intended to be replaced in the future by a `TryFrom`
+    /// implementation once the trait is stabilized in std.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::try_from_bytes(b"hello\xfa").unwrap();
+    /// assert_eq!(val, &b"hello\xfa"[..]);
+    /// ```
+    ///
+    /// An invalid value
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::try_from_bytes(b"\n");
+    /// assert!(val.is_err());
+    /// ```
+    #[inline]
+    pub fn try_from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataValueBytes> {
+        VE::from_bytes(src)
+            .map(|value| MetadataValue {
+                inner: value,
+                phantom: PhantomData,
+            })
+    }
+
     // TODO(pgron): Test that this encodes
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
     ///
@@ -105,6 +141,12 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// let val = AsciiMetadataValue::from_static("hello");
     /// assert_eq!(val.to_bytes().unwrap().as_ref(), b"hello");
     /// ```
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = BinaryMetadataValue::from_bytes(b"hello");
+    /// assert_eq!(val.to_bytes().unwrap().as_ref(), b"hello");
+    /// ```
     #[inline]
     pub fn to_bytes(&self) -> Result<Bytes, InvalidMetadataValueBytes> {
         VE::decode(self.inner.as_bytes())
@@ -163,8 +205,13 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let val = AsciiMetadataValue::from_static("hello");
-    // TODO(pgron): Add binary example
     /// assert_eq!(val.as_encoded_bytes(), b"hello");
+    /// ```
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = BinaryMetadataValue::from_bytes(b"Hello!");
+    /// assert_eq!(val.as_encoded_bytes(), b"SGVsbG8h");
     /// ```
     #[inline]
     pub fn as_encoded_bytes(&self) -> &[u8] {
@@ -278,40 +325,6 @@ impl MetadataValue<Ascii> {
         key.into()
     }
 
-    /// Attempt to convert a byte slice to a `MetadataValue<Ascii>`.
-    ///
-    /// If the argument contains invalid metadata value bytes, an error is
-    /// returned. Only byte values between 32 and 255 (inclusive) are permitted,
-    /// excluding byte 127 (DEL).
-    ///
-    /// This function is intended to be replaced in the future by a `TryFrom`
-    /// implementation once the trait is stabilized in std.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::try_from_bytes(b"hello\xfa").unwrap();
-    /// assert_eq!(val, &b"hello\xfa"[..]);
-    /// ```
-    ///
-    /// An invalid value
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::try_from_bytes(b"\n");
-    /// assert!(val.is_err());
-    /// ```
-    #[inline]
-    pub fn try_from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataValue> {
-        HeaderValue::from_bytes(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
-            .map_err(|_| { InvalidMetadataValue::new() })
-    }
-
     /// Returns the length of `self`, in bytes.
     ///
     /// This method is not available for MetadataValue<Binary> because that
@@ -376,14 +389,8 @@ impl MetadataValue<Binary> {
     /// ```
     #[inline]
     pub fn from_bytes(src: &[u8]) -> Self {
-        // TODO(pgron): Perform conversion
-        HeaderValue::from_bytes(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
-            .map_err(|_| { InvalidMetadataValue::new() })
-            .unwrap()
+        // Only the Ascii version of try_from_bytes can fail.
+        Self::try_from_bytes(src).unwrap()
     }
 }
 
@@ -396,7 +403,7 @@ impl<VE: ValueEncoding> AsRef<[u8]> for MetadataValue<VE> {
 
 impl<VE: ValueEncoding> fmt::Debug for MetadataValue<VE> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.inner.fmt(f)
+        VE::fmt(&self.inner, f)
     }
 }
 
@@ -466,7 +473,7 @@ from_integers! {
 }
 
 #[cfg(test)]
-mod from_metadata_name_tests {
+mod from_metadata_value_tests {
     use super::*;
     use metadata_map::MetadataMap;
 
@@ -531,7 +538,8 @@ impl Error for ToStrError {
 impl<VE: ValueEncoding> PartialEq for MetadataValue<VE> {
     #[inline]
     fn eq(&self, other: &MetadataValue<VE>) -> bool {
-        self.inner == other.inner
+        // TODO(pgron): This code seems uncovered by tests
+        VE::equals(&self.inner, other.inner.as_bytes())
     }
 }
 
@@ -540,6 +548,7 @@ impl<VE: ValueEncoding> Eq for MetadataValue<VE> {}
 impl<VE: ValueEncoding> PartialOrd for MetadataValue<VE> {
     #[inline]
     fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+        // TODO(pgron): This code seems uncovered by tests
         self.inner.partial_cmp(&other.inner)
     }
 }
@@ -554,14 +563,15 @@ impl<VE: ValueEncoding> Ord for MetadataValue<VE> {
 impl<VE: ValueEncoding> PartialEq<str> for MetadataValue<VE> {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        self.inner == other.as_bytes()
+        println!("LOL {:?} == {:?}", self, other);
+        VE::equals(&self.inner, other.as_bytes())
     }
 }
 
 impl<VE: ValueEncoding> PartialEq<[u8]> for MetadataValue<VE> {
     #[inline]
     fn eq(&self, other: &[u8]) -> bool {
-        self.inner == other
+        VE::equals(&self.inner, other)
     }
 }
 
