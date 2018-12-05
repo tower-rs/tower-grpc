@@ -40,6 +40,40 @@ pub type AsciiMetadataValue = MetadataValue<Ascii>;
 pub type BinaryMetadataValue = MetadataValue<Binary>;
 
 impl<VE: ValueEncoding> MetadataValue<VE> {
+    /// Convert a static string to a `MetadataValue`.
+    ///
+    /// This function will not perform any copying, however the string is
+    /// checked to ensure that no invalid characters are present.
+    ///
+    /// For Ascii values, only visible ASCII characters (32-127) are permitted.
+    /// For Binary values, the string must be valid base64.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the argument contains invalid metadata value
+    /// characters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    /// assert_eq!(val, "hello");
+    /// ```
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = BinaryMetadataValue::from_static("SGVsbG8hIQ==");
+    /// assert_eq!(val, "Hello!!");
+    /// ```
+    #[inline]
+    pub fn from_static(src: &'static str) -> Self {
+        MetadataValue {
+            inner: VE::from_static(src),
+            phantom: PhantomData,
+        }
+    }
+
     /// Attempt to convert a byte slice to a `MetadataValue`.
     ///
     /// For Ascii metadata values, If the argument contains invalid metadata
@@ -76,7 +110,6 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
             })
     }
 
-    // TODO(pgron): Test that this encodes
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
     ///
     /// For `MetadataValue<Ascii>`, if the argument contains invalid metadata
@@ -244,35 +277,6 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
 }
 
 impl MetadataValue<Ascii> {
-    /// Convert a static string to a `MetadataValue<Ascii>`.
-    ///
-    /// This function will not perform any copying, however the string is
-    /// checked to ensure that no invalid characters are present. Only visible
-    /// ASCII characters (32-127) are permitted.
-    ///
-    /// This method is not available for `MetadataValue<Binary>` because that
-    /// version is not implementable without copying.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the argument contains invalid metadata value
-    /// characters.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_static("hello");
-    /// assert_eq!(val, "hello");
-    /// ```
-    #[inline]
-    pub fn from_static(src: &'static str) -> Self {
-        MetadataValue {
-            inner: HeaderValue::from_static(src),
-            phantom: PhantomData,
-        }
-    }
-
     /// Attempt to convert a string to a `MetadataValue<Ascii>`.
     ///
     /// If the argument contains invalid metadata value characters, an error is
@@ -532,14 +536,16 @@ impl Error for ToStrError {
     }
 }
 
-// TODO(pgron): Handle base64 properly for comparisons
 // ===== PartialEq / PartialOrd =====
 
 impl<VE: ValueEncoding> PartialEq for MetadataValue<VE> {
     #[inline]
     fn eq(&self, other: &MetadataValue<VE>) -> bool {
-        // TODO(pgron): This code seems uncovered by tests
-        VE::equals(&self.inner, other.inner.as_bytes())
+        // Note: Different binary strings that after base64 decoding
+        // will count as the same value for Binary values. Also,
+        // different invalid base64 values count as equal for Binary
+        // values.
+        VE::values_equal(&self.inner, &other.inner)
     }
 }
 
@@ -548,7 +554,6 @@ impl<VE: ValueEncoding> Eq for MetadataValue<VE> {}
 impl<VE: ValueEncoding> PartialOrd for MetadataValue<VE> {
     #[inline]
     fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
-        // TODO(pgron): This code seems uncovered by tests
         self.inner.partial_cmp(&other.inner)
     }
 }
@@ -563,7 +568,6 @@ impl<VE: ValueEncoding> Ord for MetadataValue<VE> {
 impl<VE: ValueEncoding> PartialEq<str> for MetadataValue<VE> {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        println!("LOL {:?} == {:?}", self, other);
         VE::equals(&self.inner, other.as_bytes())
     }
 }
@@ -603,17 +607,17 @@ impl<VE: ValueEncoding> PartialEq<MetadataValue<VE>> for [u8] {
     }
 }
 
-impl PartialOrd<MetadataValue<Ascii>> for str {
+impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for str {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
-        self.as_bytes().partial_cmp(other.as_bytes())
+    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+        self.as_bytes().partial_cmp(other.inner.as_bytes())
     }
 }
 
-impl PartialOrd<MetadataValue<Ascii>> for [u8] {
+impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for [u8] {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
-        self.partial_cmp(other.as_bytes())
+    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.inner.as_bytes())
     }
 }
 
@@ -624,7 +628,7 @@ impl<VE: ValueEncoding> PartialEq<String> for MetadataValue<VE> {
     }
 }
 
-impl PartialOrd<String> for MetadataValue<Ascii> {
+impl<VE: ValueEncoding> PartialOrd<String> for MetadataValue<VE> {
     #[inline]
     fn partial_cmp(&self, other: &String) -> Option<cmp::Ordering> {
         self.inner.partial_cmp(other.as_bytes())
@@ -638,10 +642,10 @@ impl<VE: ValueEncoding> PartialEq<MetadataValue<VE>> for String {
     }
 }
 
-impl PartialOrd<MetadataValue<Ascii>> for String {
+impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for String {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
-        self.as_bytes().partial_cmp(other.as_bytes())
+    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+        self.as_bytes().partial_cmp(other.inner.as_bytes())
     }
 }
 
@@ -684,10 +688,10 @@ impl<'a, VE: ValueEncoding> PartialEq<MetadataValue<VE>> for &'a str {
     }
 }
 
-impl<'a> PartialOrd<MetadataValue<Ascii>> for &'a str {
+impl<'a, VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for &'a str {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
-        self.as_bytes().partial_cmp(other.as_bytes())
+    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+        self.as_bytes().partial_cmp(other.inner.as_bytes())
     }
 }
 
@@ -710,7 +714,6 @@ fn test_debug() {
     assert_eq!("Sensitive", format!("{:?}", sensitive));
 }
 
-
 #[test]
 fn test_is_empty() {
     fn from_str<VE: ValueEncoding>(s: &str) -> MetadataValue<VE> {
@@ -727,4 +730,69 @@ fn test_is_empty() {
     assert!(from_str::<Binary>("===").is_empty());
     assert!(!from_str::<Ascii>("=====").is_empty());
     assert!(from_str::<Binary>("=====").is_empty());
+}
+
+#[test]
+fn test_from_shared_base64_encodes() {
+    let value = BinaryMetadataValue::from_shared(Bytes::from_static(b"Hello")).unwrap();
+    assert_eq!(value.as_encoded_bytes(), b"SGVsbG8");
+}
+
+#[test]
+fn test_value_eq_value() {
+    type BMV = BinaryMetadataValue;
+    type AMV = AsciiMetadataValue;
+
+    assert_eq!(AMV::from_static("abc"), AMV::from_static("abc"));
+    assert!(AMV::from_static("abc") != AMV::from_static("ABC"));
+
+    assert_eq!(BMV::from_bytes(b"abc"), BMV::from_bytes(b"abc"));
+    assert!(BMV::from_bytes(b"abc") != BMV::from_bytes(b"ABC"));
+
+    // Padding is ignored.
+    assert_eq!(BMV::from_static("SGVsbG8hIQ=="), BMV::from_static("SGVsbG8hIQ"));
+    // Invalid values are all just invalid from this point of view.
+    unsafe {
+        assert_eq!(
+            BMV::from_shared_unchecked(Bytes::from_static(b"..{}")),
+            BMV::from_shared_unchecked(Bytes::from_static(b"{}..")));
+    }
+}
+
+#[test]
+fn test_value_eq_str() {
+    type BMV = BinaryMetadataValue;
+    type AMV = AsciiMetadataValue;
+
+    assert_eq!(AMV::from_static("abc"), "abc");
+    assert!(AMV::from_static("abc") != "ABC");
+    assert_eq!("abc", AMV::from_static("abc"));
+    assert!("ABC" != AMV::from_static("abc"));
+
+    assert_eq!(BMV::from_bytes(b"abc"), "abc");
+    assert!(BMV::from_bytes(b"abc") != "ABC");
+    assert_eq!("abc", BMV::from_bytes(b"abc"));
+    assert!("ABC" != BMV::from_bytes(b"abc"));
+
+    // Padding is ignored.
+    assert_eq!(BMV::from_static("SGVsbG8hIQ=="), "Hello!!");
+    assert_eq!("Hello!!", BMV::from_static("SGVsbG8hIQ=="));
+}
+
+#[test]
+fn test_value_eq_bytes() {
+    type BMV = BinaryMetadataValue;
+    type AMV = AsciiMetadataValue;
+
+    assert_eq!(AMV::from_static("abc"), "abc".as_bytes());
+    assert!(AMV::from_static("abc") != "ABC".as_bytes());
+    assert_eq!(*"abc".as_bytes(), AMV::from_static("abc"));
+    assert!(*"ABC".as_bytes() != AMV::from_static("abc"));
+
+    assert_eq!(*"abc".as_bytes(), BMV::from_bytes(b"abc"));
+    assert!(*"ABC".as_bytes() != BMV::from_bytes(b"abc"));
+
+    // Padding is ignored.
+    assert_eq!(BMV::from_static("SGVsbG8hIQ=="), "Hello!!".as_bytes());
+    assert_eq!(*"Hello!!".as_bytes(), BMV::from_static("SGVsbG8hIQ=="));
 }

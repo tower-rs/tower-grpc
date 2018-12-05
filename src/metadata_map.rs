@@ -12,8 +12,6 @@ pub use self::as_metadata_key::AsMetadataKey;
 pub use self::as_encoding_agnostic_metadata_key::AsEncodingAgnosticMetadataKey;
 pub use self::into_metadata_key::IntoMetadataKey;
 
-// TODO(pgron): Implement the actual base64 encoding and decoding for -bin entries.
-
 /// A set of gRPC custom metadata entries.
 ///
 /// # Examples

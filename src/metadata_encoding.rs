@@ -26,10 +26,16 @@ pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes>;
 
     #[doc(hidden)]
+    fn from_static(value: &'static str) -> HeaderValue;
+
+    #[doc(hidden)]
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes>;
 
     #[doc(hidden)]
     fn equals(a: &HeaderValue, b: &[u8]) -> bool;
+
+    #[doc(hidden)]
+    fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool;
 
     #[doc(hidden)]
     fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result;
@@ -63,12 +69,20 @@ impl ValueEncoding for Ascii {
             })
     }
 
+    fn from_static(value: &'static str) -> HeaderValue {
+        HeaderValue::from_static(value)
+    }
+
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
         Ok(Bytes::from(value))
     }
 
     fn equals(a: &HeaderValue, b: &[u8]) -> bool {
-        return a.as_bytes() == b;
+        a.as_bytes() == b
+    }
+
+    fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool {
+        a == b
     }
 
     fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result {
@@ -100,6 +114,17 @@ impl ValueEncoding for Binary {
         Self::from_bytes(value.as_ref())
     }
 
+    fn from_static(value: &'static str) -> HeaderValue {
+        if !base64::decode(value).is_ok() {
+            panic!("Invalid base64 passed to from_static: {}", value);
+        }
+        unsafe {
+            // Because this is valid base64 this must be a valid HTTP header value,
+            // no need to check again by calling from_shared.
+            HeaderValue::from_shared_unchecked(Bytes::from_static(value.as_ref()))
+        }
+    }
+
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
         base64::decode(value)
             .map(|bytes_vec| bytes_vec.into())
@@ -111,6 +136,16 @@ impl ValueEncoding for Binary {
             decoded == b
         } else {
             a.as_bytes() == b
+        }
+    }
+
+    fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool {
+        let decoded_a = Self::decode(a.as_bytes());
+        let decoded_b = Self::decode(b.as_bytes());
+        if decoded_a.is_ok() && decoded_b.is_ok() {
+            decoded_a.unwrap() == decoded_b.unwrap()
+        } else {
+            !decoded_a.is_ok() && !decoded_b.is_ok()
         }
     }
 
