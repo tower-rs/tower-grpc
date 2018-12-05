@@ -21,6 +21,9 @@ pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
 
     #[doc(hidden)]
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes>;
+
+    #[doc(hidden)]
+    fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -45,6 +48,11 @@ impl ValueEncoding for Ascii {
                 InvalidMetadataValueBytes::new()
             })
     }
+
+    #[doc(hidden)]
+    fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
+        Ok(Bytes::from(value))
+    }
 }
 
 impl ValueEncoding for Binary {
@@ -63,6 +71,12 @@ impl ValueEncoding for Binary {
             .map_err(|_| {
                 InvalidMetadataValueBytes::new()
             })
+    }
+
+    #[doc(hidden)]
+    fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
+        // TODO(pgron): Do this properly for base64
+        Ok(Bytes::from(value))
     }
 }
 

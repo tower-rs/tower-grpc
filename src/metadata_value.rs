@@ -94,19 +94,20 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
         VE::is_empty(self.inner.as_bytes())
     }
 
-    /// Converts a `MetadataValue` to a byte slice.
+    /// Converts a `MetadataValue` to a Bytes buffer. This method cannot
+    /// fail for Ascii values. For Ascii values, `as_bytes` is more convenient
+    /// to use.
     ///
     /// # Examples
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
     /// let val = AsciiMetadataValue::from_static("hello");
-    /// assert_eq!(val.as_bytes(), b"hello");
+    /// assert_eq!(val.to_bytes().unwrap().as_ref(), b"hello");
     /// ```
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
-        // TODO(pgron): Perform conversion here
-        self.inner.as_bytes()
+    pub fn to_bytes(&self) -> Result<Bytes, InvalidMetadataValueBytes> {
+        VE::decode(self.inner.as_bytes())
     }
 
     /// Mark that the metadata value represents sensitive information.
@@ -330,6 +331,21 @@ impl MetadataValue<Ascii> {
     pub fn to_str(&self) -> Result<&str, ToStrError> {
         return self.inner.to_str().map_err(|_| { ToStrError::new() })
     }
+
+    /// Converts a `MetadataValue` to a byte slice. For Binary values, use
+    /// `to_bytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    /// assert_eq!(val.as_bytes(), b"hello");
+    /// ```
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.inner.as_bytes()
+    }
 }
 
 impl MetadataValue<Binary> {
@@ -493,6 +509,7 @@ impl Error for ToStrError {
     }
 }
 
+// TODO(pgron): Handle base64 properly for comparisons
 // ===== PartialEq / PartialOrd =====
 
 impl<VE: ValueEncoding> PartialEq for MetadataValue<VE> {
@@ -560,16 +577,16 @@ impl<VE: ValueEncoding> PartialEq<MetadataValue<VE>> for [u8] {
     }
 }
 
-impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for str {
+impl PartialOrd<MetadataValue<Ascii>> for str {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
         self.as_bytes().partial_cmp(other.as_bytes())
     }
 }
 
-impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for [u8] {
+impl PartialOrd<MetadataValue<Ascii>> for [u8] {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
         self.partial_cmp(other.as_bytes())
     }
 }
@@ -581,7 +598,7 @@ impl<VE: ValueEncoding> PartialEq<String> for MetadataValue<VE> {
     }
 }
 
-impl<VE: ValueEncoding> PartialOrd<String> for MetadataValue<VE> {
+impl PartialOrd<String> for MetadataValue<Ascii> {
     #[inline]
     fn partial_cmp(&self, other: &String) -> Option<cmp::Ordering> {
         self.inner.partial_cmp(other.as_bytes())
@@ -595,9 +612,9 @@ impl<VE: ValueEncoding> PartialEq<MetadataValue<VE>> for String {
     }
 }
 
-impl<VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for String {
+impl PartialOrd<MetadataValue<Ascii>> for String {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
         self.as_bytes().partial_cmp(other.as_bytes())
     }
 }
@@ -641,9 +658,9 @@ impl<'a, VE: ValueEncoding> PartialEq<MetadataValue<VE>> for &'a str {
     }
 }
 
-impl<'a, VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for &'a str {
+impl<'a> PartialOrd<MetadataValue<Ascii>> for &'a str {
     #[inline]
-    fn partial_cmp(&self, other: &MetadataValue<VE>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &MetadataValue<Ascii>) -> Option<cmp::Ordering> {
         self.as_bytes().partial_cmp(other.as_bytes())
     }
 }
