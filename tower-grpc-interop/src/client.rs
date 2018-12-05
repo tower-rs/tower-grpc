@@ -547,7 +547,7 @@ impl TestClients {
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
@@ -556,8 +556,8 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(Grpc(_, header_map)) =>
-                            header_map["grpc-message"] == TEST_STATUS_MESSAGE,
+                        Err(Grpc(status)) =>
+                            status.error_message() == TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -606,7 +606,7 @@ impl TestClients {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
@@ -625,7 +625,7 @@ impl TestClients {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },

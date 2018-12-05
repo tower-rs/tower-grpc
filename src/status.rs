@@ -28,7 +28,7 @@ impl Status {
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
         header_map.get(GRPC_STATUS_HEADER_CODE).clone().map(|code| {
             let code = ::Code::from_bytes(code.as_ref());
-            let error_message = header_map.get(GRPC_STATUS_HEADER_CODE)
+            let error_message = header_map.get(GRPC_STATUS_MESSAGE_HEADER)
                 .map(|header| header.to_str().map(|header| header.to_owned()))
                 .unwrap_or_else(|| Ok(String::new()));
             let binary_error_details = header_map.get(GRPC_STATUS_DETAILS_HEADER)
@@ -226,7 +226,7 @@ pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusC
             if status.code() == ::Code::Ok {
                 return Ok(());
             } else {
-                return Err(::Error::Grpc(status, trailers));
+                return Err(::Error::Grpc(status));
             }
         }
     }
@@ -244,6 +244,5 @@ pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusC
         _ => Code::Unknown,
     };
     let status = Status::with_code(code);
-    let header_map = status.to_header_map().unwrap();
-    Err(::Error::Grpc(status, header_map))
+    Err(::Error::Grpc(status))
 }
