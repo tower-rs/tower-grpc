@@ -853,6 +853,7 @@ impl MetadataMap {
     ///
     /// ```
     /// # use tower_grpc::metadata::*;
+    /// # use std::str;
     /// let mut map = MetadataMap::default();
     ///
     /// let headers = &[
@@ -864,7 +865,7 @@ impl MetadataMap {
     ///
     /// for &header in headers {
     ///     let counter = map.entry_bin(header).unwrap().or_insert(MetadataValue::from_bytes(b""));
-    ///     *counter = MetadataValue::from_bytes(format!("{}{}", counter.to_str().unwrap(), "1").as_bytes());
+    ///     *counter = MetadataValue::from_bytes(format!("{}{}", str::from_utf8(counter.as_bytes()).unwrap(), "1").as_bytes());
     /// }
     ///
     /// assert_eq!(map.get_bin("content-length-bin").unwrap(), "11");

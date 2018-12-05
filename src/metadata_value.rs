@@ -31,7 +31,7 @@ pub struct MetadataValue<VE: ValueEncoding> {
 ///
 /// Metadata field values may contain opaque bytes, in which case it is not
 /// possible to represent the value as a string.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ToStrError {
     _priv: (),
 }
@@ -75,24 +75,6 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
             inner: HeaderValue::from_shared_unchecked(src),
             phantom: PhantomData,
         }
-    }
-
-    /// Yields a `&str` slice if the `MetadataValue` only contains visible ASCII
-    /// chars.
-    ///
-    /// This function will perform a scan of the metadata value, checking all the
-    /// characters.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tower_grpc::metadata::*;
-    /// let val = AsciiMetadataValue::from_static("hello");
-    /// assert_eq!(val.to_str().unwrap(), "hello");
-    /// ```
-    pub fn to_str(&self) -> Result<&str, ToStrError> {
-        // TODO(pgron): Perform conversion here
-        return self.inner.to_str().map_err(|_| { ToStrError { _priv: () } })
     }
 
     /// Returns true if the `MetadataValue` has a length of zero bytes.
@@ -331,6 +313,23 @@ impl MetadataValue<Ascii> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    /// Yields a `&str` slice if the `MetadataValue` only contains visible ASCII
+    /// chars.
+    ///
+    /// This function will perform a scan of the metadata value, checking all the
+    /// characters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tower_grpc::metadata::*;
+    /// let val = AsciiMetadataValue::from_static("hello");
+    /// assert_eq!(val.to_str().unwrap(), "hello");
+    /// ```
+    pub fn to_str(&self) -> Result<&str, ToStrError> {
+        return self.inner.to_str().map_err(|_| { ToStrError::new() })
+    }
 }
 
 impl MetadataValue<Binary> {
@@ -471,6 +470,14 @@ impl<'a, VE: ValueEncoding> From<&'a MetadataValue<VE>> for MetadataValue<VE> {
     #[inline]
     fn from(t: &'a MetadataValue<VE>) -> Self {
         t.clone()
+    }
+}
+
+// ===== ToStrError =====
+
+impl ToStrError {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
