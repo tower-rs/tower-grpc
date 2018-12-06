@@ -53,7 +53,7 @@ where T: Message + Default,
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
             if status.code() != Code::Ok {
-                return Err(::Error::Grpc(status, head.headers));
+                return Err(::Error::Grpc(status));
             }
         }
 

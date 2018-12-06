@@ -58,6 +58,7 @@ const LARGE_RSP_SIZE: i32 = 314159;
 const REQUEST_LENGTHS: &'static [i32] = &[27182, 8, 1828, 45904];
 const RESPONSE_LENGTHS: &'static [i32] = &[31415, 9, 2653, 58979];
 const TEST_STATUS_MESSAGE: &'static str = "test status message";
+const SPECIAL_TEST_STATUS_MESSAGE: &'static str = "\t\ntest with whitespace\r\nand Unicode BMP ☺ and non-BMP 😈\t\n";
 
 arg_enum!{
     #[derive(Debug, Copy, Clone)]
@@ -547,7 +548,7 @@ impl TestClients {
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
@@ -556,8 +557,8 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(Grpc(_, header_map)) =>
-                            header_map["grpc-message"] == TEST_STATUS_MESSAGE,
+                        Err(Grpc(status)) =>
+                            status.error_message() == TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -596,6 +597,47 @@ impl TestClients {
             })
     }
 
+    fn special_status_message_test(&mut self)
+            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+        fn validate_response<T>(result: Result<T, tower_grpc::Error<tower_h2::client::Error>>)
+                -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
+            let assertions = vec![
+                test_assert!(
+                    "call must fail with unknown status code",
+                    match &result {
+                        Err(Grpc(status)) =>
+                            status.code() == tower_grpc::Code::Unknown,
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                ),
+                test_assert!(
+                    "call must repsond with expected status message",
+                    match &result {
+                        Err(Grpc(status)) =>
+                            status.error_message() == SPECIAL_TEST_STATUS_MESSAGE,
+                        _ => false,
+                    },
+                    format!("result={:?}", result)
+                ),
+            ];
+            future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
+        }
+
+        let req = SimpleRequest {
+            response_status: Some(pb::EchoStatus {
+                code: 2,
+                message: SPECIAL_TEST_STATUS_MESSAGE.to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        self.test_client
+            .unary_call(Request::new(req.clone()))
+            .then(&validate_response)
+    }
+
     fn unimplemented_method_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
@@ -606,7 +648,7 @@ impl TestClients {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
@@ -625,7 +667,7 @@ impl TestClients {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status, _)) =>
+                        Err(Grpc(status)) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
@@ -684,6 +726,8 @@ impl Testcase {
                 core.run(clients.empty_stream_test()),
             Testcase::status_code_and_message =>
                 core.run(clients.status_code_and_message_test()),
+            Testcase::special_status_message =>
+                core.run(clients.special_status_message_test()),
             Testcase::unimplemented_method =>
                 core.run(clients.unimplemented_method_test()),
             Testcase::unimplemented_service =>
