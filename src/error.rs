@@ -15,7 +15,6 @@ pub enum ProtocolError {
     MissingMessage,
     UnexpectedEof,
     Internal,
-    UnsupportedCompressionFlag(u8),
 }
 
 impl<T> fmt::Display for Error<T> {
@@ -48,8 +47,6 @@ impl fmt::Display for ProtocolError {
                 f.pad("unexpected EOF"),
             ProtocolError::Internal =>
                 f.pad("internal"),
-            ProtocolError::UnsupportedCompressionFlag(flag) =>
-                write!(f, "unsupported compression flag: {}", flag),
         }
     }
 }

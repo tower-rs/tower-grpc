@@ -268,11 +268,15 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(1)));
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Unimplemented,
+                        "Message compressed, compression not supported yet.".to_string())));
                 },
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(f)));
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Internal,
+                        format!("Unexpected compression flag: {}", f))));
                 }
             };
             let len = self.bufs.get_u32_be() as usize;
