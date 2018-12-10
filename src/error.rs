@@ -14,7 +14,6 @@ pub enum ProtocolError {
     MissingTrailers,
     MissingMessage,
     UnexpectedEof,
-    Internal,
 }
 
 impl<T> fmt::Display for Error<T> {
@@ -45,8 +44,6 @@ impl fmt::Display for ProtocolError {
                 f.pad("missing message"),
             ProtocolError::UnexpectedEof =>
                 f.pad("unexpected EOF"),
-            ProtocolError::Internal =>
-                f.pad("internal"),
         }
     }
 }
