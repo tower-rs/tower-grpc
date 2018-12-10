@@ -8,7 +8,6 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use status::infer_grpc_status;
-use error::ProtocolError;
 
 /// Encodes and decodes gRPC message types
 pub trait Codec {
@@ -335,7 +334,9 @@ where T: Decoder,
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Error::Protocol(ProtocolError::UnexpectedEof))
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Internal,
+                        "Unexpected EOF decoding stream.".to_string())))
                 } else {
                     self.state = State::Done;
                     break;
