@@ -1,4 +1,3 @@
-use prost::DecodeError;
 use h2;
 use std;
 use std::fmt;
@@ -7,7 +6,6 @@ use std::fmt;
 pub enum Error<T = ()> {
     Grpc(::Status),
     Protocol(ProtocolError),
-    Decode(DecodeError),
     Inner(T),
 }
 
@@ -33,8 +31,6 @@ impl<T> fmt::Display for Error<T> {
             },
             Error::Protocol(ref _protocol_error) =>
                 f.pad("protocol error"),
-            Error::Decode(ref _decode_error) =>
-                f.pad("message decode error"),
             Error::Inner(ref _inner) =>
                 f.pad("inner error"),
         }
@@ -66,7 +62,6 @@ impl<T> std::error::Error for Error<T> where T : fmt::Debug {
         match *self {
             Error::Grpc(_) => None,
             Error::Protocol(ref protocol_error) => Some(protocol_error),
-            Error::Decode(ref decode_error) => Some(decode_error),
             Error::Inner(ref _inner) => None,
         }
     }

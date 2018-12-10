@@ -4,6 +4,7 @@ use generic::{EncodeBuf, DecodeBuf};
 use futures::{Stream, Poll};
 use bytes::BufMut;
 use http;
+use prost::DecodeError;
 use prost::Message;
 
 use std::fmt;
@@ -114,6 +115,13 @@ where T: Message + Default,
     }
 }
 
+fn from_decode_error<T>(error: DecodeError) -> ::Error<T> {
+    // Map Protobuf parse errors to an INTERNAL status code, as per
+    // https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
+    ::Error::Grpc(::Status::with_code_and_message(
+        ::Code::Internal, error.to_string()))
+}
+
 impl<T> ::generic::Decoder for Decoder<T>
 where T: Message + Default,
 {
@@ -121,7 +129,7 @@ where T: Message + Default,
 
     fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, ::Error> {
         Message::decode(buf)
-            .map_err(::Error::Decode)
+            .map_err(from_decode_error::<()>)
     }
 }
 
