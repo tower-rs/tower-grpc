@@ -26,6 +26,14 @@ impl Status {
         }
     }
 
+    pub fn with_code_and_message(code: Code, message: String) -> Status {
+        Status {
+            code,
+            error_message: message,
+            binary_error_details: Bytes::new(),
+        }
+    }
+
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
         header_map.get(GRPC_STATUS_HEADER_CODE).clone().map(|code| {
             let code = ::Code::from_bytes(code.as_ref());
