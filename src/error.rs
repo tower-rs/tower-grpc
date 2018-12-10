@@ -11,7 +11,6 @@ pub enum Error<T = ()> {
 
 #[derive(Debug)]
 pub enum ProtocolError {
-    MissingTrailers,
 }
 
 impl<T> fmt::Display for Error<T> {
@@ -34,10 +33,8 @@ impl<T> fmt::Display for Error<T> {
 }
 
 impl fmt::Display for ProtocolError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ProtocolError::MissingTrailers =>
-                f.pad("missing trailers"),
         }
     }
 }
