@@ -6,16 +6,19 @@ extern crate log;
 extern crate prost;
 #[macro_use]
 extern crate prost_derive;
-extern crate tokio_core;
+extern crate tokio;
+extern crate tokio_connect;
+extern crate tower_service;
 extern crate tower_h2;
 extern crate tower_http;
 extern crate tower_grpc;
 
 use futures::Future;
-use tokio_core::reactor::Core;
-use tokio_core::net::TcpStream;
+use tokio::executor::DefaultExecutor;
+use tokio::net::tcp::{ConnectFuture, TcpStream};
 use tower_grpc::Request;
-use tower_h2::client::Connection;
+use tower_h2::client;
+use tower_service::MakeService;
 
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
@@ -24,18 +27,12 @@ pub mod hello_world {
 pub fn main() {
     let _ = ::env_logger::init();
 
-    let mut core = Core::new().unwrap();
-    let reactor = core.handle();
-
-    let addr = "[::1]:50051".parse().unwrap();
     let uri: http::Uri = format!("http://localhost:50051").parse().unwrap();
 
-    let say_hello = TcpStream::connect(&addr, &reactor)
-        .and_then(move |socket| {
-            // Bind the HTTP/2.0 connection
-            Connection::handshake(socket, reactor)
-                .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-        })
+    let h2_settings = Default::default();
+    let mut make_client = client::Connect::new(Dst, h2_settings, DefaultExecutor::current());
+
+    let say_hello = make_client.make_service(())
         .map(move |conn| {
             use hello_world::client::Greeter;
             use tower_http::add_origin;
@@ -62,5 +59,18 @@ pub fn main() {
             println!("ERR = {:?}", e);
         });
 
-    core.run(say_hello).unwrap();
+    tokio::run(say_hello);
 }
+
+struct Dst;
+
+impl tokio_connect::Connect for Dst {
+    type Connected = TcpStream;
+    type Error = ::std::io::Error;
+    type Future = ConnectFuture;
+
+    fn connect(&self) -> Self::Future {
+        TcpStream::connect(&([127, 0, 0, 1], 50051).into())
+    }
+}
+

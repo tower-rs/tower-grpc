@@ -9,7 +9,7 @@ extern crate log;
 extern crate prost;
 #[macro_use]
 extern crate prost_derive;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tower_h2;
 extern crate tower_grpc;
 
@@ -26,8 +26,8 @@ use routeguide::{server, Point, Rectangle, Feature, RouteSummary, RouteNote};
 
 use futures::{future, stream, Future, Stream, Sink};
 use futures::sync::mpsc;
-use tokio_core::net::TcpListener;
-use tokio_core::reactor::Core;
+use tokio::executor::DefaultExecutor;
+use tokio::net::TcpListener;
 use tower_h2::Server;
 use tower_grpc::{Request, Response, Streaming};
 
@@ -81,7 +81,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(response)
     }
 
-    type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Error>>;
+    type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Error> + Send>;
     type ListFeaturesFuture = future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Error>;
 
     /// Lists all features contained within the given bounding Rectangle.
@@ -111,7 +111,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(Response::new(Box::new(rx)))
     }
 
-    type RecordRouteFuture = Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Error>>;
+    type RecordRouteFuture = Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Error> + Send>;
 
     /// Records a route composited of a sequence of points.
     ///
@@ -162,7 +162,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         Box::new(response)
     }
 
-    type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Error>>;
+    type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Error> + Send>;
     type RouteChatFuture = future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Error>;
 
     // Receives a stream of message/location pairs, and responds with a stream
@@ -236,8 +236,6 @@ fn calc_distance(p1: &Point, p2: &Point) -> i32 {
 pub fn main() {
     let _ = ::env_logger::init();
 
-    let mut core = Core::new().unwrap();
-    let reactor = core.handle();
 
     let handler = RouteGuide {
         state: Arc::new(State {
@@ -249,24 +247,26 @@ pub fn main() {
 
     let new_service = server::RouteGuideServer::new(handler);
 
-    let h2 = Server::new(new_service, Default::default(), reactor.clone());
+    let h2_settings = Default::default();
+    let mut h2 = Server::new(new_service, h2_settings, DefaultExecutor::current());
 
     let addr = "127.0.0.1:10000".parse().unwrap();
-    let bind = TcpListener::bind(&addr, &reactor).expect("bind");
+    let bind = TcpListener::bind(&addr).expect("bind");
 
     println!("listining on {:?}", addr);
 
     let serve = bind.incoming()
-        .fold((h2, reactor), |(mut h2, reactor), (sock, _)| {
+        .for_each(move |sock| {
             if let Err(e) = sock.set_nodelay(true) {
                 return Err(e);
             }
 
             let serve = h2.serve(sock);
-            reactor.spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
+            tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
 
-            Ok((h2, reactor))
-        });
+            Ok(())
+        })
+        .map_err(|e| eprintln!("accept error: {}", e));
 
-    core.run(serve).unwrap();
+    tokio::run(serve);
 }
