@@ -12,7 +12,6 @@ pub enum Error<T = ()> {
 #[derive(Debug)]
 pub enum ProtocolError {
     MissingTrailers,
-    MissingMessage,
     UnexpectedEof,
 }
 
@@ -40,8 +39,6 @@ impl fmt::Display for ProtocolError {
         match *self {
             ProtocolError::MissingTrailers =>
                 f.pad("missing trailers"),
-            ProtocolError::MissingMessage =>
-                f.pad("missing message"),
             ProtocolError::UnexpectedEof =>
                 f.pad("unexpected EOF"),
         }
