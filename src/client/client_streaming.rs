@@ -48,7 +48,6 @@ where T: Message + Default,
                 WaitMessage { ref mut head, ref mut stream } => {
                     let res = stream.poll()
                         .map_err(|e| match e {
-                            ::Error::Protocol(p) => ::Error::Protocol(p),
                             ::Error::Inner(()) => ::Error::Grpc(::Status::with_code(
                                 ::Code::Internal)),
                             ::Error::Grpc(s) => ::Error::Grpc(s),
