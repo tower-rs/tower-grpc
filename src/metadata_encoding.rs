@@ -11,47 +11,54 @@ pub struct InvalidMetadataValue {
     _priv: (),
 }
 
-pub trait ValueEncoding: Clone + Eq + PartialEq + Hash {
-    #[doc(hidden)]
+mod value_encoding {
+    use bytes::Bytes;
+    use http::header::HeaderValue;
+    use std::fmt;
+    use super::InvalidMetadataValueBytes;
+
+    pub trait Sealed {
+        #[doc(hidden)]
+        fn is_empty(value: &[u8]) -> bool;
+
+        #[doc(hidden)]
+        fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes>;
+
+        #[doc(hidden)]
+        fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes>;
+
+        #[doc(hidden)]
+        fn from_static(value: &'static str) -> HeaderValue;
+
+        #[doc(hidden)]
+        fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes>;
+
+        #[doc(hidden)]
+        fn equals(a: &HeaderValue, b: &[u8]) -> bool;
+
+        #[doc(hidden)]
+        fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool;
+
+        #[doc(hidden)]
+        fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result;
+    }
+}
+
+pub trait ValueEncoding: Clone + Eq + PartialEq + Hash + self::value_encoding::Sealed {
+    /// Returns true if the provided key is valid for this ValueEncoding type.
+    /// For example, `Ascii::is_valid_key("a") == true`,
+    /// `Ascii::is_valid_key("a-bin") == false`.
     fn is_valid_key(key: &str) -> bool;
-
-    #[doc(hidden)]
-    fn is_empty(value: &[u8]) -> bool;
-
-    #[doc(hidden)]
-    fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes>;
-
-    #[doc(hidden)]
-    fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes>;
-
-    #[doc(hidden)]
-    fn from_static(value: &'static str) -> HeaderValue;
-
-    #[doc(hidden)]
-    fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes>;
-
-    #[doc(hidden)]
-    fn equals(a: &HeaderValue, b: &[u8]) -> bool;
-
-    #[doc(hidden)]
-    fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool;
-
-    #[doc(hidden)]
-    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Ascii {}
+pub enum Ascii {}
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Binary {}
+pub enum Binary {}
 
 // ===== impl ValueEncoding =====
 
-impl ValueEncoding for Ascii {
-    fn is_valid_key(key: &str) -> bool {
-        !Binary::is_valid_key(key)
-    }
-
+impl self::value_encoding::Sealed for Ascii {
     fn is_empty(value: &[u8]) -> bool {
         value.is_empty()
     }
@@ -89,11 +96,13 @@ impl ValueEncoding for Ascii {
     }
 }
 
-impl ValueEncoding for Binary {
+impl ValueEncoding for Ascii {
     fn is_valid_key(key: &str) -> bool {
-        key.ends_with("-bin")
+        !Binary::is_valid_key(key)
     }
+}
 
+impl self::value_encoding::Sealed for Binary {
     fn is_empty(value: &[u8]) -> bool {
         for c in value {
             if *c != b'=' {
@@ -154,6 +163,12 @@ impl ValueEncoding for Binary {
         } else {
             write!(f, "b[invalid]{:?}", value)
         }
+    }
+}
+
+impl ValueEncoding for Binary {
+    fn is_valid_key(key: &str) -> bool {
+        key.ends_with("-bin")
     }
 }
 
