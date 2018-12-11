@@ -6,7 +6,7 @@ extern crate log;
 extern crate prost;
 #[macro_use]
 extern crate prost_derive;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tower_h2;
 extern crate tower_grpc;
 
@@ -17,8 +17,8 @@ pub mod hello_world {
 use hello_world::{server, HelloRequest, HelloReply};
 
 use futures::{future, Future, Stream};
-use tokio_core::net::TcpListener;
-use tokio_core::reactor::Core;
+use tokio::executor::DefaultExecutor;
+use tokio::net::TcpListener;
 use tower_h2::Server;
 use tower_grpc::{Request, Response};
 
@@ -42,27 +42,26 @@ impl server::Greeter for Greet {
 pub fn main() {
     let _ = ::env_logger::init();
 
-    let mut core = Core::new().unwrap();
-    let reactor = core.handle();
-
     let new_service = server::GreeterServer::new(Greet);
 
-    let h2 = Server::new(new_service, Default::default(), reactor.clone());
+    let h2_settings = Default::default();
+    let mut h2 = Server::new(new_service, h2_settings, DefaultExecutor::current());
 
     let addr = "[::1]:50051".parse().unwrap();
-    let bind = TcpListener::bind(&addr, &reactor).expect("bind");
+    let bind = TcpListener::bind(&addr).expect("bind");
 
     let serve = bind.incoming()
-        .fold((h2, reactor), |(mut h2, reactor), (sock, _)| {
+        .for_each(move |sock| {
             if let Err(e) = sock.set_nodelay(true) {
                 return Err(e);
             }
 
             let serve = h2.serve(sock);
-            reactor.spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
+            tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
 
-            Ok((h2, reactor))
-        });
+            Ok(())
+        })
+        .map_err(|e| eprintln!("accept error: {}", e));
 
-    core.run(serve).unwrap();
+    tokio::run(serve)
 }

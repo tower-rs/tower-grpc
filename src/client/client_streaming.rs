@@ -51,8 +51,7 @@ where T: Message + Default,
                         .map_err(|e| match e {
                             ::Error::Protocol(p) => ::Error::Protocol(p),
                             ::Error::Inner(()) => ::Error::Protocol(ProtocolError::Internal),
-                            ::Error::Decode(e) => ::Error::Decode(e),
-                            ::Error::Grpc(s, h) => ::Error::Grpc(s, h),
+                            ::Error::Grpc(s) => ::Error::Grpc(s),
                         });
 
                     let message = match try_ready!(res) {
