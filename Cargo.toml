@@ -28,7 +28,7 @@ members = [
 [dependencies]
 bytes = "0.4.7"
 futures = "0.1"
-http = "0.1"
+http = "0.1.14"
 h2 = "0.1.11"
 log = "0.4"
 percent-encoding = "1.0.1"
