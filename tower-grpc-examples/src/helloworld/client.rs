@@ -8,17 +8,17 @@ extern crate prost;
 extern crate prost_derive;
 extern crate tokio;
 extern crate tokio_connect;
-extern crate tower_service;
 extern crate tower_h2;
 extern crate tower_http;
 extern crate tower_grpc;
+extern crate tower_util;
 
 use futures::Future;
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
 use tower_grpc::Request;
 use tower_h2::client;
-use tower_service::MakeService;
+use tower_util::MakeService;
 
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
