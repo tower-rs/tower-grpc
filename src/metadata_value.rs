@@ -31,7 +31,7 @@ pub struct MetadataValue<VE: ValueEncoding> {
 ///
 /// Metadata field values may contain opaque bytes, in which case it is not
 /// possible to represent the value as a string.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ToStrError {
     _priv: (),
 }
@@ -519,8 +519,8 @@ impl<'a, VE: ValueEncoding> From<&'a MetadataValue<VE>> for MetadataValue<VE> {
 // ===== ToStrError =====
 
 impl ToStrError {
-    pub fn new() -> Self {
-        Default::default()
+    pub(crate) fn new() -> Self {
+        ToStrError { _priv: () }
     }
 }
 

@@ -6,7 +6,7 @@ use std::hash::Hash;
 
 /// A possible error when converting a `MetadataValue` from a string or byte
 /// slice.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InvalidMetadataValue {
     _priv: (),
 }
@@ -175,8 +175,8 @@ impl ValueEncoding for Binary {
 // ===== impl InvalidMetadataValue =====
 
 impl InvalidMetadataValue {
-    pub fn new() -> Self {
-        Default::default()
+    pub(crate) fn new() -> Self {
+        InvalidMetadataValue { _priv: () }
     }
 }
 
@@ -194,14 +194,14 @@ impl Error for InvalidMetadataValue {
 
 /// A possible error when converting a `MetadataValue` from a string or byte
 /// slice.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InvalidMetadataValueBytes(InvalidMetadataValue);
 
 // ===== impl InvalidMetadataValueBytes =====
 
 impl InvalidMetadataValueBytes {
-    pub fn new() -> Self {
-        Default::default()
+    pub(crate) fn new() -> Self {
+        InvalidMetadataValueBytes(InvalidMetadataValue::new())
     }
 }
 
