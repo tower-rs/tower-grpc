@@ -5,17 +5,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum Error<T = ()> {
     Grpc(::Status),
-    Protocol(ProtocolError),
     Inner(T),
-}
-
-#[derive(Debug)]
-pub enum ProtocolError {
-    MissingTrailers,
-    MissingMessage,
-    UnexpectedEof,
-    Internal,
-    UnsupportedCompressionFlag(u8),
 }
 
 impl<T> fmt::Display for Error<T> {
@@ -29,39 +19,16 @@ impl<T> fmt::Display for Error<T> {
                     status.error_message()
                 )
             },
-            Error::Protocol(ref _protocol_error) =>
-                f.pad("protocol error"),
             Error::Inner(ref _inner) =>
                 f.pad("inner error"),
         }
     }
 }
 
-impl fmt::Display for ProtocolError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ProtocolError::MissingTrailers =>
-                f.pad("missing trailers"),
-            ProtocolError::MissingMessage =>
-                f.pad("missing message"),
-            ProtocolError::UnexpectedEof =>
-                f.pad("unexpected EOF"),
-            ProtocolError::Internal =>
-                f.pad("internal"),
-            ProtocolError::UnsupportedCompressionFlag(flag) =>
-                write!(f, "unsupported compression flag: {}", flag),
-        }
-    }
-}
-
-impl std::error::Error for ProtocolError {
-}
-
 impl<T> std::error::Error for Error<T> where T : fmt::Debug {
     fn cause(&self) -> Option<&std::error::Error> {
         match *self {
             Error::Grpc(_) => None,
-            Error::Protocol(ref protocol_error) => Some(protocol_error),
             Error::Inner(ref _inner) => None,
         }
     }
