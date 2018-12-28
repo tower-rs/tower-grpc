@@ -51,6 +51,7 @@ impl ServiceGenerator {
             .vis("pub")
             .generic("T")
             .derive("Debug")
+            .derive("Clone")
             .field("inner", "grpc::Grpc<T>")
             ;
     }

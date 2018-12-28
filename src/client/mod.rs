@@ -10,7 +10,7 @@ use tower_http::HttpService;
 
 use body::{Body, BoxBody};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Grpc<T> {
     /// The inner HTTP/2.0 service.
     inner: T,
