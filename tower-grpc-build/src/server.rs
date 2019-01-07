@@ -87,7 +87,7 @@ macro_rules! try_ready {
                 let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Error>",
-                    ::unqualified(&method.output_type, 1));
+                    ::unqualified(&method.output_type, &method.output_proto_type, 1));
 
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Error>",
@@ -98,7 +98,7 @@ macro_rules! try_ready {
             } else {
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<{}>, Error = grpc::Error>",
-                    ::unqualified(&method.output_type, 1));
+                    ::unqualified(&method.output_type, &method.output_proto_type, 1));
             }
 
             let future_name = format!("{}Future", &upper_name);
@@ -115,7 +115,7 @@ macro_rules! try_ready {
                 }
             }
 
-            let input_type = ::unqualified(&method.input_type, 1);
+            let input_type = ::unqualified(&method.input_type, &method.input_proto_type, 1);
 
             let request_type = if method.client_streaming {
                 format!("grpc::Request<grpc::Streaming<{}>>", input_type)
@@ -532,15 +532,15 @@ macro_rules! try_ready {
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                request.generic(::unqualified(&method.input_type, 3));
-                response.generic(::unqualified(&method.output_type, 3));
+                request.generic(::unqualified(&method.input_type, &method.input_proto_type, 3));
+                response.generic(::unqualified(&method.output_type, &method.output_proto_type, 3));
             }
             (false, true) => {
-                request.generic(::unqualified(&method.input_type, 3));
+                request.generic(::unqualified(&method.input_type, &method.input_proto_type, 3));
                 response.generic(&response_stream);
             }
             (true, false) => {
-                response.generic(::unqualified(&method.output_type, 3));
+                response.generic(::unqualified(&method.output_type, &method.output_proto_type, 3));
                 request.generic(&request_stream);
             }
             (true, true) => {
@@ -595,11 +595,11 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(&mut ret, "    grpc::unary::ResponseFuture<methods::{}<T>, grpc::BoxBody, {}>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
+                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::server_streaming::ResponseFuture<methods::{}<T>, grpc::BoxBody, {}>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
+                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (true, false) => {
                 write!(&mut ret, "    grpc::client_streaming::ResponseFuture<methods::{}<T>, {}>,\n",
@@ -607,7 +607,7 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
             }
             (true, true) => {
                 let mut request = codegen::Type::new("grpc::Streaming");
-                request.generic(::unqualified(&method.input_type, 2));
+                request.generic(::unqualified(&method.input_type, &method.input_proto_type, 2));
                 write!(&mut ret, "    grpc::streaming::ResponseFuture<methods::{}<T>, {}>,\n",
                                  &upper_name, streaming_input_type(&method, 2)).unwrap();
             }
@@ -635,11 +635,11 @@ fn response_body_kind(service: &prost_build::Service) -> String {
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::UnaryService<{}>>::Response>>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
+                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::ServerStreamingService<{}>>::ResponseStream>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, 2)).unwrap();
+                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (true, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}>>::Response>>,\n",
@@ -659,5 +659,5 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 }
 
 fn streaming_input_type(method: &prost_build::Method, level: usize) -> String {
-    format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, level))
+    format!("grpc::Streaming<{}>", ::unqualified(&method.input_type, &method.input_proto_type, level))
 }

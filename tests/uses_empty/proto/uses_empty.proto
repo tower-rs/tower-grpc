@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package uses_empty;
+
+import "google/protobuf/empty.proto";
+
+service UsesEmpty {
+  rpc DoCall(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
