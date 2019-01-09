@@ -2,7 +2,7 @@ use h2;
 use std;
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Error<T = ()> {
     Grpc(::Status),
     Inner(T),
