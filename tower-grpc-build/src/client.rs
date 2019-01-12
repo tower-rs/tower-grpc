@@ -52,6 +52,7 @@ impl ServiceGenerator {
             .generic("T")
             .derive("Debug")
             .derive("Clone")
+            .doc(&service.comments.leading.join(" "))
             .field("inner", "grpc::Grpc<T>")
             ;
     }
