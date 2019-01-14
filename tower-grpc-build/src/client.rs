@@ -52,7 +52,11 @@ impl ServiceGenerator {
             .generic("T")
             .derive("Debug")
             .derive("Clone")
-            .doc(&service.comments.leading.join(" "))
+            .doc(&service.comments.leading
+                 .iter()
+                 .fold(String::new(), |acc, s|{
+                     acc + s.trim_start() + "\n"
+                 }))
             .field("inner", "grpc::Grpc<T>")
             ;
     }
