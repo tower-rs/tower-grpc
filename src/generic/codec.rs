@@ -8,7 +8,6 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use status::infer_grpc_status;
-use error::ProtocolError;
 
 /// Encodes and decodes gRPC message types
 pub trait Codec {
@@ -268,11 +267,15 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(1)));
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Unimplemented,
+                        "Message compressed, compression not supported yet.".to_string())));
                 },
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Error::Protocol(ProtocolError::UnsupportedCompressionFlag(f)));
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Internal,
+                        format!("Unexpected compression flag: {}", f))));
                 }
             };
             let len = self.bufs.get_u32_be() as usize;
@@ -331,7 +334,9 @@ where T: Decoder,
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Error::Protocol(ProtocolError::UnexpectedEof))
+                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                        ::Code::Internal,
+                        "Unexpected EOF decoding stream.".to_string())))
                 } else {
                     self.state = State::Done;
                     break;

@@ -8,7 +8,6 @@ use bytes::IntoBuf;
 use futures::{Future, Stream, Poll};
 use http::{response, Response};
 use prost::Message;
-use error::ProtocolError;
 
 pub struct ResponseFuture<T, U, B: Body> {
     state: State<T, U, B>,
@@ -49,14 +48,16 @@ where T: Message + Default,
                 WaitMessage { ref mut head, ref mut stream } => {
                     let res = stream.poll()
                         .map_err(|e| match e {
-                            ::Error::Protocol(p) => ::Error::Protocol(p),
-                            ::Error::Inner(()) => ::Error::Protocol(ProtocolError::Internal),
+                            ::Error::Inner(()) => ::Error::Grpc(::Status::with_code(
+                                ::Code::Internal)),
                             ::Error::Grpc(s) => ::Error::Grpc(s),
                         });
 
                     let message = match try_ready!(res) {
                         Some(message) => message,
-                        None => return Err(::Error::Protocol(ProtocolError::MissingMessage)),
+                        None => return Err(::Error::Grpc(::Status::with_code_and_message(
+                                ::Code::Unimplemented,
+                                "Missing response message.".to_string()))),
                     };
 
                     let head = head.take().unwrap();
