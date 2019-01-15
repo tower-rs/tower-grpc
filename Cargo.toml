@@ -26,6 +26,7 @@ members = [
 ]
 
 [dependencies]
+base64 = "0.10"
 bytes = "0.4.7"
 futures = "0.1"
 http = "0.1.14"
