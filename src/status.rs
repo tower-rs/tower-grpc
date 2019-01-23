@@ -2,11 +2,11 @@ use bytes::Bytes;
 use h2;
 use http::{self, HeaderMap};
 use http::header::HeaderValue;
-use std::fmt::Display;
+use std::fmt;
 use std::io;
 use percent_encoding::percent_decode;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Status {
     code: Code,
     error_message: String,
@@ -35,8 +35,8 @@ impl Status {
     }
 
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
-        header_map.get(GRPC_STATUS_HEADER_CODE).clone().map(|code| {
-            let code = ::Code::from_bytes(code.as_ref());
+        header_map.get(GRPC_STATUS_HEADER_CODE).map(|code| {
+            let code = Code::from_bytes(code.as_ref());
             let error_message = header_map.get(GRPC_STATUS_MESSAGE_HEADER)
                 .map(|header|
                     percent_decode(header.as_bytes())
@@ -79,26 +79,8 @@ impl Status {
     pub fn to_header_map(&self) -> Result<HeaderMap, crate::Error> {
         let mut header_map = HeaderMap::with_capacity(3);
 
-        let status_header = match self.code {
-            Code::Ok => HeaderValue::from_static("0"),
-            Code::Cancelled => HeaderValue::from_static("1"),
-            Code::Unknown => HeaderValue::from_static("2"),
-            Code::InvalidArgument => HeaderValue::from_static("3"),
-            Code::DeadlineExceeded => HeaderValue::from_static("4"),
-            Code::NotFound => HeaderValue::from_static("5"),
-            Code::AlreadyExists => HeaderValue::from_static("6"),
-            Code::PermissionDenied => HeaderValue::from_static("7"),
-            Code::ResourceExhausted => HeaderValue::from_static("8"),
-            Code::FailedPrecondition => HeaderValue::from_static("9"),
-            Code::Aborted => HeaderValue::from_static("10"),
-            Code::OutOfRange => HeaderValue::from_static("11"),
-            Code::Unimplemented => HeaderValue::from_static("12"),
-            Code::Internal => HeaderValue::from_static("13"),
-            Code::Unavailable => HeaderValue::from_static("14"),
-            Code::DataLoss => HeaderValue::from_static("15"),
-            Code::Unauthenticated => HeaderValue::from_static("16"),
-        };
-        header_map.insert(GRPC_STATUS_HEADER_CODE, status_header);
+        header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
+
         if !self.error_message.is_empty() {
             header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(&self.error_message)
                 .map_err(invalid_header_value_byte_to_h2)?);
@@ -111,7 +93,26 @@ impl Status {
     }
 }
 
-fn invalid_header_value_byte_to_h2<Error: Display>(err: Error) -> crate::Error {
+impl fmt::Debug for Status {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // A manual impl to reduce the noise of frequently empty fields.
+        let mut builder = f.debug_struct("Status");
+
+        builder.field("code", &self.code);
+
+        if !self.error_message.is_empty() {
+            builder.field("message", &self.error_message);
+        }
+
+        if !self.binary_error_details.is_empty() {
+            builder.field("details_bin", &self.binary_error_details);
+        }
+
+        builder.finish()
+    }
+}
+
+fn invalid_header_value_byte_to_h2<Error: fmt::Display>(err: Error) -> crate::Error {
     debug!("Invalid header: {}", err);
     let h2_error: h2::Error = io::Error::new(io::ErrorKind::InvalidData, "Couldn't serialize non-text status header").into();
     h2_error.into()
@@ -217,7 +218,10 @@ impl From<h2::Error> for Status {
             Some(h2::Reason::ENHANCE_YOUR_CALM) => Status::with_code(Code::ResourceExhausted),
             Some(h2::Reason::INADEQUATE_SECURITY) => Status::with_code(Code::PermissionDenied),
 
-            _ => Status::with_code(Code::Unknown),
+            _ => Status::with_code_and_message(
+                Code::Unknown,
+                format!("h2 protocol error: {}", err),
+            ),
         }
     }
 }
@@ -234,8 +238,8 @@ impl From<Status> for h2::Error {
 ///
 pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), ::Error> {
     if let Some(trailers) = trailers {
-        if let Some(status) = ::Status::from_header_map(&trailers) {
-            if status.code() == ::Code::Ok {
+        if let Some(status) = Status::from_header_map(&trailers) {
+            if status.code() == Code::Ok {
                 return Ok(());
             } else {
                 return Err(::Error::Grpc(status));
@@ -255,6 +259,11 @@ pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusC
         http::StatusCode::GATEWAY_TIMEOUT => Code::Unavailable,
         _ => Code::Unknown,
     };
-    let status = Status::with_code(code);
+
+    let msg = format!(
+        "grpc-status header missing, mapped from HTTP status code {}",
+        status_code.as_u16(),
+    );
+    let status = Status::with_code_and_message(code, msg);
     Err(::Error::Grpc(status))
 }
