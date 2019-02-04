@@ -132,6 +132,11 @@ macro_rules! try_ready {
                 .arg_mut_self()
                 .arg("request", &request_type)
                 .ret(&format!("Self::{}Future", &upper_name))
+                .doc(&method.comments.leading
+                     .iter()
+                     .fold(String::new(), |acc, s|{
+                         acc + s.trim_start() + "\n"
+                     }))
                 ;
         }
 
