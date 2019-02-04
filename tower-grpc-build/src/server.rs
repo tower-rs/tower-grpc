@@ -76,6 +76,11 @@ macro_rules! try_ready {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
             .parent("Clone")
+            .doc(&service.comments.leading
+                 .iter()
+                 .fold(String::new(), |acc, s|{
+                     acc + s.trim_start() + "\n"
+                 }))
             ;
 
         for method in &service.methods {
