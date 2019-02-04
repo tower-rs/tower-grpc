@@ -100,6 +100,11 @@ impl ServiceGenerator {
                 .bound("T::ResponseBody", "grpc::Body")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
+                .doc(&method.comments.leading
+                     .iter()
+                     .fold(String::new(), |acc, s|{
+                         acc + s.trim_start() + "\n"
+                     }))
                 ;
 
             let mut request = codegen::Type::new("grpc::Request");
