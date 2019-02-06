@@ -53,7 +53,7 @@ impl ServiceGenerator {
             .generic("T")
             .derive("Debug")
             .derive("Clone")
-            .doc(&comments_to_rustdoc(&service.comments.leading))
+            .doc(&comments_to_rustdoc(&service.comments))
             .field("inner", "grpc::Grpc<T>")
             ;
     }
@@ -97,7 +97,7 @@ impl ServiceGenerator {
                 .bound("T::ResponseBody", "grpc::Body")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
-                .doc(&comments_to_rustdoc(&service.comments.leading))
+                .doc(&comments_to_rustdoc(&service.comments))
                 ;
 
             let mut request = codegen::Type::new("grpc::Request");
