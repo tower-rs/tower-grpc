@@ -1,4 +1,5 @@
 use codegen;
+use comments_to_rustdoc;
 use prost_build;
 use super::ImportType;
 
@@ -52,11 +53,7 @@ impl ServiceGenerator {
             .generic("T")
             .derive("Debug")
             .derive("Clone")
-            .doc(&service.comments.leading
-                 .iter()
-                 .fold(String::new(), |acc, s|{
-                     acc + s.trim_start() + "\n"
-                 }))
+            .doc(&comments_to_rustdoc(&service.comments.leading))
             .field("inner", "grpc::Grpc<T>")
             ;
     }
@@ -100,11 +97,7 @@ impl ServiceGenerator {
                 .bound("T::ResponseBody", "grpc::Body")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
-                .doc(&method.comments.leading
-                     .iter()
-                     .fold(String::new(), |acc, s|{
-                         acc + s.trim_start() + "\n"
-                     }))
+                .doc(&comments_to_rustdoc(&service.comments.leading))
                 ;
 
             let mut request = codegen::Type::new("grpc::Request");

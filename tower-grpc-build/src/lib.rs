@@ -224,3 +224,12 @@ fn to_upper_camel(s: &str) -> String {
     }
     ident
 }
+
+/// This function takes an array of comments and properly formats them.
+fn comments_to_rustdoc(comments: &[String]) -> String {
+    comments
+        .iter()
+        .fold(String::new(), |acc, s|{
+            acc + s.trim_start() + "\n"
+        })
+}
