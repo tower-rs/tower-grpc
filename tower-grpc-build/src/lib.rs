@@ -225,7 +225,8 @@ fn to_upper_camel(s: &str) -> String {
     ident
 }
 
-/// This function takes an array of comments and properly formats them.
+/// This function takes a `&prost_build::Comments` and formats them as a
+/// `String` to be used as a RustDoc comment.
 fn comments_to_rustdoc(comments: &prost_build::Comments) -> String {
     comments
         .leading
