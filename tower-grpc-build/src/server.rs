@@ -1,4 +1,5 @@
 use codegen;
+use comments_to_rustdoc;
 use prost_build;
 use super::ImportType;
 
@@ -76,6 +77,7 @@ macro_rules! try_ready {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
             .parent("Clone")
+            .doc(&comments_to_rustdoc(&service.comments))
             ;
 
         for method in &service.methods {
@@ -127,6 +129,7 @@ macro_rules! try_ready {
                 .arg_mut_self()
                 .arg("request", &request_type)
                 .ret(&format!("Self::{}Future", &upper_name))
+                .doc(&comments_to_rustdoc(&method.comments))
                 ;
         }
 
