@@ -23,6 +23,7 @@ members = [
   "tests/collide",
   "tests/name-case",
   "tests/unused-imports",
+  "tests/uses_empty",
 ]
 
 [dependencies]

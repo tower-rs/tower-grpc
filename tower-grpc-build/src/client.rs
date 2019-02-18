@@ -87,8 +87,8 @@ impl ServiceGenerator {
         for method in &service.methods {
             let name = &method.name;
             let path = ::method_path(service, method);
-            let input_type = ::unqualified(&method.input_type, 1);
-            let output_type = ::unqualified(&method.output_type, 1);
+            let input_type = ::unqualified(&method.input_type, &method.input_proto_type, 1);
+            let output_type = ::unqualified(&method.output_type, &method.output_proto_type, 1);
 
             let func = imp.new_fn(&name)
                 .vis("pub")

@@ -189,7 +189,11 @@ fn super_import(ty: &str, level: usize) -> (String, String) {
     (v.join("::"), ty.to_string())
 }
 
-fn unqualified(ty: &str, level: usize) -> String {
+fn unqualified(ty: &str, proto_ty: &str, level: usize) -> String {
+    if proto_ty == ".google.protobuf.Empty" {
+        return "()".to_string();
+    }
+
     if !is_imported_type(ty) {
         return ty.to_string();
     }
