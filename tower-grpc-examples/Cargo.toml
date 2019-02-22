@@ -36,7 +36,6 @@ http = "0.1"
 prost = "0.4"
 prost-derive = "0.4"
 tokio = "0.1"
-tokio-connect = { git = "https://github.com/carllerche/tokio-connect" }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2"  }
 tower-http = { git = "https://github.com/tower-rs/tower-http"  }
 tower-grpc = { path = "../" }

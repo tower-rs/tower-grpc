@@ -10,7 +10,6 @@ extern crate prost;
 #[macro_use]
 extern crate prost_derive;
 extern crate tokio;
-extern crate tokio_connect;
 extern crate tower_h2;
 extern crate tower_http;
 extern crate tower_grpc;
