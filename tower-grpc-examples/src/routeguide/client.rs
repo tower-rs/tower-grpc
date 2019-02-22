@@ -10,10 +10,10 @@ extern crate prost;
 #[macro_use]
 extern crate prost_derive;
 extern crate tokio;
-extern crate tokio_connect;
 extern crate tower_h2;
 extern crate tower_http;
 extern crate tower_grpc;
+extern crate tower_service;
 extern crate tower_util;
 
 extern crate serde;
@@ -21,11 +21,12 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-use futures::Future;
+use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
 use tower_grpc::Request;
 use tower_h2::client;
+use tower_service::Service;
 use tower_util::MakeService;
 
 use routeguide::Point;
@@ -76,12 +77,16 @@ pub fn main() {
 
 struct Dst;
 
-impl tokio_connect::Connect for Dst {
-    type Connected = TcpStream;
+impl Service<()> for Dst {
+    type Response = TcpStream;
     type Error = ::std::io::Error;
     type Future = ConnectFuture;
 
-    fn connect(&self) -> Self::Future {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, _: ()) -> Self::Future {
         TcpStream::connect(&([127, 0, 0, 1], 10000).into())
     }
 }
