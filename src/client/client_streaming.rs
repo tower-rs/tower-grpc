@@ -48,8 +48,9 @@ where T: Message + Default,
                 WaitMessage { ref mut head, ref mut stream } => {
                     let res = stream.poll()
                         .map_err(|e| match e {
-                            ::Error::Inner(()) => ::Error::Grpc(::Status::with_code(
-                                ::Code::Internal)),
+                            ::Error::Inner(()) => ::Error::Grpc(::Status::with_code_and_message(
+                                ::Code::Internal,
+                                "Error decoding response message".to_string())),
                             ::Error::Grpc(s) => ::Error::Grpc(s),
                         });
 
