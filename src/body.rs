@@ -21,10 +21,10 @@ pub trait Body {
     }
 
     /// Polls the stream for more data.
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error>;
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status>;
 
     /// Polls the stream for the ending metadata.
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Error>;
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status>;
 }
 
 /// Dynamic `Send` body object.
@@ -53,11 +53,11 @@ where
         self.inner.is_end_stream()
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
         self.inner.poll_data()
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Error> {
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
         self.inner.poll_metadata()
     }
 }
@@ -101,13 +101,13 @@ impl Body for ::tower_h2::RecvBody {
         ::tower_h2::Body::is_end_stream(self)
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
         let data = try_ready!(::tower_h2::Body::poll_data(self));
         Ok(data.map(Bytes::from).into())
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Error> {
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
         ::tower_h2::Body::poll_trailers(self)
-            .map_err(::Error::from)
+            .map_err(::Status::from)
     }
 }

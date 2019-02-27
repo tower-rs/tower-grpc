@@ -88,18 +88,18 @@ macro_rules! try_ready {
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
-                    "futures::Stream<Item = {}, Error = grpc::Error>",
+                    "futures::Stream<Item = {}, Error = grpc::Status>",
                     ::unqualified(&method.output_type, &method.output_proto_type, 1));
 
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Error>",
+                    "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Status>",
                     stream_name);
 
                 service_trait.associated_type(&stream_name)
                     .bound(&stream_bound);
             } else {
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<{}>, Error = grpc::Error>",
+                    "futures::Future<Item = grpc::Response<{}>, Error = grpc::Status>",
                     ::unqualified(&method.output_type, &method.output_proto_type, 1));
             }
 
@@ -448,7 +448,7 @@ macro_rules! try_ready {
 
             imp.new_fn("poll_data")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<Self::Data>, grpc::Error>")
+                .ret("futures::Poll<Option<Self::Data>, grpc::Status>")
                 .line("use self::Kind::*;")
                 .line("")
                 .push_block(poll_data_block)
@@ -456,7 +456,7 @@ macro_rules! try_ready {
 
             imp.new_fn("poll_metadata")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<http::HeaderMap>, grpc::Error>")
+                .ret("futures::Poll<Option<http::HeaderMap>, grpc::Status>")
                 .line("use self::Kind::*;")
                 .line("")
                 .push_block(poll_metadata_block)
@@ -561,7 +561,7 @@ macro_rules! try_ready {
             .impl_trait(format!("tower::Service<{}>", req_str))
             .bound("T", &service.name)
             .associate_type("Response", response)
-            .associate_type("Error", "grpc::Error")
+            .associate_type("Error", "grpc::Status")
             .associate_type("Future", &format!("T::{}Future", &upper_name))
             ;
 

@@ -31,10 +31,14 @@ impl<T> Grpc<T> {
         Grpc { inner }
     }
 
-    pub fn poll_ready<R>(&mut self) -> Poll<(), ::Error<T::Error>>
-    where T: HttpService<R> {
+    pub fn poll_ready<R>(&mut self) -> Poll<(), ::Status>
+    where
+        T: HttpService<R>,
+    {
         self.inner.poll_ready()
-            .map_err(::Error::Inner)
+            .map_err(|_| {
+                ::Status::unknown("inner client service poll_ready error".into())
+            })
     }
 
     pub fn unary<M1, M2, R>(&mut self,
@@ -103,10 +107,8 @@ impl<T> Grpc<T> {
         parts.path_and_query = Some(path);
 
         // Get the URI;
-        let uri = match Uri::from_parts(parts) {
-            Ok(uri) => uri,
-            Err(_) => unimplemented!(),
-        };
+        let uri = Uri::from_parts(parts)
+            .expect("path_and_query only is valid Uri");
 
         // Convert the request body
         let request = request.map(Encodable::into_encode);
@@ -135,14 +137,14 @@ impl<T> Grpc<T> {
 // ===== impl Encodable =====
 
 impl<T, U> Encodable<BoxBody> for T
-where T: Stream<Item = U, Error = ::Error> + Send + 'static,
+where T: Stream<Item = U, Error = ::Status> + Send + 'static,
       U: Message + 'static,
 {
     fn into_encode(self) -> BoxBody {
         use codec::Encoder;
         use generic::Encode;
 
-        let encode = Encode::new(Encoder::new(), self, false);
+        let encode = Encode::request(Encoder::new(), self);
         BoxBody::new(Box::new(encode))
     }
 }

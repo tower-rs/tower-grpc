@@ -19,7 +19,7 @@ struct Inner<T> {
 // ===== impl ResponseFuture ======
 
 impl<T, E> ResponseFuture<T, E>
-where T: Future<Item = Response<E::Item>, Error = ::Error>,
+where T: Future<Item = Response<E::Item>, Error = ::Status>,
       E: Encoder,
 {
     pub fn new(inner: T, encoder: E) -> Self {
@@ -30,7 +30,7 @@ where T: Future<Item = Response<E::Item>, Error = ::Error>,
 }
 
 impl<T, E> Future for ResponseFuture<T, E>
-where T: Future<Item = Response<E::Item>, Error = ::Error>,
+where T: Future<Item = Response<E::Item>, Error = ::Status>,
       E: Encoder,
 {
     type Item = http::Response<Encode<E, Once<E::Item>>>;
@@ -44,10 +44,10 @@ where T: Future<Item = Response<E::Item>, Error = ::Error>,
 // ===== impl Inner ======
 
 impl<T, U> Future for Inner<T>
-where T: Future<Item = Response<U>, Error = ::Error>
+where T: Future<Item = Response<U>, Error = ::Status>
 {
     type Item = Response<Once<U>>;
-    type Error = ::Error;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

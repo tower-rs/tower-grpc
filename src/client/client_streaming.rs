@@ -14,7 +14,9 @@ pub struct ResponseFuture<T, U, B: Body> {
 }
 
 enum State<T, U, B: Body> {
+    /// Waiting for the HTTP response
     WaitResponse(streaming::ResponseFuture<T, U>),
+    /// Waiting for the gRPC Proto message in the Response body
     WaitMessage {
         head: Option<response::Parts>,
         stream: Streaming<T, B>,
@@ -23,7 +25,7 @@ enum State<T, U, B: Body> {
 
 impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
-    pub(crate) fn new(inner: streaming::ResponseFuture<T, U>) -> Self {
+    pub(super) fn new(inner: streaming::ResponseFuture<T, U>) -> Self {
         let state = State::WaitResponse(inner);
         ResponseFuture { state }
     }
@@ -35,30 +37,20 @@ where T: Message + Default,
       B: Body,
 {
     type Item = ::Response<T>;
-    type Error = ::Error<U::Error>;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use self::State::*;
-
         loop {
             let response = match self.state {
-                WaitResponse(ref mut inner) => {
+                State::WaitResponse(ref mut inner) => {
                     try_ready!(inner.poll())
                 }
-                WaitMessage { ref mut head, ref mut stream } => {
-                    let res = stream.poll()
-                        .map_err(|e| match e {
-                            ::Error::Inner(()) => ::Error::Grpc(::Status::with_code_and_message(
-                                ::Code::Internal,
-                                "Error decoding response message".to_string())),
-                            ::Error::Grpc(s) => ::Error::Grpc(s),
-                        });
-
-                    let message = match try_ready!(res) {
+                State::WaitMessage { ref mut head, ref mut stream } => {
+                    let message = match try_ready!(stream.poll()) {
                         Some(message) => message,
-                        None => return Err(::Error::Grpc(::Status::with_code_and_message(
-                                ::Code::Unimplemented,
-                                "Missing response message.".to_string()))),
+                        None => return Err(::Status::with_code_and_message(
+                                ::Code::Internal,
+                                "Missing response message.".to_string())),
                     };
 
                     let head = head.take().unwrap();
@@ -72,7 +64,7 @@ where T: Message + Default,
                 .into_http()
                 .into_parts();
 
-            self.state = WaitMessage {
+            self.state = State::WaitMessage {
                 head: Some(head),
                 stream: body,
             };

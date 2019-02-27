@@ -27,7 +27,6 @@ use http::uri::{self, Uri};
 use futures::{future, Future, stream, Stream};
 use tokio_core::reactor;
 use tokio_core::net::TcpStream;
-use tower_grpc::Error::Grpc;
 use tower_grpc::Request;
 use tower_h2::client::Connection;
 
@@ -254,7 +253,7 @@ fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
 /// of futures that performs the actual ping-pong with the server.
 struct PingPongState {
     sender: futures::sync::mpsc::UnboundedSender<pb::StreamingOutputCallRequest>,
-    stream: Box<Stream<Item=pb::StreamingOutputCallResponse, Error=tower_grpc::Error>>,
+    stream: Box<Stream<Item=pb::StreamingOutputCallResponse, Error=tower_grpc::Status>>,
     responses: Vec<pb::StreamingOutputCallResponse>,
     assertions: Vec<TestAssertion>,
 }
@@ -542,13 +541,13 @@ impl TestClients {
 
     fn status_code_and_message_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        fn validate_response<T>(result: Result<T, tower_grpc::Error<tower_h2::client::Error>>)
+        fn validate_response<T>(result: Result<T, tower_grpc::Status>)
                 -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
             let assertions = vec![
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
@@ -557,7 +556,7 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.error_message() == TEST_STATUS_MESSAGE,
                         _ => false,
                     },
@@ -599,13 +598,13 @@ impl TestClients {
 
     fn special_status_message_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        fn validate_response<T>(result: Result<T, tower_grpc::Error<tower_h2::client::Error>>)
+        fn validate_response<T>(result: Result<T, tower_grpc::Status>)
                 -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
             let assertions = vec![
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
@@ -614,7 +613,7 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.error_message() == SPECIAL_TEST_STATUS_MESSAGE,
                         _ => false,
                     },
@@ -641,14 +640,13 @@ impl TestClients {
     fn unimplemented_method_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         use pb::Empty;
-        use tower_grpc::Error::Grpc;
 
         self.test_client.unimplemented_call(Request::new(Empty {}))
             .then(|result| {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
@@ -667,7 +665,7 @@ impl TestClients {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(Grpc(status)) =>
+                        Err(status) =>
                             status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },

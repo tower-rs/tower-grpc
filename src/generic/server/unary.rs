@@ -35,7 +35,7 @@ struct InnerFuture<T>(T);
 impl<T, E, S> ResponseFuture<T, E, S>
 where T: UnaryService<S::Item, Response = E::Item>,
       E: Encoder,
-      S: Stream<Error = ::Error>,
+      S: Stream<Error = ::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = server_streaming::ResponseFuture::new(Inner(inner), request, encoder);
@@ -46,7 +46,7 @@ where T: UnaryService<S::Item, Response = E::Item>,
 impl<T, E, S> Future for ResponseFuture<T, E, S>
 where T: UnaryService<S::Item, Response = E::Item>,
       E: Encoder,
-      S: Stream<Error = ::Error>,
+      S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, Once<T::Response>>>;
     type Error = h2::Error;
@@ -62,7 +62,7 @@ impl<T, R> Service<Request<R>> for Inner<T>
 where T: UnaryService<R>,
 {
     type Response = Response<Once<T::Response>>;
-    type Error = ::Error;
+    type Error = ::Status;
     type Future = InnerFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -78,9 +78,9 @@ where T: UnaryService<R>,
 // ===== impl InnerFuture ======
 
 impl<T, U> Future for InnerFuture<T>
-where T: Future<Item = Response<U>, Error = ::Error> {
+where T: Future<Item = Response<U>, Error = ::Status> {
     type Item = Response<Once<U>>;
-    type Error = ::Error;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.0.poll());
@@ -107,7 +107,7 @@ impl<T> Once<T> {
 
 impl<T> Stream for Once<T> {
     type Item = T;
-    type Error = ::Error;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         Ok(self.inner.take().into())

@@ -24,7 +24,7 @@ where T: Message + Default,
       B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
-    type Error = ::Error<U::Error>;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

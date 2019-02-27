@@ -27,7 +27,7 @@ use tower_h2::Server;
 struct Door;
 
 impl server::Doorman for Door {
-    type AskToEnterFuture = future::FutureResult<Response<EnterReply>, tower_grpc::Error>;
+    type AskToEnterFuture = future::FutureResult<Response<EnterReply>, tower_grpc::Status>;
 
     fn ask_to_enter(&mut self, request: Request<EnterRequest>) -> Self::AskToEnterFuture {
         println!("REQUEST = {:?}", request);

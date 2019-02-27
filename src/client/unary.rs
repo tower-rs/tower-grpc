@@ -12,7 +12,7 @@ pub struct ResponseFuture<T, U, B: Body> {
     inner: client_streaming::ResponseFuture<T, U, B>,
 }
 
-pub type Once<T> = stream::Once<T, ::Error>;
+pub type Once<T> = stream::Once<T, ::Status>;
 
 impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
@@ -27,7 +27,7 @@ where T: Message + Default,
       B: Body,
 {
     type Item = ::Response<T>;
-    type Error = ::Error<U::Error>;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

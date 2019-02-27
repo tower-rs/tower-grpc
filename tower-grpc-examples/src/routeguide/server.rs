@@ -60,7 +60,7 @@ impl Hash for Point {
 impl Eq for Point {}
 
 impl routeguide::server::RouteGuide for RouteGuide {
-    type GetFeatureFuture = future::FutureResult<Response<Feature>, tower_grpc::Error>;
+    type GetFeatureFuture = future::FutureResult<Response<Feature>, tower_grpc::Status>;
 
     /// returns the feature at the given point.
     fn get_feature(&mut self, request: Request<Point>) -> Self::GetFeatureFuture {
@@ -81,8 +81,8 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(response)
     }
 
-    type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Error> + Send>;
-    type ListFeaturesFuture = future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Error>;
+    type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Status> + Send>;
+    type ListFeaturesFuture = future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Status>;
 
     /// Lists all features contained within the given bounding Rectangle.
     fn list_features(&mut self, request: Request<Rectangle>) -> Self::ListFeaturesFuture {
@@ -111,7 +111,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(Response::new(Box::new(rx)))
     }
 
-    type RecordRouteFuture = Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Error> + Send>;
+    type RecordRouteFuture = Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Status> + Send>;
 
     /// Records a route composited of a sequence of points.
     ///
@@ -148,7 +148,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
                     summary.distance += calc_distance(last_point, &point);
                 }
 
-                Ok::<_, tower_grpc::Error>((summary, Some(point)))
+                Ok::<_, tower_grpc::Status>((summary, Some(point)))
             })
             // Map the route summary to a gRPC response
             .map(move |(mut summary, _)| {
@@ -162,8 +162,8 @@ impl routeguide::server::RouteGuide for RouteGuide {
         Box::new(response)
     }
 
-    type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Error> + Send>;
-    type RouteChatFuture = future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Error>;
+    type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Status> + Send>;
+    type RouteChatFuture = future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Status>;
 
     // Receives a stream of message/location pairs, and responds with a stream
     // of all previous messages at each of those locations.

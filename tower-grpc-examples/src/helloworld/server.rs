@@ -26,7 +26,7 @@ use tower_grpc::{Request, Response};
 struct Greet;
 
 impl server::Greeter for Greet {
-    type SayHelloFuture = future::FutureResult<Response<HelloReply>, tower_grpc::Error>;
+    type SayHelloFuture = future::FutureResult<Response<HelloReply>, tower_grpc::Status>;
 
     fn say_hello(&mut self, request: Request<HelloRequest>) -> Self::SayHelloFuture {
         println!("REQUEST = {:?}", request);
