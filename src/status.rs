@@ -205,24 +205,27 @@ impl Code {
 impl From<h2::Error> for Status {
     fn from(err: h2::Error) -> Self {
         // See https://github.com/grpc/grpc/blob/3977c30/doc/PROTOCOL-HTTP2.md#errors
-        match err.reason() {
+        let code = match err.reason() {
             Some(h2::Reason::NO_ERROR) |
             Some(h2::Reason::PROTOCOL_ERROR) |
             Some(h2::Reason::INTERNAL_ERROR) |
             Some(h2::Reason::FLOW_CONTROL_ERROR) |
             Some(h2::Reason::SETTINGS_TIMEOUT) |
             Some(h2::Reason::COMPRESSION_ERROR) |
-            Some(h2::Reason::CONNECT_ERROR) => Status::with_code(Code::Internal),
-            Some(h2::Reason::REFUSED_STREAM) => Status::with_code(Code::Unavailable),
-            Some(h2::Reason::CANCEL) => Status::with_code(Code::Cancelled),
-            Some(h2::Reason::ENHANCE_YOUR_CALM) => Status::with_code(Code::ResourceExhausted),
-            Some(h2::Reason::INADEQUATE_SECURITY) => Status::with_code(Code::PermissionDenied),
+            Some(h2::Reason::CONNECT_ERROR) => Code::Internal,
+            Some(h2::Reason::REFUSED_STREAM) => Code::Unavailable,
+            Some(h2::Reason::CANCEL) => Code::Cancelled,
+            Some(h2::Reason::ENHANCE_YOUR_CALM) => Code::ResourceExhausted,
+            Some(h2::Reason::INADEQUATE_SECURITY) => Code::PermissionDenied,
 
-            _ => Status::with_code_and_message(
-                Code::Unknown,
-                format!("h2 protocol error: {}", err),
-            ),
-        }
+            _ => Code::Unknown,
+        };
+
+
+        Status::with_code_and_message(
+            code,
+            format!("h2 protocol error: {}", err),
+        )
     }
 }
 
