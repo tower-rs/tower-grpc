@@ -40,7 +40,7 @@ enum State<T, S> {
 impl<T, E, S> ResponseFuture<T, E, S>
 where T: ServerStreamingService<S::Item, Response = E::Item>,
       E: Encoder,
-      S: Stream<Error = ::Error>,
+      S: Stream<Error = ::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = Inner {
@@ -56,7 +56,7 @@ where T: ServerStreamingService<S::Item, Response = E::Item>,
 impl<T, E, S> Future for ResponseFuture<T, E, S>
 where T: ServerStreamingService<S::Item, Response = E::Item>,
       E: Encoder,
-      S: Stream<Error = ::Error>,
+      S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, T::ResponseStream>>;
     type Error = h2::Error;
@@ -70,10 +70,10 @@ where T: ServerStreamingService<S::Item, Response = E::Item>,
 
 impl<T, S> Future for Inner<T, S>
 where T: ServerStreamingService<S::Item>,
-      S: Stream<Error = ::Error>,
+      S: Stream<Error = ::Status>,
 {
     type Item = Response<T::ResponseStream>;
-    type Error = ::Error;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use self::State::*;
@@ -100,10 +100,9 @@ where T: ServerStreamingService<S::Item>,
                         _ => unreachable!(),
                     }
                 }
-                None => {
-                    // TODO: Do something
-                    return Err(::Error::Inner(()));
-                }
+                None => return Err(::Status::with_code_and_message(
+                    ::Code::Internal,
+                    "Missing request message.".to_string())),
             }
         }
     }

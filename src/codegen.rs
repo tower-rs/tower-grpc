@@ -2,7 +2,7 @@
 pub mod server {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::{Body, BoxBody, Request, Response, Error, Code, Status};
+        pub use ::{Body, BoxBody, Request, Response, Code, Status};
         pub use ::generic::server::{
             StreamingService,
             UnaryService,
@@ -67,7 +67,7 @@ pub mod client {
             server_streaming,
             streaming,
         };
-        pub use ::{Body, Request, Response, Error, Code, Status};
+        pub use ::{Body, Request, Response, Code, Status};
     }
 
     pub mod http {

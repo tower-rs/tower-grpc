@@ -15,7 +15,7 @@ pub struct ResponseFuture<T, E> {
 
 impl<T, E, S> ResponseFuture<T, E>
 where T: Future<Item = Response<S>,
-               Error = ::Error>,
+               Error = ::Status>,
       E: Encoder,
       S: Stream<Item = E::Item>,
 {
@@ -29,7 +29,7 @@ where T: Future<Item = Response<S>,
 
 impl<T, E, S> Future for ResponseFuture<T, E>
 where T: Future<Item = Response<S>,
-               Error = ::Error>,
+               Error = ::Status>,
       E: Encoder,
       S: Stream<Item = E::Item>,
 {
@@ -41,15 +41,9 @@ where T: Future<Item = Response<S>,
         let response = match self.inner.poll() {
             Ok(Async::Ready(response)) => response,
             Ok(Async::NotReady) => return Ok(Async::NotReady),
-            Err(e) => {
-                match e {
-                    ::Error::Grpc(status) => {
-                        let response = Response::new(Encode::error(status));
-                        return Ok(response.into_http().into());
-                    }
-                    // TODO: Is this correct?
-                    _ => return Err(h2::Reason::INTERNAL_ERROR.into()),
-                }
+            Err(status) => {
+                let response = Response::new(Encode::error(status));
+                return Ok(response.into_http().into());
             }
         };
 
@@ -69,7 +63,7 @@ where T: Future<Item = Response<S>,
         let encoder = self.encoder.take().expect("encoder consumed");
 
         // Encode the body
-        let body = Encode::new(encoder, body, true);
+        let body = Encode::response(encoder, body);
 
         // Success
         Ok(http::Response::from_parts(head, body).into())

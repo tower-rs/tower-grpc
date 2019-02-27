@@ -80,7 +80,7 @@ impl ServiceGenerator {
             .bound("T", "tower::HttpService<R>")
             .vis("pub")
             .arg_mut_self()
-            .ret("futures::Poll<(), grpc::Error<T::Error>>")
+            .ret("futures::Poll<(), grpc::Status>")
             .line("self.inner.poll_ready()")
             ;
 

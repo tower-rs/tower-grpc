@@ -4,11 +4,14 @@ pub mod server;
 
 mod codec;
 
+pub(crate) use self::codec::{
+    Direction,
+};
+
 pub use self::codec::{
     Codec,
     Encoder,
     Decoder,
-    Direction,
     Streaming,
     Encode,
     EncodeBuf,

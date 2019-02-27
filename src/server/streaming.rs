@@ -9,7 +9,7 @@ use std::fmt;
 pub struct ResponseFuture<T, S>
 where
     T: StreamingService<S>,
-    S: Stream<Error = ::Error>,
+    S: Stream<Error = ::Status>,
     S::Item: prost::Message + Default,
     T::Response: prost::Message,
 {
@@ -22,7 +22,7 @@ type Inner<T, U> =
 impl<T, S> ResponseFuture<T, S>
 where
     T: StreamingService<S>,
-    S: Stream<Error = ::Error>,
+    S: Stream<Error = ::Status>,
     S::Item: prost::Message + Default,
     T::Response: prost::Message,
 {
@@ -34,7 +34,7 @@ where
 impl<T, S> Future for ResponseFuture<T, S>
 where
     T: StreamingService<S>,
-    S: Stream<Error = ::Error>,
+    S: Stream<Error = ::Status>,
     S::Item: prost::Message + Default,
     T::Response: prost::Message,
 {
@@ -51,7 +51,7 @@ where
 
 impl<T, S> fmt::Debug for ResponseFuture<T, S>
 where T: StreamingService<S> + fmt::Debug,
-      S: Stream<Error = ::Error> + fmt::Debug,
+      S: Stream<Error = ::Status> + fmt::Debug,
       S::Item: prost::Message + Default + fmt::Debug,
       T::Response: prost::Message + fmt::Debug,
       T::ResponseStream: fmt::Debug,

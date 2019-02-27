@@ -23,7 +23,7 @@ pub struct Decoder<T>(PhantomData<T>);
 /// A stream of inbound gRPC messages
 pub type Streaming<T, B = BoxBody> = ::generic::Streaming<Decoder<T>, B>;
 
-pub use ::generic::Direction;
+pub(crate) use ::generic::Direction;
 
 /// A protobuf encoded gRPC response body
 pub struct Encode<T>
@@ -86,7 +86,7 @@ where T: Message,
     /// Protocol buffer gRPC content type
     const CONTENT_TYPE: &'static str = "application/grpc+proto";
 
-    fn encode(&mut self, item: T, buf: &mut EncodeBuf) -> Result<(), ::Error> {
+    fn encode(&mut self, item: T, buf: &mut EncodeBuf) -> Result<(), ::Status> {
         let len = item.encoded_len();
 
         if buf.remaining_mut() < len {
@@ -115,11 +115,11 @@ where T: Message + Default,
     }
 }
 
-fn from_decode_error<T>(error: DecodeError) -> ::Error<T> {
+fn from_decode_error(error: DecodeError) -> ::Status {
     // Map Protobuf parse errors to an INTERNAL status code, as per
     // https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
-    ::Error::Grpc(::Status::with_code_and_message(
-        ::Code::Internal, error.to_string()))
+    ::Status::with_code_and_message(
+        ::Code::Internal, error.to_string())
 }
 
 impl<T> ::generic::Decoder for Decoder<T>
@@ -127,9 +127,9 @@ where T: Message + Default,
 {
     type Item = T;
 
-    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, ::Error> {
+    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, ::Status> {
         Message::decode(buf)
-            .map_err(from_decode_error::<()>)
+            .map_err(from_decode_error)
     }
 }
 
@@ -142,7 +142,7 @@ impl<T> Clone for Decoder<T> {
 // ===== impl Encode =====
 
 impl<T> Encode<T>
-where T: Stream<Error = ::Error>,
+where T: Stream<Error = ::Status>,
       T::Item: ::prost::Message,
 {
     pub(crate) fn new(inner: ::generic::Encode<Encoder<T::Item>, T>) -> Self {
@@ -151,7 +151,7 @@ where T: Stream<Error = ::Error>,
 }
 
 impl<T> Body for Encode<T>
-where T: Stream<Error = ::Error>,
+where T: Stream<Error = ::Status>,
       T::Item: ::prost::Message,
 {
     type Data = ::bytes::Bytes;
@@ -160,18 +160,18 @@ where T: Stream<Error = ::Error>,
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
         self.inner.poll_data()
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Error> {
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
         self.inner.poll_metadata()
     }
 }
 
 #[cfg(feature = "tower-h2")]
 impl<T> ::tower_h2::Body for Encode<T>
-where T: Stream<Error = ::Error>,
+where T: Stream<Error = ::Status>,
       T::Item: ::prost::Message,
 {
     type Data = ::bytes::Bytes;

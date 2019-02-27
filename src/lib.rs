@@ -23,7 +23,6 @@ pub mod client;
 pub mod generic;
 
 mod body;
-mod error;
 mod metadata_encoding;
 mod metadata_key;
 mod metadata_value;
@@ -33,7 +32,6 @@ mod response;
 mod status;
 
 pub use body::{Body, BoxBody};
-pub use error::Error;
 pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;

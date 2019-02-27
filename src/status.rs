@@ -3,7 +3,6 @@ use h2;
 use http::{self, HeaderMap};
 use http::header::HeaderValue;
 use std::fmt;
-use std::io;
 use percent_encoding::percent_decode;
 
 #[derive(Clone)]
@@ -32,6 +31,13 @@ impl Status {
             error_message: message,
             binary_error_details: Bytes::new(),
         }
+    }
+
+    pub(crate) fn unknown(message: String) -> Status {
+        Status::with_code_and_message(
+            Code::Unknown,
+            message,
+        )
     }
 
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
@@ -76,18 +82,18 @@ impl Status {
     }
 
     // TODO: It would be nice for this not to be public
-    pub fn to_header_map(&self) -> Result<HeaderMap, crate::Error> {
+    pub fn to_header_map(&self) -> Result<HeaderMap, Self> {
         let mut header_map = HeaderMap::with_capacity(3);
 
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.error_message.is_empty() {
             header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(&self.error_message)
-                .map_err(invalid_header_value_byte_to_h2)?);
+                .map_err(invalid_header_value_byte)?);
         }
         if !self.binary_error_details.is_empty() {
             header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.binary_error_details.clone())
-                .map_err(invalid_header_value_byte_to_h2)?);
+                .map_err(invalid_header_value_byte)?);
         }
         Ok(header_map)
     }
@@ -112,10 +118,12 @@ impl fmt::Debug for Status {
     }
 }
 
-fn invalid_header_value_byte_to_h2<Error: fmt::Display>(err: Error) -> crate::Error {
+fn invalid_header_value_byte<Error: fmt::Display>(err: Error) -> Status {
     debug!("Invalid header: {}", err);
-    let h2_error: h2::Error = io::Error::new(io::ErrorKind::InvalidData, "Couldn't serialize non-text status header").into();
-    h2_error.into()
+    Status::with_code_and_message(
+        Code::Internal,
+        "Couldn't serialize non-text grpc status header".to_string(),
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -236,16 +244,29 @@ impl From<Status> for h2::Error {
     }
 }
 
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "grpc-status: {:?}, grpc-message: {:?}",
+            self.code(),
+            self.error_message()
+        )
+    }
+}
+
+impl ::std::error::Error for Status {}
+
 ///
 /// Take the `Status` value from `trailers` if it is available, else from `status_code`.
 ///
-pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), ::Error> {
+pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), Status> {
     if let Some(trailers) = trailers {
         if let Some(status) = Status::from_header_map(&trailers) {
             if status.code() == Code::Ok {
                 return Ok(());
             } else {
-                return Err(::Error::Grpc(status));
+                return Err(status);
             }
         }
     }
@@ -268,5 +289,5 @@ pub fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusC
         status_code.as_u16(),
     );
     let status = Status::with_code_and_message(code, msg);
-    Err(::Error::Grpc(status))
+    Err(status)
 }

@@ -17,7 +17,7 @@ pub struct ResponseFuture<T, U> {
 
 impl<T, U> ResponseFuture<T, U> {
     /// Create a new client-streaming response future.
-    pub(crate) fn new(inner: U) -> Self {
+    pub(super) fn new(inner: U) -> Self {
         ResponseFuture {
             inner,
             _m: PhantomData,
@@ -31,17 +31,16 @@ where T: Message + Default,
       B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
-    type Error = ::Error<U::Error>;
+    type Error = ::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use codec::Decoder;
         use generic::Streaming;
 
-        let response = self.inner.poll()
-            .map_err(::Error::Inner);
-
         // Get the response
-        let response = try_ready!(response);
+        let response = try_ready!(self.inner.poll().map_err(|_| {
+            ::Status::unknown("inner response future error".into())
+        }));
 
         let status_code = response.status();
 
@@ -53,7 +52,7 @@ where T: Message + Default,
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
             if status.code() != Code::Ok {
-                return Err(::Error::Grpc(status));
+                return Err(status);
             }
         }
 

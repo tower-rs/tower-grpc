@@ -41,7 +41,7 @@ pub trait Encoder {
     const CONTENT_TYPE: &'static str;
 
     /// Encode a message into the provided buffer.
-    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf) -> Result<(), ::Error>;
+    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf) -> Result<(), Status>;
 }
 
 /// Decodes gRPC message types
@@ -54,7 +54,7 @@ pub trait Decoder {
     /// The buffer will contain exactly the bytes of a full message. There
     /// is no need to get the length from the bytes, gRPC framing is handled
     /// for you.
-    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<Self::Item, ::Error>;
+    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<Self::Item, Status>;
 }
 
 /// Encodes gRPC message types
@@ -66,8 +66,7 @@ pub struct Encode<T, U> {
     /// Destination buffer
     buf: BytesMut,
 
-    /// Set to true when trailers should be generated.
-    return_trailers: bool,
+    role: Role,
 }
 
 #[derive(Debug)]
@@ -80,6 +79,12 @@ enum EncodeInner<T, U> {
         inner: U,
     },
     Err(Status),
+}
+
+#[derive(Debug)]
+enum Role {
+    Client,
+    Server,
 }
 
 /// An stream of inbound gRPC messages
@@ -100,9 +105,9 @@ pub struct Streaming<T, B: Body> {
     direction: Direction,
 }
 
-/// Whether this is reading a request or a response stream value.
+/// Whether this is a request or a response stream value.
 #[derive(Clone, Copy, Debug)]
-pub enum Direction {
+pub(crate) enum Direction {
     /// For requests, we expect only headers and the streaming body.
     Request,
     /// For responses, the received HTTP status code must be provided.
@@ -147,19 +152,27 @@ impl<T, U> Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
 {
-    pub(crate) fn new(encoder: T, inner: U, return_trailers: bool) -> Self {
+    fn new(encoder: T, inner: U, role: Role) -> Self {
         Encode {
             inner: EncodeInner::Ok { encoder, inner },
             buf: BytesMut::new(),
-            return_trailers,
+            role,
         }
+    }
+
+    pub(crate) fn request(encoder: T, inner: U) -> Self {
+        Encode::new(encoder, inner, Role::Client)
+    }
+
+    pub(crate) fn response(encoder: T, inner: U) -> Self {
+        Encode::new(encoder, inner, Role::Server)
     }
 
     pub(crate) fn error(status: Status) -> Self {
         Encode {
             inner: EncodeInner::Err(status),
             buf: BytesMut::new(),
-            return_trailers: true,
+            role: Role::Server,
         }
     }
 }
@@ -174,10 +187,16 @@ where T: Encoder<Item = U::Item>,
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
         match self.inner {
             EncodeInner::Ok { ref mut inner, ref mut encoder } => {
-                let item = try_ready!(inner.poll().map_err(|_| ::Error::Inner(())));
+                let item = try_ready!(inner.poll().map_err(|_| {
+                    debug!("encoder inner stream error");
+                    Status::with_code_and_message(
+                        ::Code::Unknown,
+                        "TODO".to_string(),
+                    )
+                }));
 
                 if let Some(item) = item {
                     self.buf.reserve(5);
@@ -204,8 +223,8 @@ where T: Encoder<Item = U::Item>,
         }
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<HeaderMap>, ::Error> {
-        if !self.return_trailers {
+    fn poll_metadata(&mut self) -> Poll<Option<HeaderMap>, Status> {
+        if let Role::Client = self.role {
             return Ok(Async::Ready(None));
         }
 
@@ -257,7 +276,7 @@ where T: Decoder,
         }
     }
 
-    fn decode(&mut self) -> Result<Option<T::Item>, ::Error> {
+    fn decode(&mut self) -> Result<Option<T::Item>, ::Status> {
         if let State::ReadHeader = self.state {
             if self.bufs.remaining() < 5 {
                 return Ok(None);
@@ -267,15 +286,15 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                    return Err(::Status::with_code_and_message(
                         ::Code::Unimplemented,
-                        "Message compressed, compression not supported yet.".to_string())));
+                        "Message compressed, compression not supported yet.".to_string()));
                 },
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                    return Err(::Status::with_code_and_message(
                         ::Code::Internal,
-                        format!("Unexpected compression flag: {}", f))));
+                        format!("Unexpected compression flag: {}", f)));
                 }
             };
             let len = self.bufs.get_u32_be() as usize;
@@ -314,7 +333,7 @@ where T: Decoder,
       U: Body,
 {
     type Item = T::Item;
-    type Error = ::Error;
+    type Error = Status;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
@@ -334,9 +353,9 @@ where T: Decoder,
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Error::Grpc(::Status::with_code_and_message(
+                    return Err(::Status::with_code_and_message(
                         ::Code::Internal,
-                        "Unexpected EOF decoding stream.".to_string())))
+                        "Unexpected EOF decoding stream.".to_string()))
                 } else {
                     self.state = State::Done;
                     break;
