@@ -2,7 +2,7 @@ use bytes::Bytes;
 use h2;
 use http::{self, HeaderMap};
 use http::header::HeaderValue;
-use std::fmt;
+use std::{error::Error, fmt};
 use percent_encoding::percent_decode;
 
 #[derive(Clone)]
@@ -33,11 +33,21 @@ impl Status {
         }
     }
 
-    pub(crate) fn unknown(message: String) -> Status {
-        Status::with_code_and_message(
-            Code::Unknown,
-            message,
-        )
+    // TODO: This should probably be made public eventually. Need to decide on
+    // the exact argument type.
+    pub(crate) fn from_error(err: &(dyn Error + 'static)) -> Status {
+        if let Some(status) = err.downcast_ref::<Status>() {
+            Status {
+                code: status.code,
+                error_message: status.error_message.clone(),
+                binary_error_details: status.binary_error_details.clone(),
+            }
+        } else {
+            Status::with_code_and_message(
+                Code::Unknown,
+                err.to_string(),
+            )
+        }
     }
 
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
@@ -255,7 +265,7 @@ impl fmt::Display for Status {
     }
 }
 
-impl ::std::error::Error for Status {}
+impl Error for Status {}
 
 ///
 /// Take the `Status` value from `trailers` if it is available, else from `status_code`.
