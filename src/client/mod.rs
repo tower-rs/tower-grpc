@@ -3,6 +3,8 @@ pub mod client_streaming;
 pub mod server_streaming;
 pub mod streaming;
 
+use std::error::Error;
+
 use futures::{stream, Stream, Poll};
 use http::{uri, Uri};
 use prost::Message;
@@ -34,10 +36,11 @@ impl<T> Grpc<T> {
     pub fn poll_ready<R>(&mut self) -> Poll<(), ::Status>
     where
         T: HttpService<R>,
+        T::Error: Error + 'static,
     {
         self.inner.poll_ready()
-            .map_err(|_| {
-                ::Status::unknown("inner client service poll_ready error".into())
+            .map_err(|err| {
+                ::Status::from_error(&err)
             })
     }
 

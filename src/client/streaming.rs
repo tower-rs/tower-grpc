@@ -28,6 +28,7 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
+      U::Error: ::std::error::Error + 'static,
       B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
@@ -38,8 +39,8 @@ where T: Message + Default,
         use generic::Streaming;
 
         // Get the response
-        let response = try_ready!(self.inner.poll().map_err(|_| {
-            ::Status::unknown("inner response future error".into())
+        let response = try_ready!(self.inner.poll().map_err(|err| {
+            ::Status::from_error(&err)
         }));
 
         let status_code = response.status();
