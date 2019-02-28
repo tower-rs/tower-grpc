@@ -8,9 +8,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use metadata_encoding::Ascii;
-use metadata_encoding::Binary;
-use metadata_encoding::ValueEncoding;
+use super::encoding::{Ascii, Binary, ValueEncoding};
 
 /// Represents a custom metadata field name.
 ///

@@ -6,12 +6,14 @@ use std::error::Error;
 use std::str::FromStr;
 use std::marker::PhantomData;
 
-use metadata_encoding::Ascii;
-use metadata_encoding::Binary;
-use metadata_encoding::InvalidMetadataValue;
-use metadata_encoding::InvalidMetadataValueBytes;
-use metadata_encoding::ValueEncoding;
-use metadata_key::MetadataKey;
+use super::encoding::{
+    Ascii,
+    Binary,
+    InvalidMetadataValue,
+    InvalidMetadataValueBytes,
+    ValueEncoding,
+};
+use super::key::MetadataKey;
 
 /// Represents a custom metadata field value.
 ///
@@ -479,7 +481,7 @@ from_integers! {
 #[cfg(test)]
 mod from_metadata_value_tests {
     use super::*;
-    use metadata_map::MetadataMap;
+    use metadata::map::MetadataMap;
 
     #[test]
     fn it_can_insert_metadata_key_as_metadata_value() {
