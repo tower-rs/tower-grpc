@@ -242,7 +242,7 @@ macro_rules! try_ready {
 
             let mut catch_all = codegen::Block::new("_ =>");
             catch_all
-                .line(&format!("{}::ResponseFuture {{ kind: Err(grpc::Status::with_code(grpc::Code::Unimplemented)) }}",
+                .line(&format!("{}::ResponseFuture {{ kind: Err(grpc::Status::new(grpc::Code::Unimplemented, format!(\"unknown service: {{:?}}\", request.uri().path()))) }}",
                                lower_name));
 
             route_block.push_block(catch_all);

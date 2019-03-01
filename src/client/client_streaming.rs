@@ -34,7 +34,7 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      U::Error: ::std::error::Error + 'static,
+      U::Error: Into<Box<dyn std::error::Error>>,
       B: Body,
 {
     type Item = ::Response<T>;
@@ -49,9 +49,9 @@ where T: Message + Default,
                 State::WaitMessage { ref mut head, ref mut stream } => {
                     let message = match try_ready!(stream.poll()) {
                         Some(message) => message,
-                        None => return Err(::Status::with_code_and_message(
+                        None => return Err(::Status::new(
                                 ::Code::Internal,
-                                "Missing response message.".to_string())),
+                                "Missing response message.")),
                     };
 
                     let head = head.take().unwrap();

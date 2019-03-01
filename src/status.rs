@@ -5,11 +5,15 @@ use http::header::HeaderValue;
 use std::{error::Error, fmt};
 use percent_encoding::percent_decode;
 
+/// A gRPC "status" describing the result of an RPC call.
 #[derive(Clone)]
 pub struct Status {
+    /// The gRPC status code, found in the `grpc-status` header.
     code: Code,
-    error_message: String,
-    binary_error_details: Bytes,
+    /// A relevant error message, found in the `grpc-message` header.
+    message: String,
+    /// Binary opaque details, found in the `grpc-status-details-bin` header.
+    details: Bytes,
 }
 
 const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
@@ -17,20 +21,28 @@ const GRPC_STATUS_MESSAGE_HEADER: &str = "grpc-message";
 const GRPC_STATUS_DETAILS_HEADER: &str = "grpc-status-details-bin";
 
 impl Status {
-    pub fn with_code(code: Code) -> Status {
+    /// Create a new `Status` with the associated code and message.
+    pub fn new(code: Code, message: impl Into<String>) -> Status {
         Status {
             code,
-            error_message: String::new(),
-            binary_error_details: Bytes::new(),
+            message: message.into(),
+            details: Bytes::new(),
         }
     }
 
+    // Deprecated: this constructor encourages creating statuses with no
+    // message, hurting later debugging.
+    #[doc(hidden)]
+    #[deprecated(note = "use State::new")]
+    pub fn with_code(code: Code) -> Status {
+        Status::new(code, String::new())
+    }
+
+    // Deprecated: this constructor is overly long.
+    #[doc(hidden)]
+    #[deprecated(note = "use State::new")]
     pub fn with_code_and_message(code: Code, message: String) -> Status {
-        Status {
-            code,
-            error_message: message,
-            binary_error_details: Bytes::new(),
-        }
+        Status::new(code, message)
     }
 
     // TODO: This should probably be made public eventually. Need to decide on
@@ -39,18 +51,18 @@ impl Status {
         if let Some(status) = err.downcast_ref::<Status>() {
             Status {
                 code: status.code,
-                error_message: status.error_message.clone(),
-                binary_error_details: status.binary_error_details.clone(),
+                message: status.message.clone(),
+                details: status.details.clone(),
             }
         } else {
-            Status::with_code_and_message(
+            Status::new(
                 Code::Unknown,
                 err.to_string(),
             )
         }
     }
 
-    pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
+    pub(crate) fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
         header_map.get(GRPC_STATUS_HEADER_CODE).map(|code| {
             let code = Code::from_bytes(code.as_ref());
             let error_message = header_map.get(GRPC_STATUS_MESSAGE_HEADER)
@@ -59,36 +71,51 @@ impl Status {
                         .decode_utf8()
                         .map(|cow| cow.to_string()))
                 .unwrap_or_else(|| Ok(String::new()));
-            let binary_error_details = header_map.get(GRPC_STATUS_DETAILS_HEADER)
+            let details = header_map.get(GRPC_STATUS_DETAILS_HEADER)
                 .map(|h| Bytes::from(h.as_bytes())).unwrap_or_else(Bytes::new);
             match error_message {
-                Ok(error_message) => Status {
+                Ok(message) => Status {
                     code,
-                    error_message,
-                    binary_error_details,
+                    message,
+                    details,
                 },
                 Err(err) => {
                     warn!("Error deserializing status message header: {}", err);
                     Status {
                         code: Code::Unknown,
-                        error_message: format!("Error deserializing status message header: {}", err),
-                        binary_error_details,
+                        message: format!("Error deserializing status message header: {}", err),
+                        details,
                     }
                 }
             }
         })
     }
 
+    /// Get the gRPC `Code` of this `Status`.
     pub fn code(&self) -> Code {
         self.code
     }
 
-    pub fn error_message(&self) -> &str {
-        &self.error_message
+    /// Get the text error message of this `Status`.
+    pub fn message(&self) -> &str {
+        &self.message
     }
 
+    /// Get the opaque error details of this `Status`.
+    pub fn details(&self) -> &[u8] {
+        &self.details
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note = "use Status::message")]
+    pub fn error_message(&self) -> &str {
+        &self.message
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note = "use Status::details")]
     pub fn binary_error_details(&self) -> &Bytes {
-        &self.binary_error_details
+        &self.details
     }
 
     // TODO: It would be nice for this not to be public
@@ -97,12 +124,12 @@ impl Status {
 
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
-        if !self.error_message.is_empty() {
-            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(&self.error_message)
+        if !self.message.is_empty() {
+            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(&self.message)
                 .map_err(invalid_header_value_byte)?);
         }
-        if !self.binary_error_details.is_empty() {
-            header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.binary_error_details.clone())
+        if !self.details.is_empty() {
+            header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.details.clone())
                 .map_err(invalid_header_value_byte)?);
         }
         Ok(header_map)
@@ -116,12 +143,12 @@ impl fmt::Debug for Status {
 
         builder.field("code", &self.code);
 
-        if !self.error_message.is_empty() {
-            builder.field("message", &self.error_message);
+        if !self.message.is_empty() {
+            builder.field("message", &self.message);
         }
 
-        if !self.binary_error_details.is_empty() {
-            builder.field("details_bin", &self.binary_error_details);
+        if !self.details.is_empty() {
+            builder.field("details", &self.details);
         }
 
         builder.finish()
@@ -130,12 +157,13 @@ impl fmt::Debug for Status {
 
 fn invalid_header_value_byte<Error: fmt::Display>(err: Error) -> Status {
     debug!("Invalid header: {}", err);
-    Status::with_code_and_message(
+    Status::new(
         Code::Internal,
         "Couldn't serialize non-text grpc status header".to_string(),
     )
 }
 
+/// gRPC status codes used by `Status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Code {
     Ok = 0,
@@ -240,7 +268,7 @@ impl From<h2::Error> for Status {
         };
 
 
-        Status::with_code_and_message(
+        Status::new(
             code,
             format!("h2 protocol error: {}", err),
         )
@@ -260,7 +288,7 @@ impl fmt::Display for Status {
             f,
             "grpc-status: {:?}, grpc-message: {:?}",
             self.code(),
-            self.error_message()
+            self.message()
         )
     }
 }
@@ -298,6 +326,6 @@ pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::
         "grpc-status header missing, mapped from HTTP status code {}",
         status_code.as_u16(),
     );
-    let status = Status::with_code_and_message(code, msg);
+    let status = Status::new(code, msg);
     Err(status)
 }

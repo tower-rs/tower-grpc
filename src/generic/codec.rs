@@ -151,6 +151,7 @@ pub struct BufList<B> {
 impl<T, U> Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
+      U::Error: Into<Box<dyn std::error::Error>>,
 {
     fn new(encoder: T, inner: U, role: Role) -> Self {
         Encode {
@@ -180,6 +181,7 @@ where T: Encoder<Item = U::Item>,
 impl<T, U> Body for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
+      U::Error: Into<Box<dyn std::error::Error>>,
 {
     type Data = Bytes;
 
@@ -190,12 +192,10 @@ where T: Encoder<Item = U::Item>,
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
         match self.inner {
             EncodeInner::Ok { ref mut inner, ref mut encoder } => {
-                let item = try_ready!(inner.poll().map_err(|_| {
-                    debug!("encoder inner stream error");
-                    Status::with_code_and_message(
-                        ::Code::Unknown,
-                        "TODO".to_string(),
-                    )
+                let item = try_ready!(inner.poll().map_err(|err| {
+                    let err = err.into();
+                    debug!("encoder inner stream error: {:?}", err);
+                    Status::from_error(&*err)
                 }));
 
                 if let Some(item) = item {
@@ -229,7 +229,7 @@ where T: Encoder<Item = U::Item>,
         }
 
         let map = match self.inner {
-            EncodeInner::Ok { .. } => Status::with_code(::Code::Ok).to_header_map(),
+            EncodeInner::Ok { .. } => Status::new(::Code::Ok, "").to_header_map(),
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
@@ -240,6 +240,7 @@ where T: Encoder<Item = U::Item>,
 impl<T, U> ::tower_h2::Body for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
+      U::Error: Into<Box<dyn std::error::Error>>,
 {
     type Data = ::bytes::Bytes;
 
@@ -286,13 +287,13 @@ where T: Decoder,
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Status::with_code_and_message(
+                    return Err(::Status::new(
                         ::Code::Unimplemented,
                         "Message compressed, compression not supported yet.".to_string()));
                 },
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Status::with_code_and_message(
+                    return Err(::Status::new(
                         ::Code::Internal,
                         format!("Unexpected compression flag: {}", f)));
                 }
@@ -353,7 +354,7 @@ where T: Decoder,
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Status::with_code_and_message(
+                    return Err(::Status::new(
                         ::Code::Internal,
                         "Unexpected EOF decoding stream.".to_string()))
                 } else {
