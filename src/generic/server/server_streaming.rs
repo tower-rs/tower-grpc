@@ -100,9 +100,9 @@ where T: ServerStreamingService<S::Item>,
                         _ => unreachable!(),
                     }
                 }
-                None => return Err(::Status::with_code_and_message(
+                None => return Err(::Status::new(
                     ::Code::Internal,
-                    "Missing request message.".to_string())),
+                    "Missing request message.")),
             }
         }
     }

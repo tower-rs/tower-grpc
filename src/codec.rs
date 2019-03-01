@@ -118,7 +118,7 @@ where T: Message + Default,
 fn from_decode_error(error: DecodeError) -> ::Status {
     // Map Protobuf parse errors to an INTERNAL status code, as per
     // https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
-    ::Status::with_code_and_message(
+    ::Status::new(
         ::Code::Internal, error.to_string())
 }
 
