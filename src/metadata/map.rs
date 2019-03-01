@@ -1,10 +1,7 @@
 use http;
-use metadata_encoding::Ascii;
-use metadata_encoding::Binary;
-use metadata_encoding::ValueEncoding;
-use metadata_key::InvalidMetadataKey;
-use metadata_key::MetadataKey;
-use metadata_value::MetadataValue;
+use super::encoding::{Ascii, Binary, ValueEncoding};
+use super::key::{InvalidMetadataKey, MetadataKey};
+use super::value::MetadataValue;
 
 use std::marker::PhantomData;
 
@@ -1929,7 +1926,7 @@ impl<'a, 'b: 'a, VE: ValueEncoding> IntoIterator for &'b GetAll<'a, VE> {
 
 mod into_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
-    use metadata_key::MetadataKey;
+    use metadata::key::MetadataKey;
 
     /// A marker trait used to identify values that can be used as insert keys
     /// to a `MetadataMap`.
@@ -2011,7 +2008,7 @@ mod into_metadata_key {
 
 mod as_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
-    use metadata_key::{InvalidMetadataKey, MetadataKey};
+    use metadata::key::{InvalidMetadataKey, MetadataKey};
     use http::header::{Entry, GetAll, HeaderValue};
 
     /// A marker trait used to identify values that can be used as search keys
@@ -2283,7 +2280,7 @@ mod as_metadata_key {
 
 mod as_encoding_agnostic_metadata_key {
     use super::{MetadataMap, ValueEncoding};
-    use metadata_key::MetadataKey;
+    use metadata::key::MetadataKey;
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`, for operations that don't expose the actual value.

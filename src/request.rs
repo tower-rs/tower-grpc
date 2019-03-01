@@ -1,5 +1,5 @@
 use http;
-use metadata_map::MetadataMap;
+use metadata::MetadataMap;
 
 #[derive(Debug)]
 pub struct Request<T> {
