@@ -99,6 +99,7 @@ impl ServiceGenerator {
                 .bound("T::Error", "Into<Box<::std::error::Error>>")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
+                .line("let request = Into::into(request);")
                 .doc(&comments_to_rustdoc(&service.comments))
                 ;
 
@@ -161,7 +162,9 @@ impl ServiceGenerator {
                 }
             };
 
-            func.arg("request", request)
+            func.generic("__Req")
+                .arg("request", "__Req")
+                .bound("__Req", &*codegen::Type::new("Into").generic(&request))
                 .bound(&req_body, "grpc::Encodable<R>");
         }
     }

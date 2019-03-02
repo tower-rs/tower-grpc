@@ -1,6 +1,7 @@
 use http;
 use metadata::MetadataMap;
 
+/// A gRPC request containing an message and metadata.
 #[derive(Debug)]
 pub struct Request<T> {
     metadata: MetadataMap,
@@ -70,5 +71,11 @@ impl<T> Request<T> {
             metadata: self.metadata,
             message,
         }
+    }
+}
+
+impl<T> From<T> for Request<T> {
+    fn from(msg: T) -> Self {
+        Request::new(msg)
     }
 }

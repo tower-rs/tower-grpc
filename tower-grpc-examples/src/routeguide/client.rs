@@ -24,7 +24,6 @@ extern crate serde_derive;
 use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
-use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
 use tower_util::MakeService;
@@ -59,10 +58,10 @@ pub fn main() {
         })
         .and_then(|mut client| {
             client
-                .get_feature(Request::new(Point {
+                .get_feature(Point {
                     latitude: 409146138,
                     longitude: -746188906,
-                }))
+                })
                 .map_err(|e| panic!("gRPC request failed; err={:?}", e))
         })
         .map(|response| {

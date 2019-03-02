@@ -16,7 +16,6 @@ extern crate tower_util;
 use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
-use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
 use tower_util::MakeService;
@@ -48,9 +47,9 @@ pub fn main() {
         .and_then(|mut client| {
             use hello_world::HelloRequest;
 
-            client.say_hello(Request::new(HelloRequest {
+            client.say_hello(HelloRequest {
                 name: "What is in a name?".to_string(),
-            })).map_err(|e| panic!("gRPC request failed; err={:?}", e))
+            }).map_err(|e| panic!("gRPC request failed; err={:?}", e))
         })
         .and_then(|response| {
             println!("RESPONSE = {:?}", response);
