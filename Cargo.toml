@@ -9,7 +9,8 @@ authors = [
 license = "MIT"
 
 [features]
-default = ["protobuf", "tower-h2"]
+default = ["protobuf", "tower-h2", "hyper-body"]
+hyper-body = ["hyper"]
 protobuf = ["prost"]
 
 [workspace]
@@ -34,6 +35,7 @@ http = "0.1.14"
 h2 = "0.1.11"
 log = "0.4"
 percent-encoding = "1.0.1"
+hyper = { version = "0.12.25", optional = true }
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
 tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-service = { git = "https://github.com/tower-rs/tower"  }

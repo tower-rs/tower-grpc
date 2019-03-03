@@ -1,4 +1,4 @@
-#![deny(warnings, missing_debug_implementations)]
+#![deny(missing_debug_implementations)]
 //#![deny(missing_docs)]
 
 extern crate base64;
@@ -14,10 +14,12 @@ extern crate tower_http;
 extern crate tower_service;
 extern crate tower_util;
 
-#[cfg(feature = "tower-h2")]
-extern crate tower_h2;
+#[cfg(feature = "hyper-body")]
+extern crate hyper;
 #[cfg(feature = "protobuf")]
 extern crate prost;
+#[cfg(feature = "tower-h2")]
+extern crate tower_h2;
 
 pub mod client;
 pub mod generic;
@@ -28,8 +30,8 @@ mod request;
 mod response;
 mod status;
 
+pub use status::{Status, Code};
 pub use body::{Body, BoxBody};
-pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
 

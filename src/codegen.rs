@@ -54,6 +54,13 @@ pub mod server {
     pub mod tower_h2 {
         pub use ::tower_h2::{Body, RecvBody};
     }
+
+    #[cfg(feature = "hyper-body")]
+    pub mod hyper {
+        pub use bytes::Buf;
+        pub use hyper::{Error, Body};
+        pub use hyper::body::Payload;
+    }
 }
 
 pub mod client {
@@ -87,5 +94,11 @@ pub mod client {
     /// Re-exported types from `tower-h2` crate.
     pub mod tower_h2 {
         pub use ::tower_h2::Body;
+    }
+
+    #[cfg(feature = "hyper-body")]
+    pub mod hyper {
+        pub use hyper::{Body, Error};
+        pub use hyper::body::Payload;
     }
 }

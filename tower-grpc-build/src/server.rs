@@ -76,7 +76,7 @@ macro_rules! try_ready {
     {
         let mut service_trait = codegen::Trait::new(&service.name);
         service_trait.vis("pub")
-            .parent("Clone")
+            .parent("Clone + Send")
             .doc(&comments_to_rustdoc(&service.comments))
             ;
 
@@ -88,18 +88,18 @@ macro_rules! try_ready {
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
-                    "futures::Stream<Item = {}, Error = grpc::Status>",
+                    "futures::Stream<Item = {}, Error = grpc::Status> + Send",
                     ::unqualified(&method.output_type, &method.output_proto_type, 1));
 
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Status>",
+                    "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Status> + Send",
                     stream_name);
 
                 service_trait.associated_type(&stream_name)
                     .bound(&stream_bound);
             } else {
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<{}>, Error = grpc::Status>",
+                    "futures::Future<Item = grpc::Response<{}>, Error = grpc::Status> + Send",
                     ::unqualified(&method.output_type, &method.output_proto_type, 1));
             }
 
@@ -306,6 +306,34 @@ macro_rules! try_ready {
                 .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)")
                 ;
         }
+        #[cfg(feature = "hyper-body")]
+        {
+            let imp = scope.new_impl(&name)
+                .generic("T")
+                .target_generic("T")
+                .impl_trait("tower::Service<http::Request<hyper::Body>>")
+                .bound("T", &service.name)
+                .bound("T", "Send + Sync")
+                .associate_type("Response", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Response")
+                .associate_type("Error", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Error")
+                .associate_type("Future", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Future")
+                ;
+
+
+            imp.new_fn("poll_ready")
+                .arg_mut_self()
+                .ret("futures::Poll<(), Self::Error>")
+                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)")
+            ;
+
+            imp.new_fn("call")
+                .arg_mut_self()
+                .arg("request", "http::Request<hyper::Body>")
+                .ret("Self::Future")
+                .line("let request = request.map(|b| grpc::BoxBody::new(Box::new(b)));")
+                .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)")
+            ;
+        }
     }
 
     fn define_response_future(&self,
@@ -493,6 +521,35 @@ macro_rules! try_ready {
                 .line("grpc::Body::poll_metadata(self)")
                 .line("    .map_err(h2::Error::from)")
                 ;
+        }
+        #[cfg(feature = "hyper-body")]
+        {
+            let imp = module.new_impl("ResponseBody")
+                .generic("T")
+                .target_generic("T")
+                .impl_trait("hyper::Payload")
+                .bound("T", &format!("{} + hyper::Buf + Send + Sync + 'static", &service.name))
+                .associate_type("Data", "T")
+                .associate_type("Error", "hyper::Error")
+                ;
+
+            imp.new_fn("is_end_stream")
+                .arg_ref_self()
+                .ret("bool")
+                .line("hyper::Payload::is_end_stream(self)")
+            ;
+
+            imp.new_fn("poll_data")
+                .arg_mut_self()
+                .ret("futures::Poll<Option<Self::Data>, hyper::Error>")
+                .line("hyper::Payload::poll_data(self)")
+            ;
+
+            imp.new_fn("poll_trailers")
+                .arg_mut_self()
+                .ret("futures::Poll<Option<http::HeaderMap>, hyper::Error>")
+                .line("hyper::Payload::poll_trailers(self)")
+            ;
         }
     }
 

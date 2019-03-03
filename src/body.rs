@@ -1,8 +1,9 @@
 use std::fmt;
 
 use bytes::{Bytes, IntoBuf};
-use futures::Poll;
+use futures::{Async, Poll};
 use http;
+use Code;
 
 /// A body to send and receive gRPC messages.
 pub trait Body {
@@ -59,6 +60,47 @@ where
 
     fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
         self.inner.poll_metadata()
+    }
+}
+
+#[cfg(feature = "hyper-body")]
+#[allow(unconditional_recursion)]
+impl<T> ::hyper::body::Payload for BoxBody<T>
+where
+    T: bytes::Buf + Send + IntoBuf + 'static,
+{
+    type Data = T;
+    type Error = ::hyper::Error;
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        ::hyper::body::Payload::poll_data(self)
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        ::hyper::body::Payload::poll_trailers(self)
+    }
+
+    fn is_end_stream(&self) -> bool {
+        ::hyper::body::Payload::is_end_stream(self)
+    }
+}
+
+#[cfg(feature = "hyper-body")]
+impl Body for ::hyper::Body {
+    type Data = Bytes;
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
+        match ::hyper::body::Payload::poll_data(self) {
+            Ok(Async::Ready(Some(chunk))) => Ok(Async::Ready(Some(chunk.into_bytes()))),
+            Ok(Async::Ready(None)) => unreachable!(),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => Err(::Status::new(Code::Internal, e.to_string()))
+        }
+    }
+
+    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status>  {
+        ::hyper::body::Payload::poll_trailers(self)
+            .map_err(|e| ::Status::new(Code::Internal, e.to_string()))
     }
 }
 
