@@ -121,7 +121,11 @@ impl Status {
     // TODO: It would be nice for this not to be public
     pub fn to_header_map(&self) -> Result<HeaderMap, Self> {
         let mut header_map = HeaderMap::with_capacity(3);
+        self.add_header(&mut header_map)?;
+        Ok(header_map)
+    }
 
+    pub(crate) fn add_header(&self, header_map: &mut HeaderMap) -> Result<(), Self> {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
@@ -132,7 +136,8 @@ impl Status {
             header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.details.clone())
                 .map_err(invalid_header_value_byte)?);
         }
-        Ok(header_map)
+
+        Ok(())
     }
 }
 

@@ -3,6 +3,19 @@
 set -eu
 set -o pipefail
 
+# test the tower-grpc interop server first
+cargo build -p tower-grpc-interop --bin server
+./target/debug/server &
+TOWER_SERVER_PID=$!
+echo ":; started tower-grpc test server."
+
+# run the interop test client against the server.
+cargo run -p tower-grpc-interop --bin client -- \
+    --test_case=empty_unary,large_unary,unimplemented_method,unimplemented_service
+
+echo ":; killing tower-grpc test server";
+kill ${TOWER_SERVER_PID};
+
 SERVER="interop-server-go-linux-amd64"
 SERVER_ZIP_URL="https://github.com/tower-rs/tower-grpc/files/1616271/interop-server-go-linux-amd64.zip"
 

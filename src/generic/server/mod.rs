@@ -1,11 +1,11 @@
 mod grpc;
 
-pub mod client_streaming;
-pub mod server_streaming;
-pub mod streaming;
-pub mod unary;
+pub(crate) mod client_streaming;
+pub(crate) mod server_streaming;
+pub(crate) mod streaming;
+pub(crate) mod unary;
 
-pub use self::grpc::Grpc;
+pub(crate) use self::grpc::Grpc;
 
 use {Request, Response};
 

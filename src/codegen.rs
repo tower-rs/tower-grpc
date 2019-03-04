@@ -10,11 +10,11 @@ pub mod server {
             ServerStreamingService,
         };
         pub use ::server::{
-            Grpc,
             unary,
             client_streaming,
             server_streaming,
             streaming,
+            unimplemented,
         };
         pub use ::codec::{
             Encode,
