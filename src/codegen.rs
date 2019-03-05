@@ -24,7 +24,7 @@ pub mod server {
 
     /// Re-export types from the `bytes` crate.
     pub mod bytes {
-        pub use ::bytes::Bytes;
+        pub use ::bytes::{Bytes, IntoBuf};
     }
 
     /// Re-export types from the `future` crate.
@@ -47,6 +47,7 @@ pub mod server {
     pub mod tower {
         pub use ::tower_service::Service;
         pub use ::tower_util::MakeService;
+        pub use ::tower_http_service::{Body as HttpBody};
     }
 
     #[cfg(feature = "tower-h2")]
@@ -80,12 +81,6 @@ pub mod client {
     }
 
     pub mod tower {
-        pub use ::tower_http::HttpService;
-    }
-
-    #[cfg(feature = "tower-h2")]
-    /// Re-exported types from `tower-h2` crate.
-    pub mod tower_h2 {
-        pub use ::tower_h2::Body;
+        pub use ::tower_http_service::{Body as HttpBody, HttpService};
     }
 }

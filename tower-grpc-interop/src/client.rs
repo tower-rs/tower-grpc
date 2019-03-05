@@ -13,7 +13,7 @@ extern crate prost;
 extern crate prost_derive;
 extern crate tokio_core;
 extern crate rustls;
-extern crate tower_http;
+extern crate tower_add_origin;
 extern crate tower_h2;
 extern crate tower_grpc;
 
@@ -223,14 +223,14 @@ fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
 
 struct TestClients {
     test_client:
-        TestService<tower_http::AddOrigin<
+        TestService<tower_add_origin::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
                 tower_grpc::BoxBody>>>,
 
     unimplemented_client:
-        UnimplementedService<tower_http::AddOrigin<
+        UnimplementedService<tower_add_origin::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
@@ -690,9 +690,7 @@ impl Testcase {
                             .map_err(|_| panic!("failed HTTP/2.0 handshake"))
                     })
                     .map(move |conn| {
-                        use tower_http::add_origin;
-
-                        add_origin::Builder::new()
+                        tower_add_origin::Builder::new()
                             .uri(server.uri.clone())
                             .build(conn)
                             .unwrap()

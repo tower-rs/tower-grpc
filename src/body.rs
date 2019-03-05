@@ -62,25 +62,20 @@ where
     }
 }
 
-#[cfg(feature = "tower-h2")]
-impl<T> ::tower_h2::Body for BoxBody<T>
+impl<T> ::tower_http_service::Body for BoxBody<T>
 where
-    T: IntoBuf + 'static,
+    T: IntoBuf,
 {
-    type Data = T;
+    type Item = T::Buf;
+    type Error = ::Status;
 
-    fn is_end_stream(&self) -> bool {
-        Body::is_end_stream(self)
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        let item = try_ready!(self.inner.poll_data());
+        Ok(item.map(IntoBuf::into_buf).into())
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
-        Body::poll_data(self)
-            .map_err(::h2::Error::from)
-    }
-
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, ::h2::Error> {
-        Body::poll_metadata(self)
-            .map_err(::h2::Error::from)
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        self.inner.poll_metadata()
     }
 }
 
@@ -91,6 +86,8 @@ impl<T> fmt::Debug for BoxBody<T> {
     }
 }
 
+
+
 // ===== impl tower_h2::RecvBody =====
 
 #[cfg(feature = "tower-h2")]
@@ -98,11 +95,11 @@ impl Body for ::tower_h2::RecvBody {
     type Data = Bytes;
 
     fn is_end_stream(&self) -> bool {
-        ::tower_h2::Body::is_end_stream(self)
+        false
     }
 
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
-        let data = try_ready!(::tower_h2::Body::poll_data(self));
+        let data = try_ready!(::tower_http_service::Body::poll_buf(self));
         Ok(data.map(Bytes::from).into())
     }
 
