@@ -36,10 +36,7 @@ impl ServiceGenerator {
                             scope: &mut codegen::Scope)
     {
         for method in &service.methods {
-            if !method.client_streaming {
-                scope.import_type(&method.input_type, 1);
-            }
-
+            scope.import_type(&method.input_type, 1);
             scope.import_type(&method.output_type, 1);
         }
     }
@@ -139,6 +136,10 @@ impl ServiceGenerator {
                     request.generic("B");
 
                     func.generic("B")
+                        .bound("B", &format!(
+                            "futures::Stream<Item = {}>",
+                            input_type,
+                        ))
                         .ret(ret)
                         .line("self.inner.client_streaming(request, path)")
                         ;
@@ -153,6 +154,10 @@ impl ServiceGenerator {
                     request.generic("B");
 
                     func.generic("B")
+                        .bound("B", &format!(
+                            "futures::Stream<Item = {}>",
+                            input_type,
+                        ))
                         .ret(ret)
                         .line("self.inner.streaming(request, path)")
                         ;

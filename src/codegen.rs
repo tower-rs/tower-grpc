@@ -77,7 +77,7 @@ pub mod client {
 
     /// Re-export types from the `future` crate.
     pub mod futures {
-        pub use ::futures::{Future, Poll};
+        pub use ::futures::{Stream, Future, Poll};
     }
 
     pub mod tower {
