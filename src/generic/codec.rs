@@ -236,24 +236,20 @@ where T: Encoder<Item = U::Item>,
     }
 }
 
-#[cfg(feature = "tower-h2")]
-impl<T, U> ::tower_h2::Body for Encode<T, U>
+impl<T, U> ::tower_http_service::Body for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
       U::Error: Into<Box<dyn std::error::Error>>,
 {
-    type Data = ::bytes::Bytes;
+    type Item = <::bytes::Bytes as IntoBuf>::Buf;
+    type Error = Status;
 
-    fn is_end_stream(&self) -> bool {
-        Body::is_end_stream(self)
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        let item = try_ready!(Body::poll_data(self));
+        Ok(item.map(|buf| buf.into_buf()).into())
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
-        Body::poll_data(self)
-            .map_err(From::from)
-    }
-
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, ::h2::Error> {
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
         Body::poll_metadata(self)
             .map_err(From::from)
     }

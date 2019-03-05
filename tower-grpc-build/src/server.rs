@@ -463,35 +463,28 @@ macro_rules! try_ready {
                 ;
         }
 
-        #[cfg(feature = "tower-h2")]
-        // impl tower_h2::Body
+        // impl tower_http_service::Body
         {
             let imp = module.new_impl("ResponseBody")
                 .generic("T")
                 .target_generic("T")
-                .impl_trait("tower_h2::Body")
+                .impl_trait("tower::HttpBody")
                 .bound("T", &service.name)
-                .associate_type("Data", "bytes::Bytes")
+                .associate_type("Item", "<bytes::Bytes as bytes::IntoBuf>::Buf")
+                .associate_type("Error", "grpc::Status")
                 ;
 
-            imp.new_fn("is_end_stream")
-                .arg_ref_self()
-                .ret("bool")
-                .line("grpc::Body::is_end_stream(self)")
-                ;
-
-            imp.new_fn("poll_data")
+            imp.new_fn("poll_buf")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<Self::Data>, h2::Error>")
-                .line("grpc::Body::poll_data(self)")
-                .line("    .map_err(h2::Error::from)")
+                .ret("futures::Poll<Option<Self::Item>, Self::Error>")
+                .line("let item = try_ready!(grpc::Body::poll_data(self));")
+                .line("Ok(item.map(bytes::IntoBuf::into_buf).into())")
                 ;
 
             imp.new_fn("poll_trailers")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<http::HeaderMap>, h2::Error>")
+                .ret("futures::Poll<Option<http::HeaderMap>, Self::Error>")
                 .line("grpc::Body::poll_metadata(self)")
-                .line("    .map_err(h2::Error::from)")
                 ;
         }
     }

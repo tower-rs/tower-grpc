@@ -6,7 +6,7 @@ pub mod streaming;
 use futures::{stream, Stream, Poll};
 use http::{uri, Uri};
 use prost::Message;
-use tower_http::HttpService;
+use tower_http_service::HttpService;
 
 use body::{Body, BoxBody};
 

@@ -169,28 +169,6 @@ where T: Stream<Error = ::Status>,
     }
 }
 
-#[cfg(feature = "tower-h2")]
-impl<T> ::tower_h2::Body for Encode<T>
-where T: Stream<Error = ::Status>,
-      T::Item: ::prost::Message,
-{
-    type Data = ::bytes::Bytes;
-
-    fn is_end_stream(&self) -> bool {
-        Body::is_end_stream(self)
-    }
-
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::h2::Error> {
-        Body::poll_data(self)
-            .map_err(From::from)
-    }
-
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, ::h2::Error> {
-        Body::poll_metadata(self)
-            .map_err(From::from)
-    }
-}
-
 impl<T> fmt::Debug for Encode<T>
 where T: Stream + fmt::Debug,
       T::Item: fmt::Debug,
