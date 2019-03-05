@@ -22,11 +22,6 @@ pub mod server {
         };
     }
 
-    /// Re-export types from the `bytes` crate.
-    pub mod bytes {
-        pub use ::bytes::{Bytes, IntoBuf};
-    }
-
     /// Re-export types from the `future` crate.
     pub mod futures {
         pub use ::futures::{Future, Stream, Poll, Async};

@@ -1,81 +1,59 @@
 use std::fmt;
 
-use bytes::{Bytes, IntoBuf};
+use bytes::{Bytes, Buf, IntoBuf};
 use futures::Poll;
 use http;
+pub use tower_http_service::Body;
 
-/// A body to send and receive gRPC messages.
-pub trait Body {
-    /// The body buffer type.
-    type Data: IntoBuf;
-
-    /// Returns `true` when the end of the stream has been reached.
-    ///
-    /// An end of stream means that both `poll_data` and `poll_metadata` will
-    /// return `None`.
-    ///
-    /// A return value of `false` **does not** guarantee tht a value will be
-    /// returned from `poll_data` or `poll_trailers. This is merely a hint.
-    fn is_end_stream(&self) -> bool {
-        false
-    }
-
-    /// Polls the stream for more data.
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status>;
-
-    /// Polls the stream for the ending metadata.
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status>;
-}
+type BytesBuf = <Bytes as IntoBuf>::Buf;
 
 /// Dynamic `Send` body object.
-pub struct BoxBody<T = Bytes> {
-    inner: Box<Body<Data = T> + Send>,
+pub struct BoxBody<T = BytesBuf, E = ::Status> {
+    inner: Box<Body<Item = T, Error = E> + Send>,
 }
+
+struct MapBody<B>(B);
 
 // ===== impl BoxBody =====
 
-impl<T> BoxBody<T> {
+impl<T, E> BoxBody<T, E> {
     /// Create a new `BoxBody` backed by `inner`.
-    pub fn new(inner: Box<Body<Data = T> + Send>) -> Self {
+    pub fn new(inner: Box<Body<Item = T, Error = E> + Send>) -> Self {
         BoxBody {
             inner,
         }
     }
 }
 
-impl<T> Body for BoxBody<T>
+impl BoxBody {
+    /// Create a new `BoxBody` mapping item and error to the default types.
+    pub fn map_from<B>(inner: B) -> Self
+    where
+        B: Body + Send + 'static,
+        Bytes: From<B::Item>,
+        ::Status: From<B::Error>,
+    {
+        BoxBody::new(Box::new(MapBody(inner)))
+    }
+}
+
+impl<T, E> Body for BoxBody<T, E>
 where
-    T: IntoBuf,
+    T: Buf,
 {
-    type Data = T;
+    type Item = T;
+    type Error = E;
 
     fn is_end_stream(&self) -> bool {
         self.inner.is_end_stream()
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
-        self.inner.poll_data()
-    }
-
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
-        self.inner.poll_metadata()
-    }
-}
-
-impl<T> ::tower_http_service::Body for BoxBody<T>
-where
-    T: IntoBuf,
-{
-    type Item = T::Buf;
-    type Error = ::Status;
-
     fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let item = try_ready!(self.inner.poll_data());
-        Ok(item.map(IntoBuf::into_buf).into())
+        self.inner.poll_buf()
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        self.inner.poll_metadata()
+        self.inner.poll_trailers()
     }
 }
 
@@ -86,25 +64,27 @@ impl<T> fmt::Debug for BoxBody<T> {
     }
 }
 
+// ===== impl MapBody =====
 
-
-// ===== impl tower_h2::RecvBody =====
-
-#[cfg(feature = "tower-h2")]
-impl Body for ::tower_h2::RecvBody {
-    type Data = Bytes;
+impl<B> Body for MapBody<B>
+where
+    B: Body,
+    Bytes: From<B::Item>,
+    ::Status: From<B::Error>,
+{
+    type Item = BytesBuf;
+    type Error = ::Status;
 
     fn is_end_stream(&self) -> bool {
-        false
+        self.0.is_end_stream()
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
-        let data = try_ready!(::tower_http_service::Body::poll_buf(self));
-        Ok(data.map(Bytes::from).into())
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        let item = try_ready!(self.0.poll_buf());
+        Ok(item.map(|buf| Bytes::from(buf).into_buf()).into())
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
-        ::tower_h2::Body::poll_trailers(self)
-            .map_err(::Status::from)
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        self.0.poll_trailers().map_err(From::from)
     }
 }

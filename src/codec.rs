@@ -2,7 +2,7 @@ use body::{Body, BoxBody};
 use generic::{EncodeBuf, DecodeBuf};
 
 use futures::{Stream, Poll};
-use bytes::BufMut;
+use bytes::{BufMut};
 use http;
 use prost::DecodeError;
 use prost::Message;
@@ -154,18 +154,19 @@ impl<T> Body for Encode<T>
 where T: Stream<Error = ::Status>,
       T::Item: ::prost::Message,
 {
-    type Data = ::bytes::Bytes;
+    type Item = <::generic::Encode<Encoder<T::Item>, T> as Body>::Item;
+    type Error = <::generic::Encode<Encoder<T::Item>, T> as Body>::Error;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, ::Status> {
-        self.inner.poll_data()
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        self.inner.poll_buf()
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<http::HeaderMap>, ::Status> {
-        self.inner.poll_metadata()
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        self.inner.poll_trailers()
     }
 }
 
