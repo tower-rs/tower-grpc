@@ -97,7 +97,7 @@ pub struct Streaming<T, B: Body> {
     inner: B,
 
     /// buffer
-    bufs: BufList<<B::Data as IntoBuf>::Buf>,
+    bufs: BufList<B::Item>,
 
     /// Decoding state
     state: State,
@@ -183,13 +183,14 @@ where T: Encoder<Item = U::Item>,
       U: Stream,
       U::Error: Into<Box<dyn std::error::Error>>,
 {
-    type Data = Bytes;
+    type Item = <Bytes as IntoBuf>::Buf;
+    type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Status> {
         match self.inner {
             EncodeInner::Ok { ref mut inner, ref mut encoder } => {
                 let item = try_ready!(inner.poll().map_err(|err| {
@@ -214,7 +215,7 @@ where T: Encoder<Item = U::Item>,
                         cursor.put_u32_be(len as u32);
                     }
 
-                    Ok(Async::Ready(Some(self.buf.split_to(len + 5).freeze())))
+                    Ok(Async::Ready(Some(self.buf.split_to(len + 5).freeze().into_buf())))
                 } else {
                     Ok(Async::Ready(None))
                 }
@@ -223,7 +224,7 @@ where T: Encoder<Item = U::Item>,
         }
     }
 
-    fn poll_metadata(&mut self) -> Poll<Option<HeaderMap>, Status> {
+    fn poll_trailers(&mut self) -> Poll<Option<HeaderMap>, Status> {
         if let Role::Client = self.role {
             return Ok(Async::Ready(None));
         }
@@ -233,25 +234,6 @@ where T: Encoder<Item = U::Item>,
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
-    }
-}
-
-impl<T, U> ::tower_http_service::Body for Encode<T, U>
-where T: Encoder<Item = U::Item>,
-      U: Stream,
-      U::Error: Into<Box<dyn std::error::Error>>,
-{
-    type Item = <::bytes::Bytes as IntoBuf>::Buf;
-    type Error = Status;
-
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let item = try_ready!(Body::poll_data(self));
-        Ok(item.map(|buf| buf.into_buf()).into())
-    }
-
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        Body::poll_metadata(self)
-            .map_err(From::from)
     }
 }
 
@@ -328,6 +310,7 @@ where T: Decoder,
 impl<T, U> Stream for Streaming<T, U>
 where T: Decoder,
       U: Body,
+      U::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = T::Item;
     type Error = Status;
@@ -343,7 +326,11 @@ where T: Decoder,
                 None => (),
             }
 
-            let chunk = try_ready!(self.inner.poll_data());
+            let chunk = try_ready!(self.inner.poll_buf().map_err(|err| {
+                let err = err.into();
+                debug!("decoder inner stream error: {:?}", err);
+                Status::from_error(&*err)
+            }));
 
             if let Some(data) = chunk {
                 self.bufs.bufs.push_back(data.into_buf());
@@ -361,7 +348,12 @@ where T: Decoder,
         }
 
         if let Direction::Response(status_code) = self.direction {
-            match infer_grpc_status(try_ready!(self.inner.poll_metadata()), status_code) {
+            let trailers = try_ready!(self.inner.poll_trailers().map_err(|err| {
+                let err = err.into();
+                debug!("decoder inner trailers error: {:?}", err);
+                Status::from_error(&*err)
+            }));
+            match infer_grpc_status(trailers, status_code) {
                 Ok(_) => Ok(Async::Ready(None)),
                 Err(err) => Err(err),
             }
@@ -375,7 +367,7 @@ impl<T, B> fmt::Debug for Streaming<T, B>
 where
     T: fmt::Debug,
     B: Body + fmt::Debug,
-    <B::Data as IntoBuf>::Buf: fmt::Debug,
+    B::Item: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Streaming")

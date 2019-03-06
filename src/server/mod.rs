@@ -24,6 +24,7 @@ where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.unary(service, request);
@@ -37,6 +38,7 @@ where T: ClientStreamingService<Streaming<R, B>>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.client_streaming(service, request);
@@ -50,6 +52,7 @@ where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.server_streaming(service, request);
@@ -63,6 +66,7 @@ where T: StreamingService<Streaming<R, B>>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.streaming(service, request);

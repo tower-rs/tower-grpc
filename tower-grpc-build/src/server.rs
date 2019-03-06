@@ -305,7 +305,7 @@ macro_rules! try_ready {
                 .arg_mut_self()
                 .arg("request", "http::Request<tower_h2::RecvBody>")
                 .ret("Self::Future")
-                .line("let request = request.map(|b| grpc::BoxBody::new(Box::new(b)));")
+                .line("let request = request.map(|b| grpc::BoxBody::map_from(b));")
                 .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)")
                 ;
         }
@@ -400,12 +400,13 @@ macro_rules! try_ready {
                 .target_generic("T")
                 .impl_trait("grpc::Body")
                 .bound("T", &service.name)
-                .associate_type("Data", "bytes::Bytes")
+                .associate_type("Item", "<grpc::BoxBody as grpc::Body>::Item")
+                .associate_type("Error", "grpc::Status")
                 ;
 
             let mut is_end_stream_block = codegen::Block::new("match self.kind");
-            let mut poll_data_block = codegen::Block::new("match self.kind");
-            let mut poll_metadata_block = codegen::Block::new("match self.kind");
+            let mut poll_buf_block = codegen::Block::new("match self.kind");
+            let mut poll_trailers_block = codegen::Block::new("match self.kind");
 
             for method in &service.methods {
                 let upper_name = ::to_upper_camel(&method.proto_name);
@@ -416,15 +417,15 @@ macro_rules! try_ready {
                         &upper_name
                     ));
 
-                poll_data_block
+                poll_buf_block
                     .line(&format!(
-                        "{}(ref mut v) => v.poll_data(),",
+                        "{}(ref mut v) => v.poll_buf(),",
                          &upper_name
                     ));
 
-                poll_metadata_block
+                poll_trailers_block
                     .line(&format!(
-                        "{}(ref mut v) => v.poll_metadata(),",
+                        "{}(ref mut v) => v.poll_trailers(),",
                          &upper_name
                     ));
             }
@@ -434,12 +435,12 @@ macro_rules! try_ready {
                     "{}(_) => true,",
                     UNIMPLEMENTED_VARIANT
                 ));
-            poll_data_block
+            poll_buf_block
                 .line(&format!(
                     "{}(_) => Ok(None.into()),",
                     UNIMPLEMENTED_VARIANT
                 ));
-            poll_metadata_block
+            poll_trailers_block
                 .line(&format!(
                     "{}(_) => Ok(None.into()),",
                     UNIMPLEMENTED_VARIANT
@@ -453,45 +454,20 @@ macro_rules! try_ready {
                 .push_block(is_end_stream_block)
                 ;
 
-            imp.new_fn("poll_data")
-                .arg_mut_self()
-                .ret("futures::Poll<Option<Self::Data>, grpc::Status>")
-                .line("use self::Kind::*;")
-                .line("")
-                .push_block(poll_data_block)
-                ;
-
-            imp.new_fn("poll_metadata")
-                .arg_mut_self()
-                .ret("futures::Poll<Option<http::HeaderMap>, grpc::Status>")
-                .line("use self::Kind::*;")
-                .line("")
-                .push_block(poll_metadata_block)
-                ;
-        }
-
-        // impl tower_http_service::Body
-        {
-            let imp = module.new_impl("ResponseBody")
-                .generic("T")
-                .target_generic("T")
-                .impl_trait("tower::HttpBody")
-                .bound("T", &service.name)
-                .associate_type("Item", "<bytes::Bytes as bytes::IntoBuf>::Buf")
-                .associate_type("Error", "grpc::Status")
-                ;
-
             imp.new_fn("poll_buf")
                 .arg_mut_self()
                 .ret("futures::Poll<Option<Self::Item>, Self::Error>")
-                .line("let item = try_ready!(grpc::Body::poll_data(self));")
-                .line("Ok(item.map(bytes::IntoBuf::into_buf).into())")
+                .line("use self::Kind::*;")
+                .line("")
+                .push_block(poll_buf_block)
                 ;
 
             imp.new_fn("poll_trailers")
                 .arg_mut_self()
                 .ret("futures::Poll<Option<http::HeaderMap>, Self::Error>")
-                .line("grpc::Body::poll_metadata(self)")
+                .line("use self::Kind::*;")
+                .line("")
+                .push_block(poll_trailers_block)
                 ;
         }
     }

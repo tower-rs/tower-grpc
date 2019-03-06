@@ -3,7 +3,6 @@ use super::client_streaming;
 
 use std::fmt;
 
-use bytes::IntoBuf;
 use futures::{stream, Future, Poll};
 use http::{Response};
 use prost::Message;
@@ -26,6 +25,7 @@ where T: Message + Default,
       U: Future<Item = Response<B>>,
       U::Error: Into<Box<dyn std::error::Error>>,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = ::Response<T>;
     type Error = ::Status;
@@ -40,7 +40,7 @@ where
     T: fmt::Debug,
     U: fmt::Debug,
     B: Body + fmt::Debug,
-    <B::Data as IntoBuf>::Buf: fmt::Debug,
+    B::Item: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ResponseFuture")

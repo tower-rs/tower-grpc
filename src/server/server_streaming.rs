@@ -4,7 +4,6 @@ use generic::server::{ServerStreamingService, server_streaming};
 
 use std::fmt;
 
-use bytes::IntoBuf;
 use {h2, http, prost};
 use futures::{Future, Poll};
 
@@ -12,6 +11,7 @@ pub struct ResponseFuture<T, B, R>
 where
     T: ServerStreamingService<R>,
     B: Body,
+    B::Error: Into<Box<dyn std::error::Error>>,
     R: prost::Message + Default,
 {
     inner: Inner<T, T::Response, R, B>,
@@ -25,6 +25,7 @@ where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
@@ -36,6 +37,7 @@ where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
+      B::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
     type Error = h2::Error;
@@ -54,7 +56,8 @@ where T: ServerStreamingService<R> + fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
       B: Body + fmt::Debug,
-      <B::Data as IntoBuf>::Buf: fmt::Debug,
+      B::Error: Into<Box<dyn std::error::Error>>,
+      B::Item: fmt::Debug,
       R: prost::Message + Default,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

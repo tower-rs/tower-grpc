@@ -95,7 +95,7 @@ impl ServiceGenerator {
                 .vis("pub")
                 .generic("R")
                 .bound("T", "tower::HttpService<R>")
-                .bound("T::ResponseBody", "grpc::Body")
+                .bound("<T::ResponseBody as grpc::Body>::Error", "Into<Box<std::error::Error>>")
                 .bound("T::Error", "Into<Box<::std::error::Error>>")
                 .arg_mut_self()
                 .line(format!("let path = http::PathAndQuery::from_static({});", path))
