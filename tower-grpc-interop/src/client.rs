@@ -557,7 +557,7 @@ impl TestClients {
                     "call must repsond with expected status message",
                     match &result {
                         Err(status) =>
-                            status.error_message() == TEST_STATUS_MESSAGE,
+                            status.message() == TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -584,7 +584,7 @@ impl TestClients {
             .and_then(|response_stream| {
                 // Convert the stream into a plain Vec
                 response_stream.into_inner()
-                    .map_err(|_error| panic!("Inner stream should not error!"))
+                    .map_err(From::from)
                     .collect()
             })
             .then(&validate_response);
@@ -614,7 +614,7 @@ impl TestClients {
                     "call must repsond with expected status message",
                     match &result {
                         Err(status) =>
-                            status.error_message() == SPECIAL_TEST_STATUS_MESSAGE,
+                            status.message() == SPECIAL_TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)

@@ -6,7 +6,7 @@ use generic::server::{StreamingService, ServerStreamingService, ClientStreamingS
 use http;
 
 #[derive(Debug, Clone)]
-pub struct Grpc<T> {
+pub(crate) struct Grpc<T> {
     codec: T,
 }
 
@@ -15,11 +15,11 @@ pub struct Grpc<T> {
 impl<T> Grpc<T>
 where T: Codec,
 {
-    pub fn new(codec: T) -> Self {
+    pub(crate) fn new(codec: T) -> Self {
         Grpc { codec }
     }
 
-    pub fn unary<S, B>(&mut self,
+    pub(crate) fn unary<S, B>(&mut self,
                        service: S,
                        request: http::Request<B>)
         -> unary::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
@@ -31,7 +31,7 @@ where T: Codec,
         unary::ResponseFuture::new(service, request, self.codec.encoder())
     }
 
-    pub fn client_streaming<S, B>(&mut self,
+    pub(crate) fn client_streaming<S, B>(&mut self,
                                service: &mut S,
                                request: http::Request<B>)
         -> client_streaming::ResponseFuture<S::Future, T::Encoder>
@@ -43,7 +43,7 @@ where T: Codec,
         client_streaming::ResponseFuture::new(response, self.codec.encoder())
     }
 
-    pub fn server_streaming<S, B>(&mut self,
+    pub(crate) fn server_streaming<S, B>(&mut self,
                                   service: S,
                                   request: http::Request<B>)
         -> server_streaming::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
@@ -55,7 +55,7 @@ where T: Codec,
         server_streaming::ResponseFuture::new(service, request, self.codec.encoder())
     }
 
-    pub fn streaming<S, B>(&mut self,
+    pub(crate) fn streaming<S, B>(&mut self,
                            service: &mut S,
                            request: http::Request<B>)
         -> streaming::ResponseFuture<S::Future, T::Encoder>

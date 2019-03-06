@@ -208,33 +208,33 @@ macro_rules! try_ready {
                                 "let service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::Grpc::unary(service, request);");
+                        handle.line("let response = grpc::unary(service, request);");
                     }
                     (false, true) => {
                         handle.line(&format!(
                                 "let service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::Grpc::server_streaming(service, request);");
+                        handle.line("let response = grpc::server_streaming(service, request);");
                     }
                     (true, false) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::Grpc::client_streaming(&mut service, request);");
+                        handle.line("let response = grpc::client_streaming(&mut service, request);");
                     }
                     (true, true) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::Grpc::streaming(&mut service, request);");
+                        handle.line("let response = grpc::streaming(&mut service, request);");
                     }
                 }
 
                 handle.line(&format!(
-                        "{}::ResponseFuture {{ kind: Ok({}(response)) }}",
+                        "{}::ResponseFuture {{ kind: {}(response) }}",
                         lower_name, &upper_name));
 
                 route_block.push_block(handle);
@@ -242,8 +242,11 @@ macro_rules! try_ready {
 
             let mut catch_all = codegen::Block::new("_ =>");
             catch_all
-                .line(&format!("{}::ResponseFuture {{ kind: Err(grpc::Status::new(grpc::Code::Unimplemented, format!(\"unknown service: {{:?}}\", request.uri().path()))) }}",
-                               lower_name));
+                .line(&format!(
+                    "{}::ResponseFuture {{ kind: {}(grpc::unimplemented(format!(\"unknown service: {{:?}}\", request.uri().path()))) }}",
+                    lower_name,
+                    UNIMPLEMENTED_VARIANT,
+                ));
 
             route_block.push_block(catch_all);
             call.push_block(route_block);
@@ -312,15 +315,11 @@ macro_rules! try_ready {
                               service: &prost_build::Service,
                               module: &mut codegen::Module)
     {
-        let mut ty = codegen::Type::new("Result");
-        ty.generic(response_fut_kind(service));
-        ty.generic("grpc::Status");
-
         module.new_struct("ResponseFuture")
             .generic("T")
             .bound("T", &service.name)
             .vis("pub")
-            .field("pub(super) kind", ty)
+            .field("pub(super) kind", response_fut_kind(service))
             ;
 
         module.new_impl("ResponseFuture")
@@ -342,14 +341,14 @@ macro_rules! try_ready {
                     let upper_name = ::to_upper_camel(&method.proto_name);
 
                     let match_line = format!(
-                        "Ok({}(ref mut fut)) =>", &upper_name
+                        "{}(ref mut fut) =>", &upper_name
                     );
 
                     let mut blk = codegen::Block::new(&match_line);
                     blk
                         .line("let response = try_ready!(fut.poll());")
                         .line("let (head, body) = response.into_parts();")
-                        .line(&format!("let body = ResponseBody {{ kind: Ok({}(body)) }};", &upper_name))
+                        .line(&format!("let body = ResponseBody {{ kind: {}(body) }};", &upper_name))
                         .line("let response = http::Response::from_parts(head, body);")
                         .line("Ok(response.into())")
                         ;
@@ -357,11 +356,17 @@ macro_rules! try_ready {
                     match_kind.push_block(blk);
                 }
 
-                let mut err = codegen::Block::new("Err(ref status) =>");
+                let mut err = codegen::Block::new(&format!(
+                    "{}(ref mut fut) =>",
+                    UNIMPLEMENTED_VARIANT,
+                ));
 
-                err
-                    .line("let body = ResponseBody { kind: Err(status.clone()) };")
-                    .line("Ok(grpc::Response::new(body).into_http().into())")
+               err
+                    .line("let response = try_ready!(fut.poll());")
+                    .line("let (head, body) = response.into_parts();")
+                    .line(&format!("let body = ResponseBody {{ kind: {}(body) }};", UNIMPLEMENTED_VARIANT))
+                    .line("let response = http::Response::from_parts(head, body);")
+                    .line("Ok(response.into())")
                     ;
 
                 match_kind.push_block(err);
@@ -381,15 +386,11 @@ macro_rules! try_ready {
             }
         }
 
-        let mut ty = codegen::Type::new("Result");
-        ty.generic(response_body_kind(service));
-        ty.generic("grpc::Status");
-
         module.new_struct("ResponseBody")
             .generic("T")
             .bound("T", &service.name)
             .vis("pub")
-            .field("pub(super) kind", ty)
+            .field("pub(super) kind", response_body_kind(service))
             ;
 
         // impl grpc::Body
@@ -411,32 +412,38 @@ macro_rules! try_ready {
 
                 is_end_stream_block
                     .line(&format!(
-                        "Ok({}(ref v)) => v.is_end_stream(),",
+                        "{}(ref v) => v.is_end_stream(),",
                         &upper_name
                     ));
 
                 poll_data_block
                     .line(&format!(
-                        "Ok({}(ref mut v)) => v.poll_data(),",
+                        "{}(ref mut v) => v.poll_data(),",
                          &upper_name
                     ));
 
                 poll_metadata_block
                     .line(&format!(
-                        "Ok({}(ref mut v)) => v.poll_metadata(),",
+                        "{}(ref mut v) => v.poll_metadata(),",
                          &upper_name
                     ));
             }
 
-            is_end_stream_block.line("Err(_) => true,");
-            poll_data_block.line("Err(_) => Ok(None.into()),");
-
-        let mut poll_metadata_catch_all = codegen::Block::new("Err(ref status) =>");
-            poll_metadata_catch_all
-            .line("status.to_header_map().map(Some).map(Into::into)")
-            ;
-
-            poll_metadata_block.push_block(poll_metadata_catch_all);
+            is_end_stream_block
+                .line(&format!(
+                    "{}(_) => true,",
+                    UNIMPLEMENTED_VARIANT
+                ));
+            poll_data_block
+                .line(&format!(
+                    "{}(_) => Ok(None.into()),",
+                    UNIMPLEMENTED_VARIANT
+                ));
+            poll_metadata_block
+                .line(&format!(
+                    "{}(_) => Ok(None.into()),",
+                    UNIMPLEMENTED_VARIANT
+                ));
 
             imp.new_fn("is_end_stream")
                 .arg_ref_self()
@@ -497,6 +504,7 @@ macro_rules! try_ready {
             .vis("pub(super)")
             .derive("Debug")
             .derive("Clone")
+            .allow("non_camel_case_types")
             ;
 
         for method in &service.methods {
@@ -507,6 +515,12 @@ macro_rules! try_ready {
                 .tuple(&upper_name)
                 ;
         }
+
+        // Unimplemented variant
+        kind_enum.generic(UNIMPLEMENTED_VARIANT);
+        kind_enum.new_variant(UNIMPLEMENTED_VARIANT)
+            .tuple(UNIMPLEMENTED_VARIANT)
+            ;
     }
 
     fn define_service_method(&self,
@@ -578,15 +592,13 @@ macro_rules! try_ready {
 fn response_fut_kind(service: &prost_build::Service) -> String {
     use std::fmt::Write;
 
-    // Handle theempty case...
-    if service.methods.is_empty() {
-        return "Kind".to_string();
-    }
-
     let mut ret = "Kind<\n".to_string();
 
     // grpc::unary::ResponseFuture<methods::SayHello<T>, grpc::BoxBody>
     for method in &service.methods {
+        // Add a comment describing this generic
+        write!(&mut ret, "    // {}\n", method.proto_name).unwrap();
+
         let upper_name = ::to_upper_camel(&method.proto_name);
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
@@ -610,22 +622,24 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
         }
     }
 
+    // Unimplemented variant
+    write!(&mut ret, "    // A generated catch-all for unimplemented service calls\n").unwrap();
+    write!(&mut ret, "    grpc::unimplemented::ResponseFuture,\n").unwrap();
+
     ret.push_str(">");
     ret
 }
 
+static UNIMPLEMENTED_VARIANT: &str = "__Generated__Unimplemented";
+
 fn response_body_kind(service: &prost_build::Service) -> String {
     use std::fmt::Write;
-
-    // Handle theempty case...
-    if service.methods.is_empty() {
-        return "Kind".to_string();
-    }
 
     let mut ret = "Kind<\n".to_string();
 
     // grpc::Encode<grpc::unary::Once<<methods::SayHello<T> as grpc::UnaryService>::Response>>
     for method in &service.methods {
+        write!(&mut ret, "    // {}\n", method.proto_name).unwrap();
         let upper_name = ::to_upper_camel(&method.proto_name);
 
         match (method.client_streaming, method.server_streaming) {
@@ -649,6 +663,10 @@ fn response_body_kind(service: &prost_build::Service) -> String {
             }
         }
     }
+
+    // Unimplemented variant
+    write!(&mut ret, "    // A generated catch-all for unimplemented service calls\n").unwrap();
+    write!(&mut ret, "    (),\n").unwrap();
 
     ret.push_str(">");
     ret
