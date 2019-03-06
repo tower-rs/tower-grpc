@@ -566,7 +566,16 @@ impl TestClients {
             future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
         }
 
-        let req = SimpleRequest {
+        let simple_req = SimpleRequest {
+            response_status: Some(pb::EchoStatus {
+                code: 2,
+                message: TEST_STATUS_MESSAGE.to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let duplex_req = pb::StreamingOutputCallRequest {
             response_status: Some(pb::EchoStatus {
                 code: 2,
                 message: TEST_STATUS_MESSAGE.to_string(),
@@ -576,11 +585,11 @@ impl TestClients {
         };
 
         let unary_call = self.test_client
-            .unary_call(Request::new(req.clone()))
+            .unary_call(Request::new(simple_req))
             .then(&validate_response);
 
         let full_duplex_call = self.test_client
-            .full_duplex_call(Request::new(stream::iter_ok(vec![req])))
+            .full_duplex_call(Request::new(stream::iter_ok(vec![duplex_req])))
             .and_then(|response_stream| {
                 // Convert the stream into a plain Vec
                 response_stream.into_inner()
