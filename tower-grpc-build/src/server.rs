@@ -166,10 +166,13 @@ macro_rules! try_ready {
 
         // Implement service trait
         let mut service_impl = codegen::Impl::new(&name);
-        service_impl.impl_trait("tower::Service<http::Request<grpc::BoxBody>>")
+        service_impl.impl_trait("tower::Service<http::Request<B>>")
             .generic("T")
+            .generic("B")
             .target_generic("T")
             .bound("T", &service.name)
+            .bound("B", "grpc::Body + Send + 'static")
+            .bound("B::Item", "Into<bytes::Bytes>")
             .associate_type("Response", &response_type)
             .associate_type("Error", "h2::Error")
             .associate_type("Future", &format!("{}::ResponseFuture<T>", lower_name))
@@ -184,11 +187,14 @@ macro_rules! try_ready {
         {
             let call = service_impl.new_fn("call")
                 .arg_mut_self()
-                .arg("request", "http::Request<grpc::BoxBody>")
+                .arg("request", "http::Request<B>")
                 .ret("Self::Future")
                 .line(&format!("use self::{}::Kind::*;", lower_name))
                 .line("")
                 ;
+
+            // The BoxBody::map_request is inside the match block since the
+            // unimplemented catch-all arm doesn't need it at all.
 
             let mut route_block = codegen::Block::new("match request.uri().path()");
 
@@ -208,28 +214,28 @@ macro_rules! try_ready {
                                 "let service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::unary(service, request);");
+                        handle.line("let response = grpc::unary(service, grpc::BoxBody::map_request(request));");
                     }
                     (false, true) => {
                         handle.line(&format!(
                                 "let service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::server_streaming(service, request);");
+                        handle.line("let response = grpc::server_streaming(service, grpc::BoxBody::map_request(request));");
                     }
                     (true, false) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::client_streaming(&mut service, request);");
+                        handle.line("let response = grpc::client_streaming(&mut service, grpc::BoxBody::map_request(request));");
                     }
                     (true, true) => {
                         handle.line(&format!(
                                 "let mut service = {}::methods::{}(self.{}.clone());",
                                 lower_name, &upper_name, lower_name));
 
-                        handle.line("let response = grpc::streaming(&mut service, request);");
+                        handle.line("let response = grpc::streaming(&mut service, grpc::BoxBody::map_request(request));");
                     }
                 }
 
@@ -278,35 +284,6 @@ macro_rules! try_ready {
                 .arg("_target", "()")
                 .ret("Self::Future")
                 .line("futures::ok(self.clone())")
-                ;
-        }
-
-        #[cfg(feature = "tower-h2")]
-        // Service that converts tower_grpc::BoxBody to tower_h2 bodies
-        {
-            let imp = scope.new_impl(&name)
-                .generic("T")
-                .target_generic("T")
-                .impl_trait("tower::Service<http::Request<tower_h2::RecvBody>>")
-                .bound("T", &service.name)
-                .associate_type("Response", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Response")
-                .associate_type("Error", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Error")
-                .associate_type("Future", "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Future")
-                ;
-
-
-            imp.new_fn("poll_ready")
-                .arg_mut_self()
-                .ret("futures::Poll<(), Self::Error>")
-                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)")
-                ;
-
-            imp.new_fn("call")
-                .arg_mut_self()
-                .arg("request", "http::Request<tower_h2::RecvBody>")
-                .ret("Self::Future")
-                .line("let request = request.map(|b| grpc::BoxBody::map_from(b));")
-                .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)")
                 ;
         }
     }

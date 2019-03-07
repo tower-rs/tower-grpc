@@ -38,17 +38,16 @@ pub mod server {
         pub use ::h2::Error;
     }
 
+    /// Re-exported types from the `bytes` crate.
+    pub mod bytes {
+        pub use ::bytes::Bytes;
+    }
+
     /// Re-exported types from the `tower` crate.
     pub mod tower {
         pub use ::tower_service::Service;
         pub use ::tower_util::MakeService;
         pub use ::tower_http_service::{Body as HttpBody};
-    }
-
-    #[cfg(feature = "tower-h2")]
-    /// Re-exported types from `tower-h2` crate.
-    pub mod tower_h2 {
-        pub use ::tower_h2::{Body, RecvBody};
     }
 }
 

@@ -14,8 +14,6 @@ extern crate tower_http_service;
 extern crate tower_service;
 extern crate tower_util;
 
-#[cfg(feature = "tower-h2")]
-extern crate tower_h2;
 #[cfg(feature = "protobuf")]
 extern crate prost;
 

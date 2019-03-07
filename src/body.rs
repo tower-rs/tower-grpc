@@ -5,6 +5,7 @@ use futures::Poll;
 use http;
 pub use tower_http_service::Body as HttpBody;
 
+use Status;
 use self::sealed::Sealed;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
@@ -54,7 +55,7 @@ where
 {}
 
 /// Dynamic `Send` body object.
-pub struct BoxBody<T = BytesBuf, E = ::Status> {
+pub struct BoxBody<T = BytesBuf, E = Status> {
     inner: Box<Body<Item = T, Error = E> + Send>,
 }
 
@@ -76,10 +77,20 @@ impl BoxBody {
     pub fn map_from<B>(inner: B) -> Self
     where
         B: Body + Send + 'static,
-        Bytes: From<B::Item>,
-        ::Status: From<B::Error>,
+        B::Item: Into<Bytes>,
     {
         BoxBody::new(Box::new(MapBody(inner)))
+    }
+
+    /// Map an `http::Request<B>` into an `http::Request<BoxBody>`.
+    pub fn map_request<B>(req: ::http::Request<B>) -> ::http::Request<Self>
+    where
+        B: Body + Send + 'static,
+        B::Item: Into<Bytes>,
+    {
+        req.map(|inner| {
+            BoxBody::new(Box::new(MapBody(inner)))
+        })
     }
 }
 
@@ -116,23 +127,22 @@ impl<T> fmt::Debug for BoxBody<T> {
 impl<B> HttpBody for MapBody<B>
 where
     B: Body,
-    Bytes: From<B::Item>,
-    ::Status: From<B::Error>,
+    B::Item: Into<Bytes>,
 {
     type Item = BytesBuf;
-    type Error = ::Status;
+    type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.0.is_end_stream()
     }
 
     fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let item = try_ready!(self.0.poll_buf());
-        Ok(item.map(|buf| Bytes::from(buf).into_buf()).into())
+        let item = try_ready!(self.0.poll_buf().map_err(Status::map_error));
+        Ok(item.map(|buf| buf.into().into_buf()).into())
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        self.0.poll_trailers().map_err(From::from)
+        self.0.poll_trailers().map_err(Status::map_error)
     }
 }
 
