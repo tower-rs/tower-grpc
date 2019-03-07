@@ -347,9 +347,9 @@ macro_rules! try_ready {
                     let mut blk = codegen::Block::new(&match_line);
                     blk
                         .line("let response = try_ready!(fut.poll());")
-                        .line("let (head, body) = response.into_parts();")
-                        .line(&format!("let body = ResponseBody {{ kind: {}(body) }};", &upper_name))
-                        .line("let response = http::Response::from_parts(head, body);")
+                        .line("let response = response.map(|body| {")
+                        .line(&format!("    ResponseBody {{ kind: {}(body) }}", &upper_name))
+                        .line("});")
                         .line("Ok(response.into())")
                         ;
 
@@ -363,9 +363,9 @@ macro_rules! try_ready {
 
                err
                     .line("let response = try_ready!(fut.poll());")
-                    .line("let (head, body) = response.into_parts();")
-                    .line(&format!("let body = ResponseBody {{ kind: {}(body) }};", UNIMPLEMENTED_VARIANT))
-                    .line("let response = http::Response::from_parts(head, body);")
+                    .line("let response = response.map(|body| {")
+                    .line(&format!("    ResponseBody {{ kind: {}(body) }}", UNIMPLEMENTED_VARIANT))
+                    .line("});")
                     .line("Ok(response.into())")
                     ;
 

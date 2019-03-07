@@ -93,15 +93,7 @@ where T: Future<Item = Response<U>, Error = ::Status> {
 impl<T> Once<T> {
     /// Map a response to a response of a `Once` stream
     pub(super) fn map(response: Response<T>) -> Response<Self> {
-        // A bunch of junk to map the body type
-        let http = response.into_http();
-        let (head, body) = http.into_parts();
-
-        // Wrap with `Once`
-        let body = Once { inner: Some(body) };
-
-        let http = ::http::Response::from_parts(head, body);
-        Response::from_http(http)
+        response.map(|body| Once { inner: Some(body) })
     }
 }
 

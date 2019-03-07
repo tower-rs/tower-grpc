@@ -49,13 +49,9 @@ where T: Future<Item = Response<S>,
         };
 
         // Convert to an HTTP response
-        let response = response.into_http();
-
-        // Map the response body
-        let (mut head, body) = response.into_parts();
-
+        let mut response = response.into_http();
         // Set the content type
-        head.headers.insert(
+        response.headers_mut().insert(
             header::CONTENT_TYPE,
             header::HeaderValue::from_static(E::CONTENT_TYPE),
         );
@@ -63,10 +59,11 @@ where T: Future<Item = Response<S>,
         // Get the encoder
         let encoder = self.encoder.take().expect("encoder consumed");
 
-        // Encode the body
-        let body = Encode::response(encoder, body);
+        // Map the response body
+        let response = response.map(move |body| {
+            Encode::response(encoder, body)
+        });
 
-        // Success
-        Ok(http::Response::from_parts(head, body).into())
+        Ok(response.into())
     }
 }

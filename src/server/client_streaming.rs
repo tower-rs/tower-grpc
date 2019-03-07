@@ -41,9 +41,8 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());
-        let (head, body) = response.into_parts();
-        let body = Encode::new(body);
-        Ok(http::Response::from_parts(head, body).into())
+        let response = response.map(Encode::new);
+        Ok(response.into())
     }
 }
 
