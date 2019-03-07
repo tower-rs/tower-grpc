@@ -45,11 +45,9 @@ where T: Message + Default,
 
         let status_code = response.status();
 
-        // Destructure into the head / body
-        let (head, body) = response.into_parts();
 
         // Check the headers for `grpc-status`, in which case we should not parse the body.
-        let trailers_only_status = ::Status::from_header_map(&head.headers);
+        let trailers_only_status = ::Status::from_header_map(response.headers());
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
             if status.code() != Code::Ok {
@@ -62,8 +60,10 @@ where T: Message + Default,
         } else {
             Direction::EmptyResponse
         };
-        let body = Streaming::new(Decoder::new(), body, streaming_direction);
-        let response = Response::from_parts(head, body);
+
+        let response = response.map(move |body| {
+            Streaming::new(Decoder::new(), body, streaming_direction)
+        });
 
         Ok(::Response::from_http(response).into())
     }

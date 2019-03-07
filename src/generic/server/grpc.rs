@@ -72,16 +72,8 @@ where T: Codec,
         -> Request<Streaming<T::Decoder, B>>
     where B: Body,
     {
-        // Map the request body
-        let (head, body) = request.into_parts();
-
-        // Wrap the body stream with a decoder
-        let body = Streaming::new(self.codec.decoder(), body, Direction::Request);
-
-        // Reconstruct the HTTP request
-        let request = http::Request::from_parts(head, body);
-
-        // Convert the HTTP request to a gRPC request
-        Request::from_http(request)
+        Request::from_http(request.map(|body| {
+            Streaming::new(self.codec.decoder(), body, Direction::Request)
+        }))
     }
 }
