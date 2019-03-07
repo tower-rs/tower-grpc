@@ -5,6 +5,7 @@ use futures::Poll;
 use http;
 pub use tower_http_service::Body as HttpBody;
 
+use Status;
 use self::sealed::Sealed;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
@@ -54,42 +55,35 @@ where
 {}
 
 /// Dynamic `Send` body object.
-pub struct BoxBody<T = BytesBuf, E = ::Status> {
-    inner: Box<Body<Item = T, Error = E> + Send>,
+pub struct BoxBody {
+    inner: Box<Body<Item = BytesBuf, Error = Status> + Send>,
 }
 
 struct MapBody<B>(B);
 
 // ===== impl BoxBody =====
 
-impl<T, E> BoxBody<T, E> {
+impl BoxBody {
     /// Create a new `BoxBody` backed by `inner`.
-    pub fn new(inner: Box<Body<Item = T, Error = E> + Send>) -> Self {
+    pub fn new(inner: Box<Body<Item = BytesBuf, Error = Status> + Send>) -> Self {
         BoxBody {
             inner,
         }
     }
-}
 
-impl BoxBody {
     /// Create a new `BoxBody` mapping item and error to the default types.
     pub fn map_from<B>(inner: B) -> Self
     where
         B: Body + Send + 'static,
-        Bytes: From<B::Item>,
-        ::Status: From<B::Error>,
+        B::Item: Into<Bytes>,
     {
         BoxBody::new(Box::new(MapBody(inner)))
     }
 }
 
-impl<T, E> HttpBody for BoxBody<T, E>
-where
-    T: Buf,
-    E: Into<Error>,
-{
-    type Item = T;
-    type Error = E;
+impl HttpBody for BoxBody {
+    type Item = BytesBuf;
+    type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.inner.is_end_stream()
@@ -104,7 +98,7 @@ where
     }
 }
 
-impl<T> fmt::Debug for BoxBody<T> {
+impl fmt::Debug for BoxBody {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BoxBody")
             .finish()
@@ -116,23 +110,22 @@ impl<T> fmt::Debug for BoxBody<T> {
 impl<B> HttpBody for MapBody<B>
 where
     B: Body,
-    Bytes: From<B::Item>,
-    ::Status: From<B::Error>,
+    B::Item: Into<Bytes>,
 {
     type Item = BytesBuf;
-    type Error = ::Status;
+    type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.0.is_end_stream()
     }
 
     fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let item = try_ready!(self.0.poll_buf());
-        Ok(item.map(|buf| Bytes::from(buf).into_buf()).into())
+        let item = try_ready!(self.0.poll_buf().map_err(Status::map_error));
+        Ok(item.map(|buf| buf.into().into_buf()).into())
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        self.0.poll_trailers().map_err(From::from)
+        self.0.poll_trailers().map_err(Status::map_error)
     }
 }
 
