@@ -398,7 +398,7 @@ macro_rules! try_ready {
             let imp = module.new_impl("ResponseBody")
                 .generic("T")
                 .target_generic("T")
-                .impl_trait("grpc::Body")
+                .impl_trait("tower::HttpBody")
                 .bound("T", &service.name)
                 .associate_type("Item", "<grpc::BoxBody as grpc::Body>::Item")
                 .associate_type("Error", "grpc::Status")
