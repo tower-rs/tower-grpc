@@ -152,7 +152,7 @@ pub struct BufList<B> {
 impl<T, U> Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
-      U::Error: Into<Box<dyn std::error::Error>>,
+      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     fn new(encoder: T, inner: U, role: Role) -> Self {
         Encode {
@@ -182,7 +182,7 @@ where T: Encoder<Item = U::Item>,
 impl<T, U> HttpBody for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
-      U::Error: Into<Box<dyn std::error::Error>>,
+      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Item = <Bytes as IntoBuf>::Buf;
     type Error = Status;

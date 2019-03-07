@@ -77,6 +77,6 @@ pub mod client {
     }
 
     pub mod tower {
-        pub use ::tower_http_service::{Body as HttpBody, HttpService};
+        pub use ::tower_http_service::{Body as HttpBody};
     }
 }

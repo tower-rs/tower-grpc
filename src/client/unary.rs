@@ -23,9 +23,9 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      U::Error: Into<Box<dyn std::error::Error>>,
+      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
+      B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Item = ::Response<T>;
     type Error = ::Status;

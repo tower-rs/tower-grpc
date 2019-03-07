@@ -5,6 +5,10 @@ use http::header::HeaderValue;
 use std::{error::Error, fmt};
 use percent_encoding::percent_decode;
 
+const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
+const GRPC_STATUS_MESSAGE_HEADER: &str = "grpc-message";
+const GRPC_STATUS_DETAILS_HEADER: &str = "grpc-status-details-bin";
+
 /// A gRPC "status" describing the result of an RPC call.
 #[derive(Clone)]
 pub struct Status {
@@ -16,9 +20,29 @@ pub struct Status {
     details: Bytes,
 }
 
-const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
-const GRPC_STATUS_MESSAGE_HEADER: &str = "grpc-message";
-const GRPC_STATUS_DETAILS_HEADER: &str = "grpc-status-details-bin";
+/// gRPC status codes used by `Status`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Code {
+    Ok = 0,
+    Cancelled = 1,
+    Unknown = 2,
+    InvalidArgument = 3,
+    DeadlineExceeded = 4,
+    NotFound = 5,
+    AlreadyExists = 6,
+    PermissionDenied = 7,
+    ResourceExhausted = 8,
+    FailedPrecondition = 9,
+    Aborted = 10,
+    OutOfRange = 11,
+    Unimplemented = 12,
+    Internal = 13,
+    Unavailable = 14,
+    DataLoss = 15,
+    Unauthenticated = 16,
+}
+
+// ===== impl Status =====
 
 impl Status {
     /// Create a new `Status` with the associated code and message.
@@ -48,18 +72,76 @@ impl Status {
     // TODO: This should probably be made public eventually. Need to decide on
     // the exact argument type.
     pub(crate) fn from_error(err: &(dyn Error + 'static)) -> Status {
-        if let Some(status) = err.downcast_ref::<Status>() {
-            Status {
-                code: status.code,
-                message: status.message.clone(),
-                details: status.details.clone(),
+        Status::try_from_error(err)
+            .unwrap_or_else(|| {
+                Status::new(
+                    Code::Unknown,
+                    err.to_string(),
+                )
+            })
+    }
+
+    fn try_from_error(err: &(dyn Error + 'static)) -> Option<Status> {
+        let mut cause = Some(err);
+
+        while let Some(err) = cause {
+            if let Some(status) = err.downcast_ref::<Status>() {
+                return Some(Status {
+                    code: status.code,
+                    message: status.message.clone(),
+                    details: status.details.clone(),
+                });
+            } else if let Some(h2) = err.downcast_ref::<h2::Error>() {
+                return Some(Status::from_h2_error(h2));
             }
-        } else {
-            Status::new(
-                Code::Unknown,
-                err.to_string(),
-            )
+
+            cause = err.source();
         }
+
+        None
+    }
+
+    fn from_h2_error(err: &h2::Error) -> Status {
+        // See https://github.com/grpc/grpc/blob/3977c30/doc/PROTOCOL-HTTP2.md#errors
+        let code = match err.reason() {
+            Some(h2::Reason::NO_ERROR) |
+            Some(h2::Reason::PROTOCOL_ERROR) |
+            Some(h2::Reason::INTERNAL_ERROR) |
+            Some(h2::Reason::FLOW_CONTROL_ERROR) |
+            Some(h2::Reason::SETTINGS_TIMEOUT) |
+            Some(h2::Reason::COMPRESSION_ERROR) |
+            Some(h2::Reason::CONNECT_ERROR) => Code::Internal,
+            Some(h2::Reason::REFUSED_STREAM) => Code::Unavailable,
+            Some(h2::Reason::CANCEL) => Code::Cancelled,
+            Some(h2::Reason::ENHANCE_YOUR_CALM) => Code::ResourceExhausted,
+            Some(h2::Reason::INADEQUATE_SECURITY) => Code::PermissionDenied,
+
+            _ => Code::Unknown,
+        };
+
+
+        Status::new(
+            code,
+            format!("h2 protocol error: {}", err),
+        )
+    }
+
+    fn to_h2_error(&self) -> h2::Error {
+        // conservatively transform to h2 error codes...
+        let reason = match self.code {
+            Code::Cancelled => h2::Reason::CANCEL,
+            _ => h2::Reason::INTERNAL_ERROR,
+        };
+
+        reason.into()
+    }
+
+
+    pub(crate) fn map_error<E>(err: E) -> Status
+    where
+        E: Into<Box<dyn Error + Send + Sync>>,
+    {
+        Status::from_error(&*err.into())
     }
 
     pub(crate) fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
@@ -168,27 +250,67 @@ fn invalid_header_value_byte<Error: fmt::Display>(err: Error) -> Status {
     )
 }
 
-/// gRPC status codes used by `Status`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Code {
-    Ok = 0,
-    Cancelled = 1,
-    Unknown = 2,
-    InvalidArgument = 3,
-    DeadlineExceeded = 4,
-    NotFound = 5,
-    AlreadyExists = 6,
-    PermissionDenied = 7,
-    ResourceExhausted = 8,
-    FailedPrecondition = 9,
-    Aborted = 10,
-    OutOfRange = 11,
-    Unimplemented = 12,
-    Internal = 13,
-    Unavailable = 14,
-    DataLoss = 15,
-    Unauthenticated = 16,
+impl From<h2::Error> for Status {
+    fn from(err: h2::Error) -> Self {
+        Status::from_h2_error(&err)
+    }
 }
+
+impl From<Status> for h2::Error {
+    fn from(status: Status) -> Self {
+        status.to_h2_error()
+    }
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "grpc-status: {:?}, grpc-message: {:?}",
+            self.code(),
+            self.message()
+        )
+    }
+}
+
+impl Error for Status {}
+
+///
+/// Take the `Status` value from `trailers` if it is available, else from `status_code`.
+///
+pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), Status> {
+    if let Some(trailers) = trailers {
+        if let Some(status) = Status::from_header_map(&trailers) {
+            if status.code() == Code::Ok {
+                return Ok(());
+            } else {
+                return Err(status);
+            }
+        }
+    }
+    trace!("trailers missing grpc-status");
+    let code = match status_code {
+        // Borrowed from https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md
+        http::StatusCode::BAD_REQUEST => Code::Internal,
+        http::StatusCode::UNAUTHORIZED => Code::Unauthenticated,
+        http::StatusCode::FORBIDDEN => Code::PermissionDenied,
+        http::StatusCode::NOT_FOUND => Code::Unimplemented,
+        http::StatusCode::TOO_MANY_REQUESTS |
+        http::StatusCode::BAD_GATEWAY |
+        http::StatusCode::SERVICE_UNAVAILABLE |
+        http::StatusCode::GATEWAY_TIMEOUT => Code::Unavailable,
+        _ => Code::Unknown,
+    };
+
+    let msg = format!(
+        "grpc-status header missing, mapped from HTTP status code {}",
+        status_code.as_u16(),
+    );
+    let status = Status::new(code, msg);
+    Err(status)
+}
+
+// ===== impl Code =====
 
 impl Code {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Code {
@@ -253,84 +375,68 @@ impl Code {
     }
 }
 
-impl From<h2::Error> for Status {
-    fn from(err: h2::Error) -> Self {
-        // See https://github.com/grpc/grpc/blob/3977c30/doc/PROTOCOL-HTTP2.md#errors
-        let code = match err.reason() {
-            Some(h2::Reason::NO_ERROR) |
-            Some(h2::Reason::PROTOCOL_ERROR) |
-            Some(h2::Reason::INTERNAL_ERROR) |
-            Some(h2::Reason::FLOW_CONTROL_ERROR) |
-            Some(h2::Reason::SETTINGS_TIMEOUT) |
-            Some(h2::Reason::COMPRESSION_ERROR) |
-            Some(h2::Reason::CONNECT_ERROR) => Code::Internal,
-            Some(h2::Reason::REFUSED_STREAM) => Code::Unavailable,
-            Some(h2::Reason::CANCEL) => Code::Cancelled,
-            Some(h2::Reason::ENHANCE_YOUR_CALM) => Code::ResourceExhausted,
-            Some(h2::Reason::INADEQUATE_SECURITY) => Code::PermissionDenied,
 
-            _ => Code::Unknown,
-        };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
-        Status::new(
-            code,
-            format!("h2 protocol error: {}", err),
-        )
-    }
-}
+    #[derive(Debug)]
+    struct Nested(Error);
 
-impl From<Status> for h2::Error {
-    fn from(_status: Status) -> Self {
-        // TODO: implement
-        h2::Reason::INTERNAL_ERROR.into()
-    }
-}
-
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "grpc-status: {:?}, grpc-message: {:?}",
-            self.code(),
-            self.message()
-        )
-    }
-}
-
-impl Error for Status {}
-
-///
-/// Take the `Status` value from `trailers` if it is available, else from `status_code`.
-///
-pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), Status> {
-    if let Some(trailers) = trailers {
-        if let Some(status) = Status::from_header_map(&trailers) {
-            if status.code() == Code::Ok {
-                return Ok(());
-            } else {
-                return Err(status);
-            }
+    impl fmt::Display for Nested {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "nested error: {}", self.0)
         }
     }
-    trace!("trailers missing grpc-status");
-    let code = match status_code {
-        // Borrowed from https://github.com/grpc/grpc/blob/master/doc/http-grpc-status-mapping.md
-        http::StatusCode::BAD_REQUEST => Code::Internal,
-        http::StatusCode::UNAUTHORIZED => Code::Unauthenticated,
-        http::StatusCode::FORBIDDEN => Code::PermissionDenied,
-        http::StatusCode::NOT_FOUND => Code::Unimplemented,
-        http::StatusCode::TOO_MANY_REQUESTS |
-        http::StatusCode::BAD_GATEWAY |
-        http::StatusCode::SERVICE_UNAVAILABLE |
-        http::StatusCode::GATEWAY_TIMEOUT => Code::Unavailable,
-        _ => Code::Unknown,
-    };
 
-    let msg = format!(
-        "grpc-status header missing, mapped from HTTP status code {}",
-        status_code.as_u16(),
-    );
-    let status = Status::new(code, msg);
-    Err(status)
+    impl std::error::Error for Nested {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            Some(&*self.0)
+        }
+    }
+
+    #[test]
+    fn from_error_status() {
+        let orig = Status::new(Code::OutOfRange, "weeaboo");
+        let found = Status::from_error(&orig);
+
+        assert_eq!(orig.code(), found.code());
+        assert_eq!(orig.message(), found.message());
+    }
+
+    #[test]
+    fn from_error_unknown() {
+        let orig: Error = "peek-a-boo".into();
+        let found = Status::from_error(&*orig);
+
+        assert_eq!(found.code(), Code::Unknown);
+        assert_eq!(found.message(), orig.to_string());
+    }
+
+    #[test]
+    fn from_error_nested() {
+        let orig = Nested(Box::new(Status::new(Code::OutOfRange, "weeaboo")));
+        let found = Status::from_error(&orig);
+
+        assert_eq!(found.code(), Code::OutOfRange);
+        assert_eq!(found.message(), "weeaboo");
+    }
+
+    #[test]
+    fn from_error_h2() {
+        let orig = h2::Error::from(h2::Reason::CANCEL);
+        let found = Status::from_error(&orig);
+
+        assert_eq!(found.code(), Code::Cancelled);
+    }
+
+    #[test]
+    fn to_h2_error() {
+        let orig = Status::new(Code::Cancelled, "stop eet!");
+        let err = orig.to_h2_error();
+
+        assert_eq!(err.reason(), Some(h2::Reason::CANCEL));
+    }
 }
