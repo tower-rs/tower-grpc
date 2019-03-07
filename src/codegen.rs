@@ -63,6 +63,7 @@ pub mod client {
             server_streaming,
             streaming,
         };
+        pub use ::generic::client::GrpcService;
         pub use ::{Body, Request, Response, Code, Status};
     }
 

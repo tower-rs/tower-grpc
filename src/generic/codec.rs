@@ -1,4 +1,5 @@
-use {Body, Status};
+use body::{Body, HttpBody};
+use Status;
 
 use bytes::{Buf, BufMut, BytesMut, Bytes, IntoBuf};
 use futures::{Stream, Poll, Async};
@@ -178,7 +179,7 @@ where T: Encoder<Item = U::Item>,
     }
 }
 
-impl<T, U> Body for Encode<T, U>
+impl<T, U> HttpBody for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
       U::Error: Into<Box<dyn std::error::Error>>,
@@ -310,7 +311,6 @@ where T: Decoder,
 impl<T, U> Stream for Streaming<T, U>
 where T: Decoder,
       U: Body,
-      U::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = T::Item;
     type Error = Status;

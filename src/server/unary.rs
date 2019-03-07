@@ -15,7 +15,6 @@ where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
 {
     inner: Inner<T, T::Response, R, B>,
 }
@@ -28,7 +27,6 @@ where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
 {
     pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
@@ -40,7 +38,6 @@ where T: UnaryService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = http::Response<Encode<Once<T::Response>>>;
     type Error = h2::Error;
@@ -59,7 +56,6 @@ where T: UnaryService<R> + fmt::Debug,
       T::Response: prost::Message + fmt::Debug,
       T::Future: fmt::Debug,
       B: Body + fmt::Debug,
-      B::Error: Into<Box<dyn std::error::Error>>,
       B::Item: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

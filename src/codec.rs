@@ -1,4 +1,4 @@
-use body::{Body, BoxBody};
+use body::{BoxBody, HttpBody};
 use generic::{EncodeBuf, DecodeBuf};
 
 use futures::{Stream, Poll};
@@ -150,12 +150,12 @@ where T: Stream<Error = ::Status>,
     }
 }
 
-impl<T> Body for Encode<T>
+impl<T> HttpBody for Encode<T>
 where T: Stream<Error = ::Status>,
       T::Item: ::prost::Message,
 {
-    type Item = <::generic::Encode<Encoder<T::Item>, T> as Body>::Item;
-    type Error = <::generic::Encode<Encoder<T::Item>, T> as Body>::Error;
+    type Item = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Item;
+    type Error = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Error;
 
     fn is_end_stream(&self) -> bool {
         false

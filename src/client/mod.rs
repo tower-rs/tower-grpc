@@ -6,9 +6,9 @@ pub mod streaming;
 use futures::{stream, Stream, Poll};
 use http::{uri, Uri};
 use prost::Message;
-use tower_http_service::HttpService;
 
-use body::{Body, BoxBody};
+use body::BoxBody;
+use generic::client::GrpcService;
 
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {
@@ -33,8 +33,7 @@ impl<T> Grpc<T> {
 
     pub fn poll_ready<R>(&mut self) -> Poll<(), ::Status>
     where
-        T: HttpService<R>,
-        T::Error: Into<Box<dyn std::error::Error>>,
+        T: GrpcService<R>,
     {
         self.inner.poll_ready()
             .map_err(|err| {
@@ -47,8 +46,7 @@ impl<T> Grpc<T> {
                          path: uri::PathAndQuery)
         -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
     where
-        T: HttpService<R>,
-        T::ResponseBody: Body,
+        T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
@@ -62,8 +60,7 @@ impl<T> Grpc<T> {
                                   path: uri::PathAndQuery)
         -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
     where
-        T: HttpService<R>,
-        T::ResponseBody: Body,
+        T: GrpcService<R>,
         B: Encodable<R>,
     {
         let response = self.streaming(request, path);
@@ -75,7 +72,7 @@ impl<T> Grpc<T> {
                                     path: uri::PathAndQuery)
         -> server_streaming::ResponseFuture<M2, T::Future>
     where
-        T: HttpService<R>,
+        T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
     {
         let request = request.map(|v| stream::once(Ok(v)));
@@ -96,7 +93,7 @@ impl<T> Grpc<T> {
                            path: uri::PathAndQuery)
         -> streaming::ResponseFuture<M, T::Future>
     where
-        T: HttpService<R>,
+        T: GrpcService<R>,
         B: Encodable<R>,
     {
         use http::header::{self, HeaderValue};

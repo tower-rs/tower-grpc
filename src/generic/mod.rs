@@ -1,5 +1,6 @@
 //! gRPC generic over encoder / decoder.
 
+pub mod client;
 pub mod server;
 
 mod codec;

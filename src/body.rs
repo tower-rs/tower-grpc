@@ -3,9 +3,55 @@ use std::fmt;
 use bytes::{Bytes, Buf, IntoBuf};
 use futures::Poll;
 use http;
-pub use tower_http_service::Body;
+pub use tower_http_service::Body as HttpBody;
+
+use self::sealed::Sealed;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
+type Error = Box<dyn std::error::Error + Send + Sync>;
+
+/// A "trait alias" for `tower_http_service::Body` with bounds required by
+/// tower-grpc.
+///
+/// Not to be implemented directly, but instead useful for reducing bounds
+/// boilerplate.
+pub trait Body: Sealed {
+    type Item: Buf;
+    type Error: Into<Error>;
+
+    fn is_end_stream(&self) -> bool;
+
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error>;
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error>;
+}
+
+impl<T> Body for T
+where
+    T: HttpBody,
+    T::Error: Into<Error>,
+{
+    type Item = T::Item;
+    type Error = T::Error;
+
+    fn is_end_stream(&self) -> bool {
+        HttpBody::is_end_stream(self)
+    }
+
+    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        HttpBody::poll_buf(self)
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        HttpBody::poll_trailers(self)
+    }
+}
+
+impl<T> Sealed for T
+where
+    T: HttpBody,
+    T::Error: Into<Error>,
+{}
 
 /// Dynamic `Send` body object.
 pub struct BoxBody<T = BytesBuf, E = ::Status> {
@@ -37,9 +83,10 @@ impl BoxBody {
     }
 }
 
-impl<T, E> Body for BoxBody<T, E>
+impl<T, E> HttpBody for BoxBody<T, E>
 where
     T: Buf,
+    E: Into<Error>,
 {
     type Item = T;
     type Error = E;
@@ -66,7 +113,7 @@ impl<T> fmt::Debug for BoxBody<T> {
 
 // ===== impl MapBody =====
 
-impl<B> Body for MapBody<B>
+impl<B> HttpBody for MapBody<B>
 where
     B: Body,
     Bytes: From<B::Item>,
@@ -87,4 +134,8 @@ where
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
         self.0.poll_trailers().map_err(From::from)
     }
+}
+
+mod sealed {
+    pub trait Sealed {}
 }

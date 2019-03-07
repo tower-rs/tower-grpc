@@ -26,7 +26,6 @@ where T: Codec,
     where S: UnaryService<T::Decode,
                          Response = T::Encode>,
           B: Body,
-          B::Error: Into<Box<dyn std::error::Error>>,
     {
         let request = self.map_request(request);
         unary::ResponseFuture::new(service, request, self.codec.encoder())
@@ -51,7 +50,6 @@ where T: Codec,
     where S: ServerStreamingService<T::Decode,
                                    Response = T::Encode>,
           B: Body,
-          B::Error: Into<Box<dyn std::error::Error>>,
     {
         let request = self.map_request(request);
         server_streaming::ResponseFuture::new(service, request, self.codec.encoder())

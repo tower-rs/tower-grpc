@@ -11,7 +11,6 @@ pub struct ResponseFuture<T, B, R>
 where
     T: ServerStreamingService<R>,
     B: Body,
-    B::Error: Into<Box<dyn std::error::Error>>,
     R: prost::Message + Default,
 {
     inner: Inner<T, T::Response, R, B>,
@@ -25,7 +24,6 @@ where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
 {
     pub(crate) fn new(inner: Inner<T, T::Response, R, B>) -> Self {
         ResponseFuture { inner }
@@ -37,7 +35,6 @@ where T: ServerStreamingService<R>,
       R: prost::Message + Default,
       T::Response: prost::Message,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error>>,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
     type Error = h2::Error;
@@ -56,7 +53,6 @@ where T: ServerStreamingService<R> + fmt::Debug,
       T::ResponseStream: fmt::Debug,
       T::Future: fmt::Debug,
       B: Body + fmt::Debug,
-      B::Error: Into<Box<dyn std::error::Error>>,
       B::Item: fmt::Debug,
       R: prost::Message + Default,
 {
