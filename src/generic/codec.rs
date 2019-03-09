@@ -10,6 +10,8 @@ use std::fmt;
 
 use status::infer_grpc_status;
 
+type BytesBuf = <Bytes as IntoBuf>::Buf;
+
 /// Encodes and decodes gRPC message types
 pub trait Codec {
     /// The encode type
@@ -184,7 +186,7 @@ where T: Encoder<Item = U::Item>,
       U: Stream,
       U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    type Item = <Bytes as IntoBuf>::Buf;
+    type Item = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
@@ -192,36 +194,22 @@ where T: Encoder<Item = U::Item>,
     }
 
     fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Status> {
-        match self.inner {
-            EncodeInner::Ok { ref mut inner, ref mut encoder } => {
-                let item = try_ready!(inner.poll().map_err(|err| {
-                    let err = err.into();
-                    debug!("encoder inner stream error: {:?}", err);
-                    Status::from_error(&*err)
-                }));
-
-                if let Some(item) = item {
-                    self.buf.reserve(5);
-                    unsafe { self.buf.advance_mut(5); }
-                    encoder.encode(item, &mut EncodeBuf {
-                        bytes: &mut self.buf,
-                    })?;
-
-                    // now that we know length, we can write the header
-                    let len = self.buf.len() - 5;
-                    assert!(len <= ::std::u32::MAX as usize);
-                    {
-                        let mut cursor = ::std::io::Cursor::new(&mut self.buf[..5]);
-                        cursor.put_u8(0); // byte must be 0, reserve doesn't auto-zero
-                        cursor.put_u32_be(len as u32);
+        match self.inner.poll_encode(&mut self.buf) {
+            Ok(ok) => Ok(ok),
+            Err(status) => {
+                match self.role {
+                    // clients don't send status' as trailers, so just return
+                    // this error directly to allow an HTTP2 rst_stream to be
+                    // sent.
+                    Role::Client => Err(status),
+                    // otherwise, its better to send this status in the
+                    // trailers, instead of a RST_STREAM as the server...
+                    Role::Server => {
+                        self.inner = EncodeInner::Err(status);
+                        Ok(None.into())
                     }
-
-                    Ok(Async::Ready(Some(self.buf.split_to(len + 5).freeze().into_buf())))
-                } else {
-                    Ok(Async::Ready(None))
                 }
-            }
-            _ => Ok(Async::Ready(None)),
+            },
         }
     }
 
@@ -235,6 +223,48 @@ where T: Encoder<Item = U::Item>,
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
+    }
+}
+
+impl<T, U> EncodeInner<T, U>
+where T: Encoder<Item = U::Item>,
+      U: Stream,
+      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    fn poll_encode(&mut self, buf: &mut BytesMut) -> Poll<Option<BytesBuf>, Status> {
+        match self {
+            EncodeInner::Ok { ref mut inner, ref mut encoder } => {
+                let item = try_ready!(inner.poll().map_err(|err| {
+                    let err = err.into();
+                    debug!("encoder inner stream error: {:?}", err);
+                    Status::from_error(&*err)
+                }));
+
+                let item = if let Some(item) = item {
+                    buf.reserve(5);
+                    unsafe { buf.advance_mut(5); }
+                    encoder.encode(item, &mut EncodeBuf {
+                        bytes: buf,
+                    })?;
+
+                    // now that we know length, we can write the header
+                    let len = buf.len() - 5;
+                    assert!(len <= ::std::u32::MAX as usize);
+                    {
+                        let mut cursor = ::std::io::Cursor::new(&mut buf[..5]);
+                        cursor.put_u8(0); // byte must be 0, reserve doesn't auto-zero
+                        cursor.put_u32_be(len as u32);
+                    }
+
+                    Some(buf.split_to(len + 5).freeze().into_buf())
+                } else {
+                    None
+                };
+
+                return Ok(Async::Ready(item));
+            }
+            _ => return Ok(Async::Ready(None)),
+        }
     }
 }
 
