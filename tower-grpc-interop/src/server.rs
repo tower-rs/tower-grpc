@@ -11,11 +11,11 @@ extern crate tokio;
 extern crate tower_h2;
 extern crate tower_grpc;
 
-use futures::{future, Future, Stream};
+use futures::{future, stream, Future, Stream};
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_h2::Server;
-use tower_grpc::{Request, Response};
+use tower_grpc::{Code, Request, Response, Status};
 
 mod pb {
     #![allow(dead_code)]
@@ -66,11 +66,21 @@ impl pb::server::TestService for Test {
     fn unary_call(&mut self, request: Request<pb::SimpleRequest>) -> Self::UnaryCallFuture {
         eprintln!("unary_call");
         let req = request.into_inner();
+
+        // EchoStatus
+        if let Some(echo_status) = req.response_status {
+            let status = Status::new(
+                Code::from_i32(echo_status.code),
+                echo_status.message,
+            );
+            return Box::new(future::err(status));
+        }
+
         let res_size = if req.response_size >= 0 {
             req.response_size as usize
         } else {
-            let status = tower_grpc::Status::new(
-                tower_grpc::Code::InvalidArgument,
+            let status = Status::new(
+                Code::InvalidArgument,
                 "response_size cannot be negative",
             );
             return Box::new(future::err(status));
@@ -108,8 +118,48 @@ impl pb::server::TestService for Test {
     /// A sequence of requests with each request served by the server immediately.
     /// As one request could lead to multiple responses, this interface
     /// demonstrates the idea of full duplexing.
-    fn full_duplex_call(&mut self, _request: Request<tower_grpc::Streaming<pb::StreamingOutputCallRequest>>) -> Self::FullDuplexCallFuture {
-        todo!("full_duplex_call");
+    fn full_duplex_call(&mut self, request: Request<tower_grpc::Streaming<pb::StreamingOutputCallRequest>>) -> Self::FullDuplexCallFuture {
+        eprintln!("full_duplex_call");
+        let rx = request
+            .into_inner()
+            .and_then(|req| {
+                // EchoStatus
+                if let Some(echo_status) = req.response_status {
+                    let status = Status::new(
+                        Code::from_i32(echo_status.code),
+                        echo_status.message,
+                    );
+                    return Err(status);
+                }
+
+                let mut resps = Vec::new();
+
+                for params in req.response_parameters {
+                    let res_size = if params.size >= 0 {
+                        params.size as usize
+                    } else {
+                        let status = tower_grpc::Status::new(
+                            tower_grpc::Code::InvalidArgument,
+                            "response_size cannot be negative",
+                        );
+                        return Err(status);
+                    };
+
+                    resps.push(pb::StreamingOutputCallResponse {
+                        payload: Some(pb::Payload {
+                            body: vec![0; res_size],
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    });
+                }
+
+                Ok(stream::iter_ok(resps))
+            })
+            .flatten();
+
+        let res = Response::new(Box::new(rx) as Self::FullDuplexCallStream);
+        Box::new(future::ok(res))
     }
 
     /// A sequence of requests followed by a sequence of responses.
