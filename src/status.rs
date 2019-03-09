@@ -40,6 +40,10 @@ pub enum Code {
     Unavailable = 14,
     DataLoss = 15,
     Unauthenticated = 16,
+
+    // New Codes may be added in the future, so never exhaustively match!
+    #[doc(hidden)]
+    __NonExhaustive,
 }
 
 // ===== impl Status =====
@@ -313,6 +317,13 @@ pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::
 // ===== impl Code =====
 
 impl Code {
+    /// Get the `Code` that represents the integer, if known.
+    ///
+    /// If not known, returns `Code::Unknown` (surprise!).
+    pub fn from_i32(i: i32) -> Code {
+        Code::from(i)
+    }
+
     pub(crate) fn from_bytes(bytes: &[u8]) -> Code {
         match bytes.len() {
             1 => {
@@ -366,12 +377,40 @@ impl Code {
             Code::Unavailable => HeaderValue::from_static("14"),
             Code::DataLoss => HeaderValue::from_static("15"),
             Code::Unauthenticated => HeaderValue::from_static("16"),
+
+            Code::__NonExhaustive => unreachable!("Code::__NonExhaustive"),
         }
     }
 
     fn parse_err() -> Code {
         trace!("error parsing grpc-status");
         Code::Unknown
+    }
+}
+
+impl From<i32> for Code {
+    fn from(i: i32) -> Self {
+        match i {
+            0  => Code::Ok,
+            1  => Code::Cancelled,
+            2  => Code::Unknown,
+            3  => Code::InvalidArgument,
+            4  => Code::DeadlineExceeded,
+            5  => Code::NotFound,
+            6  => Code::AlreadyExists,
+            7  => Code::PermissionDenied,
+            8  => Code::ResourceExhausted,
+            9  => Code::FailedPrecondition,
+            10 => Code::Aborted,
+            11 => Code::OutOfRange,
+            12 => Code::Unimplemented,
+            13 => Code::Internal,
+            14 => Code::Unavailable,
+            15 => Code::DataLoss,
+            16 => Code::Unauthenticated,
+
+            _ => Code::Unknown,
+        }
     }
 }
 
@@ -438,5 +477,25 @@ mod tests {
         let err = orig.to_h2_error();
 
         assert_eq!(err.reason(), Some(h2::Reason::CANCEL));
+    }
+
+    #[test]
+    fn code_from_i32() {
+        // This for loop should catch if we ever add a new variant and don't
+        // update From<i32>.
+        for i in 0..(Code::__NonExhaustive as i32) {
+            let code = Code::from(i);
+            assert_eq!(
+                i,
+                code as i32,
+                "Code::from({}) returned {:?} which is {}",
+                i,
+                code,
+                code as i32,
+            );
+        }
+
+        assert_eq!(Code::from(-1), Code::Unknown);
+        assert_eq!(Code::from(Code::__NonExhaustive as i32), Code::Unknown);
     }
 }
