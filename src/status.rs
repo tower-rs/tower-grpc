@@ -204,8 +204,7 @@ impl Status {
         &self.details
     }
 
-    // TODO: It would be nice for this not to be public
-    pub fn to_header_map(&self) -> Result<HeaderMap, Self> {
+    pub(crate) fn to_header_map(&self) -> Result<HeaderMap, Self> {
         let mut header_map = HeaderMap::with_capacity(3);
         self.add_header(&mut header_map)?;
         Ok(header_map)
@@ -357,8 +356,7 @@ impl Code {
         }
     }
 
-    // TODO: It would be nice for this not to be public
-    pub fn to_header_value(&self) -> HeaderValue {
+    fn to_header_value(&self) -> HeaderValue {
         match self {
             Code::Ok => HeaderValue::from_static("0"),
             Code::Cancelled => HeaderValue::from_static("1"),
