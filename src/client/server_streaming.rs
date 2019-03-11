@@ -1,6 +1,7 @@
 use Body;
 use super::streaming;
 use codec::{Streaming};
+use error::Error;
 
 use futures::{Future, Poll};
 use http::Response;
@@ -21,7 +22,7 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      U::Error: Into<Error>,
       B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;

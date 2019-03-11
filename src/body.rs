@@ -6,10 +6,10 @@ use http;
 pub use tower_http_service::Body as HttpBody;
 
 use Status;
+use error::Error;
 use self::sealed::Sealed;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
-type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// A "trait alias" for `tower_http_service::Body` with bounds required by
 /// tower-grpc.

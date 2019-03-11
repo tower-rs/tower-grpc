@@ -3,27 +3,30 @@ use http::{Request, Response};
 use tower_service::Service;
 
 use body::{Body, HttpBody};
+use error::Error;
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// A specialization of tower_service::Service.
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
 pub trait GrpcService<ReqBody> {
-
+    /// Response body type
     type ResponseBody: Body + HttpBody;
 
     /// Response future
     type Future: Future<Item = Response<Self::ResponseBody>, Error = Self::Error>;
 
+    /// Error type
     type Error: Into<Error>;
 
+    /// Poll that this service is ready.
     fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
-    /// Call the service
+    /// Call the service.
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future;
 
+    /// Helper when needing to pass this type to bounds needing `Service`.
     fn into_service(self) -> IntoService<Self>
     where
         Self: Sized
@@ -31,6 +34,7 @@ pub trait GrpcService<ReqBody> {
         IntoService(self)
     }
 
+    /// Helper when needing to pass this type to bounds needing `Service`.
     fn as_service(&mut self) -> AsService<Self>
     where
         Self: Sized
@@ -58,6 +62,7 @@ where
     }
 }
 
+/// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
 #[derive(Debug)]
 pub struct AsService<'a, T: 'a>(&'a mut T);
 
@@ -78,6 +83,7 @@ where
     }
 }
 
+/// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
 #[derive(Debug)]
 pub struct IntoService<T>(T);
 

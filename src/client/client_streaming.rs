@@ -1,6 +1,7 @@
 use Body;
 use super::streaming;
 use codec::{Streaming};
+use error::Error;
 
 use std::fmt;
 
@@ -33,9 +34,9 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where T: Message + Default,
       U: Future<Item = Response<B>>,
-      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      U::Error: Into<Error>,
       B: Body,
-      B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      B::Error: Into<Error>,
 {
     type Item = ::Response<T>;
     type Error = ::Status;

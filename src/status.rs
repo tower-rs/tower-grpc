@@ -416,8 +416,8 @@ impl From<i32> for Code {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use error::Error;
 
-    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     #[derive(Debug)]
     struct Nested(Error);

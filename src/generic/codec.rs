@@ -1,4 +1,5 @@
 use body::{Body, HttpBody};
+use error::Error;
 use Status;
 
 use bytes::{Buf, BufMut, BytesMut, Bytes, IntoBuf};
@@ -154,7 +155,7 @@ pub struct BufList<B> {
 impl<T, U> Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
-      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      U::Error: Into<Error>,
 {
     fn new(encoder: T, inner: U, role: Role) -> Self {
         Encode {
@@ -184,7 +185,7 @@ where T: Encoder<Item = U::Item>,
 impl<T, U> HttpBody for Encode<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
-      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      U::Error: Into<Error>,
 {
     type Item = BytesBuf;
     type Error = Status;
@@ -229,7 +230,7 @@ where T: Encoder<Item = U::Item>,
 impl<T, U> EncodeInner<T, U>
 where T: Encoder<Item = U::Item>,
       U: Stream,
-      U::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      U::Error: Into<Error>,
 {
     fn poll_encode(&mut self, buf: &mut BytesMut) -> Poll<Option<BytesBuf>, Status> {
         match self {
