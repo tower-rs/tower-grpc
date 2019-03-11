@@ -198,7 +198,7 @@ where T: Encoder<Item = U::Item>,
             Ok(ok) => Ok(ok),
             Err(status) => {
                 match self.role {
-                    // clients don't send status' as trailers, so just return
+                    // clients don't send statuses as trailers, so just return
                     // this error directly to allow an HTTP2 rst_stream to be
                     // sent.
                     Role::Client => Err(status),
