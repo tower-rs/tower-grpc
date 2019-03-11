@@ -1,4 +1,5 @@
 use {Response};
+use error::Error;
 use generic::{Encoder, Encode};
 
 use {http, h2};
@@ -32,7 +33,7 @@ where T: Future<Item = Response<S>,
                Error = ::Status>,
       E: Encoder,
       S: Stream<Item = E::Item>,
-      S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+      S::Error: Into<Error>,
 {
     type Item = http::Response<Encode<E, S>>;
     type Error = h2::Error;
