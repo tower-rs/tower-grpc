@@ -129,10 +129,11 @@ impl Status {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
-            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(
-                    Box::leak(utf8_percent_encode(&self.message(), DEFAULT_ENCODE_SET)
+            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(
+                    Bytes::from(
+                        utf8_percent_encode(&self.message(), DEFAULT_ENCODE_SET)
                         .to_string()
-                        .into_boxed_str()))
+                        .as_bytes()))
                 .map_err(invalid_header_value_byte)?);
         }
         if !self.details.is_empty() {
