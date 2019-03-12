@@ -129,13 +129,26 @@ impl Status {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
-            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(
+            // copy from percent_encoding document: 
+            // All ASCII charcters less than hexidecimal 20 and greater than 7E are encoded
+            // so detect byte beyond range of decimal 32 to 128
+            let split = &self.message().as_bytes().iter().position(|&x| x <= 32 || x >= 128);
+            let to_write = 
+            match split{
+                Some(_) => {
                     Bytes::from(
-                        utf8_percent_encode(&self.message(), DEFAULT_ENCODE_SET)
+                        percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
                         .to_string()
-                        .as_bytes()))
-                .map_err(invalid_header_value_byte)?);
+                        .as_bytes())
+                },
+                None => {
+                    Bytes::from(self.message().as_bytes())
+                }
+            };
+            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(to_write)
+                    .map_err(invalid_header_value_byte)?);  
         }
+        
         if !self.details.is_empty() {
             header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.details.clone())
                 .map_err(invalid_header_value_byte)?);
