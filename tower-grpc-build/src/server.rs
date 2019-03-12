@@ -110,7 +110,7 @@ macro_rules! try_ready {
                 ;
 
             for &ty in [&method.input_type, &method.output_type].iter() {
-                if !::is_imported_type(ty) {
+                if ::should_import(ty) {
                     let (path, ty) = ::super_import(ty, 1);
 
                     scope.import(&path, &ty);
@@ -380,7 +380,7 @@ macro_rules! try_ready {
                             module: &mut codegen::Module)
     {
         for method in &service.methods {
-            if !::is_imported_type(&method.input_type) {
+            if ::should_import(&method.input_type) {
                 let (path, thing) = ::super_import(&method.input_type, 2);
                 module.import(&path, &thing);
             }
