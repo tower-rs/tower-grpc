@@ -3,7 +3,7 @@ use h2;
 use http::{self, HeaderMap};
 use http::header::HeaderValue;
 use std::{error::Error, fmt};
-use percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
+use percent_encoding::{percent_encode, percent_decode, DEFAULT_ENCODE_SET};
 
 /// A gRPC "status" describing the result of an RPC call.
 #[derive(Clone)]
