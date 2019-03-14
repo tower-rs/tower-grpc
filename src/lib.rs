@@ -24,6 +24,7 @@ pub mod generic;
 pub mod metadata;
 
 mod body;
+mod error;
 mod request;
 mod response;
 mod status;

@@ -1,33 +1,51 @@
 use futures::{Future, Poll};
 use http::{Request, Response};
-use tower_http_service::HttpService;
+use tower_service::Service;
 
 use body::{Body, HttpBody};
+use error::Error;
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// A specialization of tower_service::Service.
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
 pub trait GrpcService<ReqBody> {
-
-    type ResponseBody: Body;
+    /// Response body type
+    type ResponseBody: Body + HttpBody;
 
     /// Response future
-    type Future: Future<Item = Response<Self::ResponseBody>>;
+    type Future: Future<Item = Response<Self::ResponseBody>, Error = Self::Error>;
 
+    /// Error type
     type Error: Into<Error>;
 
+    /// Poll that this service is ready.
     fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
-    /// Call the service
+    /// Call the service.
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future;
+
+    /// Helper when needing to pass this type to bounds needing `Service`.
+    fn into_service(self) -> IntoService<Self>
+    where
+        Self: Sized
+    {
+        IntoService(self)
+    }
+
+    /// Helper when needing to pass this type to bounds needing `Service`.
+    fn as_service(&mut self) -> AsService<Self>
+    where
+        Self: Sized
+    {
+        AsService(self)
+    }
 }
 
 impl<T, ReqBody, ResBody> GrpcService<ReqBody> for T
 where
-    T: HttpService<ReqBody, ResponseBody = ResBody>,
+    T: Service<Request<ReqBody>, Response = Response<ResBody>>,
     T::Error: Into<Error>,
     ResBody: Body + HttpBody,
 {
@@ -36,10 +54,52 @@ where
     type Error = T::Error;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        HttpService::poll_ready(self)
+        Service::poll_ready(self)
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
-        HttpService::call(self, request)
+        Service::call(self, request)
+    }
+}
+
+/// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
+#[derive(Debug)]
+pub struct AsService<'a, T: 'a>(&'a mut T);
+
+impl<'a, T, ReqBody> Service<Request<ReqBody>> for AsService<'a, T>
+where
+    T: GrpcService<ReqBody> + 'a,
+{
+    type Response = Response<T::ResponseBody>;
+    type Future = T::Future;
+    type Error = T::Error;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        GrpcService::poll_ready(self.0)
+    }
+
+    fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
+        GrpcService::call(self.0, request)
+    }
+}
+
+/// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
+#[derive(Debug)]
+pub struct IntoService<T>(T);
+
+impl<T, ReqBody> Service<Request<ReqBody>> for IntoService<T>
+where
+    T: GrpcService<ReqBody>,
+{
+    type Response = Response<T::ResponseBody>;
+    type Future = T::Future;
+    type Error = T::Error;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        GrpcService::poll_ready(&mut self.0)
+    }
+
+    fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
+        GrpcService::call(&mut self.0, request)
     }
 }
