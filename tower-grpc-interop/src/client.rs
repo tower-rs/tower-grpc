@@ -9,7 +9,6 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate prost;
-extern crate prost_derive;
 extern crate tokio_core;
 extern crate rustls;
 extern crate tower_add_origin;

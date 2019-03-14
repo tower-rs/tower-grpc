@@ -7,7 +7,6 @@ publish = false
 [dependencies]
 bytes = "0.4"
 prost = "0.5"
-prost-derive = "0.5"
 tower-grpc = { path = "../../" }
 
 [build-dependencies]

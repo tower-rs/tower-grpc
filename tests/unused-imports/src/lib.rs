@@ -3,7 +3,6 @@
 
 extern crate bytes;
 extern crate prost;
-extern crate prost_derive;
 extern crate tower_h2;
 extern crate tower_grpc;
 

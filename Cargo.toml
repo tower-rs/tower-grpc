@@ -49,7 +49,6 @@ tokio-core = "0.1"
 
 # For examples
 prost = "0.5"
-prost-derive = "0.5"
 
 [patch."https://github.com/tower-rs/tower"]
 tower-service = "0.2"
