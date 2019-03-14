@@ -129,19 +129,16 @@ impl Status {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
-            let good_bytes = &self.message.as_bytes().iter().all(|&x| DEFAULT_ENCODE_SET.contains(x));
+            let is_need_encode = self.message.as_bytes().iter().any(|&x| DEFAULT_ENCODE_SET.contains(x));
             let to_write = 
-            match good_bytes{
-                true => {
-                    Bytes::from(
-                        percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
-                        .to_string()
-                        .as_bytes())
-                },
-                false => {
+                if is_need_encode {
+                    percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
+                    .to_string()
+                    .into()
+                } else {
                     Bytes::from(self.message().as_bytes())
-                }
-            };
+                };
+
             header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(to_write)
                     .map_err(invalid_header_value_byte)?);  
         }
