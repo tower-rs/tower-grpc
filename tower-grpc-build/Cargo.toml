@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 codegen = { git = "https://github.com/carllerche/codegen" }
-prost-build = "0.4"
+prost-build = "0.5"
 heck = "0.3"
 
 [features]

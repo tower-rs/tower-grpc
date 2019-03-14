@@ -5,7 +5,6 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 publish = false
 
 [dependencies]
-prost-derive = "0.4"
 tower-grpc = { path = "../../" }
 
 [build-dependencies]
