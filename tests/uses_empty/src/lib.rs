@@ -1,4 +1,3 @@
-extern crate prost_derive;
 extern crate tower_grpc;
 
 pub mod uses_empty {

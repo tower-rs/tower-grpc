@@ -128,7 +128,7 @@ trait ImportType {
 
 impl ImportType for codegen::Scope {
     fn import_type(&mut self, ty: &str, level: usize) {
-        if !is_imported_type(ty) {
+        if !is_imported_type(ty) && !is_native_type(ty) {
             let (path, ty) = super_import(ty, level);
 
             self.import(&path, &ty);
@@ -169,16 +169,28 @@ fn lower_name(name: &str) -> String {
     ret
 }
 
+fn should_import(ty: &str) -> bool {
+    !is_imported_type(ty) && !is_native_type(ty)
+}
+
 fn is_imported_type(ty: &str) -> bool {
     ty.split("::")
         .map(|t| t == "super")
         .next().unwrap()
 }
 
+fn is_native_type(ty: &str) -> bool {
+    match ty {
+        "()" => true,
+        _ => false,
+    }
+}
+
 fn super_import(ty: &str, level: usize) -> (String, String) {
     let mut v: Vec<&str> = ty.split("::").collect();
 
     assert!(!is_imported_type(ty));
+    assert!(!is_native_type(ty));
 
     for _ in 0..level {
         v.insert(0, "super");

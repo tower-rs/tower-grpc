@@ -9,8 +9,6 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate prost;
-#[macro_use]
-extern crate prost_derive;
 extern crate tokio_core;
 extern crate rustls;
 extern crate tower_add_origin;
@@ -379,7 +377,7 @@ impl TestClients {
     fn cacheable_unary_test(&mut self)
             -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
         let payload = pb::Payload {
-            type_: pb::PayloadType::Compressable as i32,
+            r#type: pb::PayloadType::Compressable as i32,
             body: format!("{:?}", std::time::Instant::now()).into_bytes(),
         };
         let req = SimpleRequest {
