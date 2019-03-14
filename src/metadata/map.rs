@@ -2366,6 +2366,22 @@ mod tests {
 
         assert_eq!(map.get("x-host").unwrap(), "example.com");
     }
+    
+    #[test]
+    fn test_to_headers_encoding(){
+        use Status;
+        use Code;
+        let special_char_message = "Beyond ascii \t\n\r🌶️💉💧🐮🍺";
+        let s1 = Status::new(Code::Unknown, special_char_message);
+
+        assert_eq!(s1.message(), special_char_message);
+
+        let s1_map = s1.to_header_map().unwrap();
+        let s2 = Status::from_header_map(&s1_map).unwrap();
+
+        assert_eq!(s1.message(), s2.message());
+
+    }
 
     #[test]
     fn test_iter_categorizes_ascii_entries() {

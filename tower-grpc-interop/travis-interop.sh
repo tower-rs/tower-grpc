@@ -11,7 +11,7 @@ echo ":; started tower-grpc test server."
 
 # run the interop test client against the server.
 cargo run -p tower-grpc-interop --bin client -- \
-    --test_case=empty_stream,empty_unary,large_unary,ping_pong,status_code_and_message,unimplemented_method,unimplemented_service
+    --test_case=empty_stream,empty_unary,large_unary,ping_pong,status_code_and_message,unimplemented_method,unimplemented_service,special_status_message
 
 echo ":; killing tower-grpc test server";
 kill ${TOWER_SERVER_PID};

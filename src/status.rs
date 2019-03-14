@@ -3,7 +3,7 @@ use h2;
 use http::{self, HeaderMap};
 use http::header::HeaderValue;
 use std::{error::Error, fmt};
-use percent_encoding::percent_decode;
+use percent_encoding::{percent_encode, percent_decode, DEFAULT_ENCODE_SET, EncodeSet};
 
 const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
 const GRPC_STATUS_MESSAGE_HEADER: &str = "grpc-message";
@@ -214,9 +214,20 @@ impl Status {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
-            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_str(&self.message)
-                .map_err(invalid_header_value_byte)?);
+            let is_need_encode = self.message.as_bytes().iter().any(|&x| DEFAULT_ENCODE_SET.contains(x));
+            let to_write = 
+                if is_need_encode {
+                    percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
+                    .to_string()
+                    .into()
+                } else {
+                    Bytes::from(self.message().as_bytes())
+                };
+
+            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(to_write)
+                    .map_err(invalid_header_value_byte)?);  
         }
+            
         if !self.details.is_empty() {
             header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.details.clone())
                 .map_err(invalid_header_value_byte)?);
