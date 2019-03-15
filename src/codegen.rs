@@ -41,7 +41,7 @@ pub mod server {
     /// Re-exported types from the `tower` crate.
     pub mod tower {
         pub use ::tower_service::Service;
-        pub use ::tower_util::MakeService;
+        pub use ::tower::MakeService;
         pub use ::tower_http_service::{Body as HttpBody};
     }
 
