@@ -37,7 +37,7 @@ percent-encoding = "1.0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
 tower-http-service = { git = "https://github.com/tower-rs/tower-http" }
 tower-service = "0.2"
-tower-util = { git = "https://github.com/tower-rs/tower"  }
+tower = { git = "https://github.com/tower-rs/tower"  }
 
 # For protobuf
 prost = { version = "0.5", optional = true }

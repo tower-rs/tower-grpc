@@ -12,7 +12,7 @@ extern crate log;
 extern crate percent_encoding;
 extern crate tower_http_service;
 extern crate tower_service;
-extern crate tower_util;
+extern crate tower;
 
 #[cfg(feature = "tower-h2")]
 extern crate tower_h2;
