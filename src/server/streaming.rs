@@ -1,7 +1,7 @@
 use codec::{Encode, Encoder};
 use generic::server::{StreamingService, streaming};
 
-use {h2, http, prost};
+use {http, prost};
 use futures::{Future, Poll, Stream};
 
 use std::fmt;
@@ -39,7 +39,7 @@ where
     T::Response: prost::Message,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

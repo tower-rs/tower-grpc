@@ -3,7 +3,7 @@ use super::streaming;
 use generic::{Encoder, Encode};
 use generic::server::ServerStreamingService;
 
-use {h2, http};
+use {http};
 use futures::{Future, Stream, Poll};
 
 use std::fmt;
@@ -59,7 +59,7 @@ where T: ServerStreamingService<S::Item, Response = E::Item>,
       S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, T::ResponseStream>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

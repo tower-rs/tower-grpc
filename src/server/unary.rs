@@ -5,7 +5,7 @@ use codec::{Encode, Encoder, Decoder};
 use generic::Streaming;
 use generic::server::{UnaryService, unary};
 
-use {h2, http, prost};
+use {http, prost};
 use futures::{Future, Poll};
 
 use std::fmt;
@@ -40,7 +40,7 @@ where T: UnaryService<R>,
       B: Body,
 {
     type Item = http::Response<Encode<Once<T::Response>>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

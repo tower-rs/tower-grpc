@@ -4,7 +4,7 @@ use generic::server::{ServerStreamingService, server_streaming};
 
 use std::fmt;
 
-use {h2, http, prost};
+use {http, prost};
 use futures::{Future, Poll};
 
 pub struct ResponseFuture<T, B, R>
@@ -37,7 +37,7 @@ where T: ServerStreamingService<R>,
       B: Body,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

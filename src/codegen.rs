@@ -2,7 +2,7 @@
 pub mod server {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::{Body, BoxBody, Request, Response, Code, Status};
+        pub use ::{Body, BoxBody, error::Never, Request, Response, Code, Status};
         pub use ::generic::server::{
             StreamingService,
             UnaryService,
@@ -31,11 +31,6 @@ pub mod server {
     /// Re-exported types from the `http` crate.
     pub mod http {
         pub use ::http::{Request, Response, HeaderMap};
-    }
-
-    /// Re-exported types from the `h2` crate.
-    pub mod h2 {
-        pub use ::h2::Error;
     }
 
     /// Re-exported types from the `tower` crate.
