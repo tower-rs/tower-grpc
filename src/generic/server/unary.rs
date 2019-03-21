@@ -3,7 +3,7 @@ use super::server_streaming;
 use generic::{Encoder, Encode};
 use generic::server::UnaryService;
 
-use {h2, http};
+use {http};
 use futures::{Future, Stream, Poll};
 use tower_service::Service;
 
@@ -49,7 +49,7 @@ where T: UnaryService<S::Item, Response = E::Item>,
       S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, Once<T::Response>>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

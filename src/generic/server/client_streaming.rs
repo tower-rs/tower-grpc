@@ -3,7 +3,7 @@ use super::streaming;
 use super::unary::Once;
 use generic::{Encoder, Encode};
 
-use {h2, http};
+use {http};
 use futures::{Future, Poll};
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ where T: Future<Item = Response<E::Item>, Error = ::Status>,
       E: Encoder,
 {
     type Item = http::Response<Encode<E, Once<E::Item>>>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

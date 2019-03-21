@@ -1,8 +1,8 @@
 use {Response};
-use error::Error;
+use error::{Error, Never};
 use generic::{Encoder, Encode};
 
-use {http, h2};
+use {http};
 use futures::{Future, Stream, Poll, Async};
 use http::header;
 
@@ -36,7 +36,7 @@ where T: Future<Item = Response<S>,
       S::Error: Into<Error>,
 {
     type Item = http::Response<Encode<E, S>>;
-    type Error = h2::Error;
+    type Error = Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // Get the gRPC response

@@ -1,5 +1,5 @@
 use futures::{Future, Poll};
-use {h2, http};
+use {http};
 
 use {Code, Status};
 
@@ -18,13 +18,14 @@ impl ResponseFuture {
 
 impl Future for ResponseFuture {
     type Item = http::Response<()>;
-    type Error = h2::Error;
+    type Error = ::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let status = self.status.take().expect("polled after complete");
 
         let mut resp = http::Response::new(());
-        status.add_header(resp.headers_mut())?;
+        status.add_header(resp.headers_mut())
+            .expect("generated unimplemented message should be valid");
         Ok(resp.into())
     }
 }

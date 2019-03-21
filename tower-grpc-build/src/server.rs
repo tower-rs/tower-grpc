@@ -171,7 +171,7 @@ macro_rules! try_ready {
             .target_generic("T")
             .bound("T", &service.name)
             .associate_type("Response", &response_type)
-            .associate_type("Error", "h2::Error")
+            .associate_type("Error", "grpc::Never")
             .associate_type("Future", &format!("{}::ResponseFuture<T>", lower_name))
             ;
 
@@ -262,7 +262,7 @@ macro_rules! try_ready {
                 .impl_trait("tower::Service<()>")
                 .bound("T", &service.name)
                 .associate_type("Response", "Self")
-                .associate_type("Error", "h2::Error")
+                .associate_type("Error", "grpc::Never")
                 .associate_type("Future", "futures::FutureResult<Self::Response, Self::Error>")
                 ;
 
@@ -328,7 +328,7 @@ macro_rules! try_ready {
             .impl_trait("futures::Future")
             .bound("T", &service.name)
             .associate_type("Item", "http::Response<ResponseBody<T>>")
-            .associate_type("Error", "h2::Error")
+            .associate_type("Error", "grpc::Never")
             .new_fn("poll")
             .arg_mut_self()
             .ret("futures::Poll<Self::Item, Self::Error>")
