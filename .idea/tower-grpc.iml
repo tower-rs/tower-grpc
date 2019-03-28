@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/tests/multifile/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/multifile/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/multifile/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/multifile/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/uses_empty/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/uses_empty/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/uses_empty/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/uses_empty/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/name-case/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/name-case/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/name-case/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/name-case/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-interop/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-interop/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-interop/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-interop/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/collide/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/collide/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/collide/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/collide/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-examples/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-examples/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-examples/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-examples/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/unused-imports/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/unused-imports/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/unused-imports/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/unused-imports/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build-procm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build-procm/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build-procm/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tower-grpc-build-procm/benches" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/collide/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/multifile/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/name-case/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/unused-imports/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/uses_empty/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tower-grpc-build-procm/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tower-grpc-build/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tower-grpc-examples/target" />
+      <excludeFolder url="file://$MODULE_DIR$/tower-grpc-interop/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

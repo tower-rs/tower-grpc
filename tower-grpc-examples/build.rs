@@ -1,6 +1,7 @@
 extern crate tower_grpc_build;
 
 fn main() {
+    println!("build.rs run");
     // Build helloworld
     tower_grpc_build::Config::new()
         .enable_server(true)

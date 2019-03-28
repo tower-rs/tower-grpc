@@ -1,0 +1,10 @@
+[package]
+name = "tower-grpc-build-procm"
+version = "0.1.0"
+authors = ["Emanon42 <EmanonTang@outlook.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
