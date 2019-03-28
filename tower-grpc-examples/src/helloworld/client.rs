@@ -26,7 +26,7 @@ pub mod hello_world {
 pub fn main() {
     let _ = ::env_logger::init();
 
-    let uri: http::Uri = format!("http://localhost:50051").parse().unwrap();
+    let uri: http::Uri = format!("http://[::1]:50051").parse().unwrap();
 
     let h2_settings = Default::default();
     let mut make_client = client::Connect::new(Dst, h2_settings, DefaultExecutor::current());
@@ -72,7 +72,8 @@ impl Service<()> for Dst {
     }
 
     fn call(&mut self, _: ()) -> Self::Future {
-        TcpStream::connect(&([127, 0, 0, 1], 50051).into())
+        let addr = "[::1]:50051".parse().unwrap();
+        TcpStream::connect(&addr)
     }
 }
 
