@@ -9,22 +9,25 @@ extern crate tower_h2;
 extern crate tower_grpc;
 extern crate tower_grpc_build;
 
-//extern crate tower_grpc_build_procm;
-//use tower_grpc_build_procm::include_proto;
-//
-//include_proto!(proto/helloworld/helloworld.proto,proto/helloworld);
-
-//println!("{}", env!("OUT_DIR"));
+extern crate tower_grpc_build_procm;
+use tower_grpc_build_procm::include_proto;
 
 
 
-pub mod hello_world {
-    include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
-}
+include_proto!(
+/*path of your .proto file*/,
+/*path of your proto folder*/,
+helloworld,
+server|HelloRequest|HelloReply
+);
 
 
 
-use hello_world::{server, HelloRequest, HelloReply};
+
+//pub mod hello_world {
+//    include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
+//}
+//use hello_world::{server, HelloRequest, HelloReply};
 
 use futures::{future, Future, Stream};
 use tokio::executor::DefaultExecutor;
@@ -50,13 +53,6 @@ impl server::Greeter for Greet {
 }
 
 pub fn main() {
-//    println!("{}", env!("OUT_DIR"));
-//    // Build helloworld
-//    tower_grpc_build::Config::new()
-//        .enable_server(true)
-//        .enable_client(true)
-//        .build(&[format!("{}{}", env!("CARGO_MANIFEST_DIR"), "proto/helloworld/helloworld.proto")], &[format!("{}{}", env!("CARGO_MANIFEST_DIR"), "proto/helloworld")])
-//        .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
 
     let _ = ::env_logger::init();
 
