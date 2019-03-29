@@ -15,8 +15,8 @@ use tower_grpc_build_procm::include_proto;
 
 
 include_proto!(
-/*path of your .proto file*/,
-/*path of your proto folder*/,
+/home/travis/build/tower-rs/tower-grpc/tower-grpc-examples/proto/helloworld/helloworld.proto,
+/home/travis/build/tower-rs/tower-grpc/tower-grpc-examples/proto/helloworld,
 helloworld,
 server|HelloRequest|HelloReply
 );
