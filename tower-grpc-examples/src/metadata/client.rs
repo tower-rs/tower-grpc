@@ -5,19 +5,19 @@ extern crate http;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower;
 extern crate tower_add_origin;
 extern crate tower_grpc;
 extern crate tower_h2;
 extern crate tower_service;
+extern crate tower_util;
 
 use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
-use tower::MakeService;
 use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
+use tower_util::MakeService;
 
 pub mod metadata {
     include!(concat!(env!("OUT_DIR"), "/metadata.rs"));
