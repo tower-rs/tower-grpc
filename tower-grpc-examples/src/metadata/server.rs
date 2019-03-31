@@ -3,8 +3,8 @@ extern crate env_logger;
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate prost;
 extern crate http;
+extern crate prost;
 extern crate tokio;
 extern crate tower_grpc;
 extern crate tower_h2;
@@ -48,7 +48,6 @@ impl server::Doorman for Door {
 
 pub fn main() {
     let _ = ::env_logger::init();
-
 
     let new_service = server::DoormanServer::new(Door);
 

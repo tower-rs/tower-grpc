@@ -1,38 +1,36 @@
-
 extern crate console;
 #[macro_use]
 extern crate clap;
 extern crate domain;
-extern crate pretty_env_logger;
-extern crate http;
 extern crate futures;
+extern crate http;
+extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 extern crate prost;
-extern crate tokio_core;
 extern crate rustls;
+extern crate tokio_core;
 extern crate tower_add_origin;
-extern crate tower_h2;
 extern crate tower_grpc;
+extern crate tower_h2;
 
 use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use tower_grpc::metadata::MetadataValue;
+use futures::{future, stream, Future, Stream};
 use http::uri::{self, Uri};
-use futures::{future, Future, stream, Stream};
-use tokio_core::reactor;
 use tokio_core::net::TcpStream;
+use tokio_core::reactor;
+use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
 use tower_h2::client::Connection;
 
-use pb::SimpleRequest;
-use pb::StreamingInputCallRequest;
 use pb::client::TestService;
 use pb::client::UnimplementedService;
-
+use pb::SimpleRequest;
+use pb::StreamingInputCallRequest;
 
 mod pb {
     #![allow(dead_code)]
@@ -55,9 +53,10 @@ const LARGE_RSP_SIZE: i32 = 314159;
 const REQUEST_LENGTHS: &'static [i32] = &[27182, 8, 1828, 45904];
 const RESPONSE_LENGTHS: &'static [i32] = &[31415, 9, 2653, 58979];
 const TEST_STATUS_MESSAGE: &'static str = "test status message";
-const SPECIAL_TEST_STATUS_MESSAGE: &'static str = "\t\ntest with whitespace\r\nand Unicode BMP ☺ and non-BMP 😈\t\n";
+const SPECIAL_TEST_STATUS_MESSAGE: &'static str =
+    "\t\ntest with whitespace\r\nand Unicode BMP ☺ and non-BMP 😈\t\n";
 
-arg_enum!{
+arg_enum! {
     #[derive(Debug, Copy, Clone)]
     #[allow(non_camel_case_types)]
     enum Testcase {
@@ -91,23 +90,27 @@ arg_enum!{
 macro_rules! test_assert {
     ($description:expr, $assertion:expr) => {
         if $assertion {
-            TestAssertion::Passed { description: $description }
+            TestAssertion::Passed {
+                description: $description,
+            }
         } else {
             TestAssertion::Failed {
                 description: $description,
                 expression: stringify!($assertion),
-                why: None
+                why: None,
             }
         }
     };
     ($description:expr, $assertion:expr, $why:expr) => {
         if $assertion {
-            TestAssertion::Passed { description: $description }
+            TestAssertion::Passed {
+                description: $description,
+            }
         } else {
             TestAssertion::Failed {
                 description: $description,
                 expression: stringify!($assertion),
-                why: Some($why)
+                why: Some($why),
             }
         }
     };
@@ -130,7 +133,7 @@ impl ClientError {
     fn exit(&self) -> ! {
         match *self {
             ClientError::InvalidArgument(ref clap_error) => clap_error.exit(),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -147,7 +150,10 @@ impl From<uri::InvalidUri> for ClientError {
     }
 }
 
-impl<T> From<T> for ClientError where DnsError: From<T> {
+impl<T> From<T> for ClientError
+where
+    DnsError: From<T>,
+{
     fn from(t: T) -> Self {
         ClientError::Dns(DnsError::from(t))
     }
@@ -204,8 +210,9 @@ fn response_lengths(responses: &Vec<pb::StreamingOutputCallResponse>) -> Vec<i32
 
 /// Helper function that can be used with .then to assert that the RPC performed
 /// in a test was successful.
-fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
-        -> future::FutureResult<Vec<TestAssertion>, Box<Error>> {
+fn assert_success(
+    result: Result<Vec<TestAssertion>, Box<Error>>,
+) -> future::FutureResult<Vec<TestAssertion>, Box<Error>> {
     let assertion = test_assert!(
         "call must be successful",
         result.is_ok(),
@@ -220,28 +227,32 @@ fn assert_success(result: Result<Vec<TestAssertion>, Box<Error>>)
 }
 
 struct TestClients {
-    test_client:
-        TestService<tower_add_origin::AddOrigin<
+    test_client: TestService<
+        tower_add_origin::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
-                tower_grpc::BoxBody>>>,
+                tower_grpc::BoxBody,
+            >,
+        >,
+    >,
 
-    unimplemented_client:
-        UnimplementedService<tower_add_origin::AddOrigin<
+    unimplemented_client: UnimplementedService<
+        tower_add_origin::AddOrigin<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
-                tower_grpc::BoxBody>>>
+                tower_grpc::BoxBody,
+            >,
+        >,
+    >,
 }
 
 fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
     let req_len = REQUEST_LENGTHS[idx];
     let resp_len = RESPONSE_LENGTHS[idx];
     pb::StreamingOutputCallRequest {
-        response_parameters: vec![
-            pb::ResponseParameters::with_size(resp_len)
-        ],
+        response_parameters: vec![pb::ResponseParameters::with_size(resp_len)],
         payload: Some(util::client_payload(req_len as usize)),
         ..Default::default()
     }
@@ -251,14 +262,14 @@ fn make_ping_pong_request(idx: usize) -> pb::StreamingOutputCallRequest {
 /// of futures that performs the actual ping-pong with the server.
 struct PingPongState {
     sender: futures::sync::mpsc::UnboundedSender<pb::StreamingOutputCallRequest>,
-    stream: Box<Stream<Item=pb::StreamingOutputCallResponse, Error=tower_grpc::Status>>,
+    stream: Box<Stream<Item = pb::StreamingOutputCallResponse, Error = tower_grpc::Status>>,
     responses: Vec<pb::StreamingOutputCallResponse>,
     assertions: Vec<TestAssertion>,
 }
 
-type PingPongResponsesFuture = Box<Future<
-    Item=(Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>),
-    Error=Box<Error>>>;
+type PingPongResponsesFuture = Box<
+    Future<Item = (Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>), Error = Box<Error>>,
+>;
 
 impl PingPongState {
     /// Recursive function that takes the current PingPongState of the ping-pong
@@ -266,72 +277,77 @@ impl PingPongState {
     /// responses from the server and assertions that were performed in
     /// the process.
     fn perform_ping_pong(self) -> PingPongResponsesFuture {
-        let PingPongState { sender, stream, mut responses, mut assertions } = self;
-        Box::new(stream
-            .into_future()  // Take one element from the stream.
-            .map_err(|(err, _stream)| -> Box<Error> {
-                Box::new(err)
-            })
-            .and_then(|(resp, stream)| -> PingPongResponsesFuture {
-                if let Some(resp) = resp {
-                    responses.push(resp);
-                    if responses.len() == REQUEST_LENGTHS.len() {
-                        // Close the request stream. This tells the server that there
-                        // won't be any more requests.
-                        drop(sender);
-                        Box::new(stream
-                            .into_future()
-                            .map_err(|err| -> Box<Error> {
-                                Box::new(err.0)
-                            })
-                            .map(|(resp, _stream)| {
-                                assertions.push(test_assert!(
-                                    "server should close stream after client closes it.",
-                                    resp.is_none(),
-                                    format!("resp={:?}", resp)
-                                ));
-                                (responses, assertions)
-                            }))
+        let PingPongState {
+            sender,
+            stream,
+            mut responses,
+            mut assertions,
+        } = self;
+        Box::new(
+            stream
+                .into_future() // Take one element from the stream.
+                .map_err(|(err, _stream)| -> Box<Error> { Box::new(err) })
+                .and_then(|(resp, stream)| -> PingPongResponsesFuture {
+                    if let Some(resp) = resp {
+                        responses.push(resp);
+                        if responses.len() == REQUEST_LENGTHS.len() {
+                            // Close the request stream. This tells the server that there
+                            // won't be any more requests.
+                            drop(sender);
+                            Box::new(
+                                stream
+                                    .into_future()
+                                    .map_err(|err| -> Box<Error> { Box::new(err.0) })
+                                    .map(|(resp, _stream)| {
+                                        assertions.push(test_assert!(
+                                            "server should close stream after client closes it.",
+                                            resp.is_none(),
+                                            format!("resp={:?}", resp)
+                                        ));
+                                        (responses, assertions)
+                                    }),
+                            )
+                        } else {
+                            sender
+                                .unbounded_send(make_ping_pong_request(responses.len()))
+                                .unwrap();
+                            PingPongState {
+                                sender,
+                                stream,
+                                responses,
+                                assertions,
+                            }
+                            .perform_ping_pong()
+                        }
                     } else {
-                        sender.unbounded_send(
-                            make_ping_pong_request(responses.len())
-                        ).unwrap();
-                        PingPongState {
-                            sender,
-                            stream,
-                            responses,
-                            assertions,
-                        }.perform_ping_pong()
+                        assertions.push(TestAssertion::Failed {
+                            description:
+                                "server should keep the stream open until the client closes it",
+                            expression: "Stream terminated unexpectedly early",
+                            why: None,
+                        });
+                        Box::new(future::ok((responses, assertions)))
                     }
-                } else {
-                    assertions.push(TestAssertion::Failed {
-                        description: "server should keep the stream open until the client closes it",
-                        expression: "Stream terminated unexpectedly early",
-                        why: None
-                    });
-                    Box::new(future::ok((responses, assertions)))
-                }
-            }))
+                }),
+        )
     }
 }
 
 impl TestClients {
-    fn empty_unary_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn empty_unary_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         use pb::Empty;
-        self.test_client.empty_call(Request::new(Empty {}))
+        self.test_client
+            .empty_call(Request::new(Empty {}))
             .then(|result| {
-                let mut assertions = vec![
-                    test_assert!(
-                        "call must be successful",
-                        result.is_ok(),
-                        format!("result={:?}", result)
-                    )
-                ];
+                let mut assertions = vec![test_assert!(
+                    "call must be successful",
+                    result.is_ok(),
+                    format!("result={:?}", result)
+                )];
                 if let Ok(body) = result.map(|r| r.into_inner()) {
                     assertions.push(test_assert!(
                         "body must not be null",
-                        body == Empty{},
+                        body == Empty {},
                         format!("body={:?}", body)
                     ))
                 }
@@ -339,8 +355,7 @@ impl TestClients {
             })
     }
 
-    fn large_unary_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn large_unary_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         use std::mem;
         let payload = util::client_payload(LARGE_REQ_SIZE);
         let req = SimpleRequest {
@@ -349,33 +364,30 @@ impl TestClients {
             payload: Some(payload),
             ..Default::default()
         };
-        self.test_client.unary_call(Request::new(req))
+        self.test_client
+            .unary_call(Request::new(req))
             .then(|result| {
-                let mut assertions = vec![
-                    test_assert!(
-                        "call must be successful",
-                        result.is_ok(),
-                        format!("result={:?}", result)
-                    )
-                ];
+                let mut assertions = vec![test_assert!(
+                    "call must be successful",
+                    result.is_ok(),
+                    format!("result={:?}", result)
+                )];
                 if let Ok(body) = result.map(|r| r.into_inner()) {
-                    let payload_len = body.payload.as_ref()
-                        .map(|p| p.body.len())
-                        .unwrap_or(0);
+                    let payload_len = body.payload.as_ref().map(|p| p.body.len()).unwrap_or(0);
 
                     assertions.push(test_assert!(
-                    "body must be 314159 bytes",
-                    payload_len == LARGE_RSP_SIZE as usize,
-                    format!("mem::size_of_val(&body)={:?}",
-                        mem::size_of_val(&body))
+                        "body must be 314159 bytes",
+                        payload_len == LARGE_RSP_SIZE as usize,
+                        format!("mem::size_of_val(&body)={:?}", mem::size_of_val(&body))
                     ));
                 }
                 future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
             })
     }
 
-    fn cacheable_unary_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn cacheable_unary_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         let payload = pb::Payload {
             r#type: pb::PayloadType::Compressable as i32,
             body: format!("{:?}", std::time::Instant::now()).into_bytes(),
@@ -397,101 +409,102 @@ impl TestClients {
         // This line is just a hint for the type checker
         #[allow(unreachable_code)]
         {
-        future::ok::<Vec<TestAssertion>, Box<Error>>(vec![])
+            future::ok::<Vec<TestAssertion>, Box<Error>>(vec![])
         }
     }
 
-    fn client_streaming_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        let requests = REQUEST_LENGTHS
-            .iter()
-            .map(|len| StreamingInputCallRequest {
-                payload: Some(util::client_payload(*len as usize)),
-                ..Default::default()
-            });
+    fn client_streaming_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
+        let requests = REQUEST_LENGTHS.iter().map(|len| StreamingInputCallRequest {
+            payload: Some(util::client_payload(*len as usize)),
+            ..Default::default()
+        });
         let stream = stream::iter_ok(requests);
-        self.test_client.streaming_input_call(Request::new(stream))
+        self.test_client
+            .streaming_input_call(Request::new(stream))
             .then(|result| {
-                let mut assertions = vec![
-                    test_assert!(
-                        "call must be successful",
-                        result.is_ok(),
-                        format!("result={:?}", result)
-                    )
-                ];
+                let mut assertions = vec![test_assert!(
+                    "call must be successful",
+                    result.is_ok(),
+                    format!("result={:?}", result)
+                )];
                 if let Ok(response) = result.map(|r| r.into_inner()) {
                     assertions.push(test_assert!(
-                    "aggregated payload size must be 74922 bytes",
-                    response.aggregated_payload_size == 74922,
-                    format!("aggregated_payload_size={:?}",
-                        response.aggregated_payload_size
-                    )));
+                        "aggregated payload size must be 74922 bytes",
+                        response.aggregated_payload_size == 74922,
+                        format!(
+                            "aggregated_payload_size={:?}",
+                            response.aggregated_payload_size
+                        )
+                    ));
                 }
                 future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
             })
     }
 
-    fn server_streaming_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn server_streaming_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         use pb::ResponseParameters;
         let req = pb::StreamingOutputCallRequest {
-            response_parameters: RESPONSE_LENGTHS.iter().map(|len| {
-                ResponseParameters::with_size(*len)
-            }).collect(),
+            response_parameters: RESPONSE_LENGTHS
+                .iter()
+                .map(|len| ResponseParameters::with_size(*len))
+                .collect(),
             ..Default::default()
         };
         let req = Request::new(req);
-        self.test_client.streaming_output_call(req)
-            .map_err(|tower_error| -> Box<Error> {
-                Box::new(tower_error)
-            })
+        self.test_client
+            .streaming_output_call(req)
+            .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) })
             .and_then(|response_stream| {
                 // Convert the stream into a plain Vec
-                response_stream.into_inner()
+                response_stream
+                    .into_inner()
                     .collect()
-                    .map_err(|tower_error| -> Box<Error> {
-                        Box::new(tower_error)
-                    })
+                    .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) })
             })
-            .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
-                let actual_response_lengths = response_lengths(&responses);
-                vec![
-                    test_assert!(
-                        "there should be four responses",
-                        responses.len() == 4,
-                        format!("responses.len()={:?}", responses.len())
-                    ),
-                    test_assert!(
-                        "the response payload sizes should match input",
-                        RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
-                        format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
-                    ),
-                ]
-            })
+            .map(
+                |responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                    let actual_response_lengths = response_lengths(&responses);
+                    vec![
+                        test_assert!(
+                            "there should be four responses",
+                            responses.len() == 4,
+                            format!("responses.len()={:?}", responses.len())
+                        ),
+                        test_assert!(
+                            "the response payload sizes should match input",
+                            RESPONSE_LENGTHS == actual_response_lengths.as_slice(),
+                            format!("{:?}={:?}", RESPONSE_LENGTHS, actual_response_lengths)
+                        ),
+                    ]
+                },
+            )
             .then(&assert_success)
     }
 
-    fn ping_pong_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        let (sender, receiver) = futures::sync::mpsc::unbounded::<
-            pb::StreamingOutputCallRequest>();
+    fn ping_pong_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
+        let (sender, receiver) = futures::sync::mpsc::unbounded::<pb::StreamingOutputCallRequest>();
 
         // Kick off the initial ping; without this the server does not
         // even start responding.
         sender.unbounded_send(make_ping_pong_request(0)).unwrap();
 
-        self.test_client.full_duplex_call(Request::new(receiver
-                .map_err(|_error| panic!("Receiver stream should not error!"))))
-            .map_err(|tower_error| -> Box<Error> {
-                Box::new(tower_error)
-            })
+        self.test_client
+            .full_duplex_call(Request::new(
+                receiver.map_err(|_error| panic!("Receiver stream should not error!")),
+            ))
+            .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) })
             .and_then(|response_stream| {
                 PingPongState {
                     sender,
                     stream: Box::new(response_stream.into_inner()),
                     responses: vec![],
                     assertions: vec![],
-                }.perform_ping_pong()
+                }
+                .perform_ping_pong()
             })
             .map(|(responses, mut assertions)| {
                 let actual_response_lengths = response_lengths(&responses);
@@ -510,43 +523,44 @@ impl TestClients {
             .then(&assert_success)
     }
 
-    fn empty_stream_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn empty_stream_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
-        self.test_client.full_duplex_call(Request::new(stream))
-            .map_err(|tower_error| -> Box<Error> {
-                Box::new(tower_error)
-            })
+        self.test_client
+            .full_duplex_call(Request::new(stream))
+            .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) })
             .and_then(|response_stream| {
                 // Convert the stream into a plain Vec
-                response_stream.into_inner()
+                response_stream
+                    .into_inner()
                     .collect()
-                    .map_err(|tower_error| -> Box<Error> {
-                        Box::new(tower_error)
-                    })
+                    .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) })
             })
-            .map(|responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
-                vec![
-                    test_assert!(
+            .map(
+                |responses: Vec<pb::StreamingOutputCallResponse>| -> Vec<TestAssertion> {
+                    vec![test_assert!(
                         "there should be no responses",
                         responses.len() == 0,
                         format!("responses.len()={:?}", responses.len())
-                    ),
-                ]
-            })
+                    )]
+                },
+            )
             .then(&assert_success)
     }
 
-    fn status_code_and_message_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        fn validate_response<T>(result: Result<T, tower_grpc::Status>)
-                -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
+    fn status_code_and_message_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
+        fn validate_response<T>(
+            result: Result<T, tower_grpc::Status>,
+        ) -> future::FutureResult<Vec<TestAssertion>, Box<Error>>
+        where
+            T: fmt::Debug,
+        {
             let assertions = vec![
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(status) =>
-                            status.code() == tower_grpc::Code::Unknown,
+                        Err(status) => status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -554,8 +568,7 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(status) =>
-                            status.message() == TEST_STATUS_MESSAGE,
+                        Err(status) => status.message() == TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -582,37 +595,42 @@ impl TestClients {
             ..Default::default()
         };
 
-        let unary_call = self.test_client
+        let unary_call = self
+            .test_client
             .unary_call(Request::new(simple_req))
             .then(&validate_response);
 
-        let full_duplex_call = self.test_client
+        let full_duplex_call = self
+            .test_client
             .full_duplex_call(Request::new(stream::iter_ok(vec![duplex_req])))
             .and_then(|response_stream| {
                 // Convert the stream into a plain Vec
-                response_stream.into_inner()
-                    .map_err(From::from)
-                    .collect()
+                response_stream.into_inner().map_err(From::from).collect()
             })
             .then(&validate_response);
 
-        unary_call.join(full_duplex_call)
+        unary_call
+            .join(full_duplex_call)
             .map(|(mut unary_assertions, mut streaming_assertions)| {
                 unary_assertions.append(&mut streaming_assertions);
                 unary_assertions
             })
     }
 
-    fn special_status_message_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
-        fn validate_response<T>(result: Result<T, tower_grpc::Status>)
-                -> future::FutureResult<Vec<TestAssertion>, Box<Error>> where T: fmt::Debug {
+    fn special_status_message_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
+        fn validate_response<T>(
+            result: Result<T, tower_grpc::Status>,
+        ) -> future::FutureResult<Vec<TestAssertion>, Box<Error>>
+        where
+            T: fmt::Debug,
+        {
             let assertions = vec![
                 test_assert!(
                     "call must fail with unknown status code",
                     match &result {
-                        Err(status) =>
-                            status.code() == tower_grpc::Code::Unknown,
+                        Err(status) => status.code() == tower_grpc::Code::Unknown,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -620,8 +638,7 @@ impl TestClients {
                 test_assert!(
                     "call must repsond with expected status message",
                     match &result {
-                        Err(status) =>
-                            status.message() == SPECIAL_TEST_STATUS_MESSAGE,
+                        Err(status) => status.message() == SPECIAL_TEST_STATUS_MESSAGE,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -644,17 +661,18 @@ impl TestClients {
             .then(&validate_response)
     }
 
-    fn unimplemented_method_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn unimplemented_method_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         use pb::Empty;
 
-        self.test_client.unimplemented_call(Request::new(Empty {}))
+        self.test_client
+            .unimplemented_call(Request::new(Empty {}))
             .then(|result| {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(status) =>
-                            status.code() == tower_grpc::Code::Unimplemented,
+                        Err(status) => status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -663,17 +681,18 @@ impl TestClients {
             })
     }
 
-    fn unimplemented_service_test(&mut self)
-            -> impl Future<Item=Vec<TestAssertion>, Error=Box<Error>> {
+    fn unimplemented_service_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
         use pb::Empty;
 
-        self.unimplemented_client.unimplemented_call(Request::new(Empty {}))
+        self.unimplemented_client
+            .unimplemented_call(Request::new(Empty {}))
             .then(|result| {
                 let assertions = vec![test_assert!(
                     "call must fail with unimplemented status code",
                     match &result {
-                        Err(status) =>
-                            status.code() == tower_grpc::Code::Unimplemented,
+                        Err(status) => status.code() == tower_grpc::Code::Unimplemented,
                         _ => false,
                     },
                     format!("result={:?}", result)
@@ -684,10 +703,12 @@ impl TestClients {
 }
 
 impl Testcase {
-    fn run(&self, server: &ServerInfo, core: &mut tokio_core::reactor::Core)
-           -> Result<Vec<TestAssertion>, Box<Error>> {
-        let open_connection = |
-                core: &mut tokio_core::reactor::Core| {
+    fn run(
+        &self,
+        server: &ServerInfo,
+        core: &mut tokio_core::reactor::Core,
+    ) -> Result<Vec<TestAssertion>, Box<Error>> {
+        let open_connection = |core: &mut tokio_core::reactor::Core| {
             let reactor = core.handle();
             core.run(
                 TcpStream::connect(&server.addr, &reactor)
@@ -701,68 +722,63 @@ impl Testcase {
                             .uri(server.uri.clone())
                             .build(conn)
                             .unwrap()
-                    })
-            ).expect("connection")
+                    }),
+            )
+            .expect("connection")
         };
 
         // TODO(#42): This opens two separate TCP connections to the server. It
         // would be better to open only one.
         let mut clients = TestClients {
             test_client: TestService::new(open_connection(core)),
-            unimplemented_client: UnimplementedService::new(open_connection(core))
+            unimplemented_client: UnimplementedService::new(open_connection(core)),
         };
 
         match *self {
-            Testcase::empty_unary =>
-                core.run(clients.empty_unary_test()),
-            Testcase::large_unary =>
-                core.run(clients.large_unary_test()),
-            Testcase::cacheable_unary =>
-                core.run(clients.cacheable_unary_test()),
-            Testcase::client_streaming =>
-                core.run(clients.client_streaming_test()),
-            Testcase::server_streaming =>
-                core.run(clients.server_streaming_test()),
-            Testcase::ping_pong =>
-                core.run(clients.ping_pong_test()),
-            Testcase::empty_stream =>
-                core.run(clients.empty_stream_test()),
-            Testcase::status_code_and_message =>
-                core.run(clients.status_code_and_message_test()),
-            Testcase::special_status_message =>
-                core.run(clients.special_status_message_test()),
-            Testcase::unimplemented_method =>
-                core.run(clients.unimplemented_method_test()),
-            Testcase::unimplemented_service =>
-                core.run(clients.unimplemented_service_test()),
+            Testcase::empty_unary => core.run(clients.empty_unary_test()),
+            Testcase::large_unary => core.run(clients.large_unary_test()),
+            Testcase::cacheable_unary => core.run(clients.cacheable_unary_test()),
+            Testcase::client_streaming => core.run(clients.client_streaming_test()),
+            Testcase::server_streaming => core.run(clients.server_streaming_test()),
+            Testcase::ping_pong => core.run(clients.ping_pong_test()),
+            Testcase::empty_stream => core.run(clients.empty_stream_test()),
+            Testcase::status_code_and_message => core.run(clients.status_code_and_message_test()),
+            Testcase::special_status_message => core.run(clients.special_status_message_test()),
+            Testcase::unimplemented_method => core.run(clients.unimplemented_method_test()),
+            Testcase::unimplemented_service => core.run(clients.unimplemented_service_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token
-            | Testcase::per_rpc_creds =>
-                unimplemented!(
-                    "test case unimplemented: tower-grpc does not \
-                     currently support gRPC authorization."
-                ),
+            | Testcase::per_rpc_creds => unimplemented!(
+                "test case unimplemented: tower-grpc does not \
+                 currently support gRPC authorization."
+            ),
             Testcase::client_compressed_unary
             | Testcase::server_compressed_unary
             | Testcase::client_compressed_streaming
-            | Testcase::server_compressed_streaming =>
-                unimplemented!(
-                    "test case unimplemented: tower-grpc does not \
-                     currently support gRPC compression."
-                ),
+            | Testcase::server_compressed_streaming => unimplemented!(
+                "test case unimplemented: tower-grpc does not \
+                 currently support gRPC compression."
+            ),
 
-            _ => unimplemented!("test case unimplemented: {}", *self)
+            _ => unimplemented!("test case unimplemented: {}", *self),
         }
     }
 }
 #[derive(Debug)]
 enum TestAssertion {
-    Passed { description: &'static str },
-    Failed { description: &'static str,
-             expression: &'static str,
-             why: Option<String> },
-    Errored { description: &'static str, error: Box<Error> }
+    Passed {
+        description: &'static str,
+    },
+    Failed {
+        description: &'static str,
+        expression: &'static str,
+        why: Option<String>,
+    },
+    Errored {
+        description: &'static str,
+        error: Box<Error>,
+    },
 }
 
 impl TestAssertion {
@@ -777,37 +793,39 @@ impl TestAssertion {
 
 impl fmt::Display for TestAssertion {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use console::{Emoji, style};
+        use console::{style, Emoji};
         match *self {
-            TestAssertion::Passed { ref description } =>
-                write!(f, "{check} {desc}",
-                    check = style(Emoji("✔", "+")).green(),
-                    desc = style(description).green(),
-                ),
+            TestAssertion::Passed { ref description } => write!(
+                f,
+                "{check} {desc}",
+                check = style(Emoji("✔", "+")).green(),
+                desc = style(description).green(),
+            ),
             TestAssertion::Failed {
                 ref description,
                 ref expression,
                 why: Some(ref why),
-            } =>
-                write!(f, "{check} {desc}\n  in `{exp}`: {why}",
-                    check = style(Emoji("✖", "x")).red(),
-                    desc = style(description).red(),
-                    exp = style(expression).red(),
-                    why = style(why).red(),
-                ),
+            } => write!(
+                f,
+                "{check} {desc}\n  in `{exp}`: {why}",
+                check = style(Emoji("✖", "x")).red(),
+                desc = style(description).red(),
+                exp = style(expression).red(),
+                why = style(why).red(),
+            ),
             TestAssertion::Failed {
                 ref description,
                 ref expression,
                 why: None,
-            } =>
-                write!(f, "{check} {desc}\n  in `{exp}`",
-                    check = style(Emoji("✖", "x")).red(),
-                    desc = style(description).red(),
-                    exp = style(expression).red(),
-                ),
-            _ => unimplemented!()
+            } => write!(
+                f,
+                "{check} {desc}\n  in `{exp}`",
+                check = style(Emoji("✖", "x")).red(),
+                desc = style(description).red(),
+                exp = style(expression).red(),
+            ),
+            _ => unimplemented!(),
         }
-
     }
 }
 
@@ -818,12 +836,12 @@ struct ServerInfo {
 }
 
 impl ServerInfo {
-    fn from_args<'a>(matches: &clap::ArgMatches<'a>,
-                     core: &mut reactor::Core,)
-                    -> Result<Self, ClientError>
-    {
+    fn from_args<'a>(
+        matches: &clap::ArgMatches<'a>,
+        core: &mut reactor::Core,
+    ) -> Result<Self, ClientError> {
         use domain::bits::DNameBuf;
-        use domain::resolv::{Resolver, lookup};
+        use domain::resolv::{lookup, Resolver};
 
         let handle = core.handle();
         // XXX this could probably look neater if only the DNS query was run in
@@ -831,23 +849,20 @@ impl ServerInfo {
         let ip_future = future::result(value_t!(matches, "server_host", IpAddr))
             .from_err::<ClientError>()
             .or_else(|_| {
-                future::result(value_t!(
-                    matches,
-                    "server_host",
-                    DNameBuf
-                ))
-                .from_err::<ClientError>()
-                .and_then(move |name| {
-                    let resolver = Resolver::new(&handle);
-                    lookup::lookup_host(resolver, name)
-                        .from_err::<ClientError>()
-                        .and_then(|response| {
-                            response.iter()
-                                .next()
-                                .ok_or(ClientError::from(DnsError::NoHosts))
-                        })
-                })
-                .from_err::<ClientError>()
+                future::result(value_t!(matches, "server_host", DNameBuf))
+                    .from_err::<ClientError>()
+                    .and_then(move |name| {
+                        let resolver = Resolver::new(&handle);
+                        lookup::lookup_host(resolver, name)
+                            .from_err::<ClientError>()
+                            .and_then(|response| {
+                                response
+                                    .iter()
+                                    .next()
+                                    .ok_or(ClientError::from(DnsError::NoHosts))
+                            })
+                    })
+                    .from_err::<ClientError>()
             })
             .from_err::<ClientError>();
         let info = ip_future.and_then(move |ip| {
@@ -856,13 +871,11 @@ impl ServerInfo {
                 .and_then(move |port| {
                     let addr = SocketAddr::new(ip, port);
                     info!("server_address={:?};", addr);
-                    let host = matches.value_of("server_host")
-                        .expect("`server_host` argument was not present, clap \
-                                 should have already validated it was present.")
-                        ;
-                    future::result(
-                        Uri::from_str(&format!("http://{}:{}", host, port))
-                    )
+                    let host = matches.value_of("server_host").expect(
+                        "`server_host` argument was not present, clap \
+                         should have already validated it was present.",
+                    );
+                    future::result(Uri::from_str(&format!("http://{}:{}", host, port)))
                         .from_err::<ClientError>()
                         .map(move |uri| ServerInfo {
                             addr,
@@ -877,7 +890,7 @@ impl ServerInfo {
 }
 
 fn main() {
-    use clap::{Arg, App};
+    use clap::{App, Arg};
     let _ = ::pretty_env_logger::init();
 
     let matches =
@@ -985,27 +998,22 @@ fn main() {
             )
             .get_matches();
 
-    if matches.is_present("oauth_scope") ||
-       matches.is_present("default_service_account") ||
-       matches.is_present("service_account_key_file") {
+    if matches.is_present("oauth_scope")
+        || matches.is_present("default_service_account")
+        || matches.is_present("service_account_key_file")
+    {
         unimplemented!("tower-grpc does not currently support GCE auth.");
     }
 
-    let mut core = reactor::Core::new()
-        .expect("could not create reactor core!");
+    let mut core = reactor::Core::new().expect("could not create reactor core!");
 
-    let server = ServerInfo::from_args(&matches, &mut core)
-        .unwrap_or_else(|e| e.exit())
-    ;
+    let server = ServerInfo::from_args(&matches, &mut core).unwrap_or_else(|e| e.exit());
 
-    let test_cases = values_t!(matches, "test_case", Testcase)
-        .unwrap_or_else(|e| e.exit());
+    let test_cases = values_t!(matches, "test_case", Testcase).unwrap_or_else(|e| e.exit());
 
     for test in test_cases {
         println!("{:?}:", test);
-        let test_results = test
-            .run(&server, &mut core)
-            .expect("error running test!");
+        let test_results = test.run(&server, &mut core).expect("error running test!");
         for result in test_results {
             println!("  {}", result);
         }

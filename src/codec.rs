@@ -1,8 +1,8 @@
 use body::{BoxBody, HttpBody};
-use generic::{EncodeBuf, DecodeBuf};
+use generic::{DecodeBuf, EncodeBuf};
 
-use futures::{Stream, Poll};
-use bytes::{BufMut};
+use bytes::BufMut;
+use futures::{Poll, Stream};
 use http;
 use prost::DecodeError;
 use prost::Message;
@@ -23,11 +23,12 @@ pub struct Decoder<T>(PhantomData<T>);
 /// A stream of inbound gRPC messages
 pub type Streaming<T, B = BoxBody> = ::generic::Streaming<Decoder<T>, B>;
 
-pub(crate) use ::generic::Direction;
+pub(crate) use generic::Direction;
 
 /// A protobuf encoded gRPC response body
 pub struct Encode<T>
-where T: Stream,
+where
+    T: Stream,
 {
     inner: ::generic::Encode<Encoder<T::Item>, T>,
 }
@@ -35,8 +36,9 @@ where T: Stream,
 // ===== impl Codec =====
 
 impl<T, U> Codec<T, U>
-where T: Message,
-      U: Message + Default,
+where
+    T: Message,
+    U: Message + Default,
 {
     /// Create a new protobuf codec
     pub fn new() -> Self {
@@ -45,8 +47,9 @@ where T: Message,
 }
 
 impl<T, U> ::generic::Codec for Codec<T, U>
-where T: Message,
-      U: Message + Default,
+where
+    T: Message,
+    U: Message + Default,
 {
     type Encode = T;
     type Encoder = Encoder<T>;
@@ -71,7 +74,8 @@ impl<T, U> Clone for Codec<T, U> {
 // ===== impl Encoder =====
 
 impl<T> Encoder<T>
-where T: Message
+where
+    T: Message,
 {
     pub fn new() -> Self {
         Encoder(PhantomData)
@@ -79,7 +83,8 @@ where T: Message
 }
 
 impl<T> ::generic::Encoder for Encoder<T>
-where T: Message,
+where
+    T: Message,
 {
     type Item = T;
 
@@ -107,7 +112,8 @@ impl<T> Clone for Encoder<T> {
 // ===== impl Decoder =====
 
 impl<T> Decoder<T>
-where T: Message + Default,
+where
+    T: Message + Default,
 {
     /// Returns a new decoder
     pub fn new() -> Self {
@@ -118,18 +124,17 @@ where T: Message + Default,
 fn from_decode_error(error: DecodeError) -> ::Status {
     // Map Protobuf parse errors to an INTERNAL status code, as per
     // https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
-    ::Status::new(
-        ::Code::Internal, error.to_string())
+    ::Status::new(::Code::Internal, error.to_string())
 }
 
 impl<T> ::generic::Decoder for Decoder<T>
-where T: Message + Default,
+where
+    T: Message + Default,
 {
     type Item = T;
 
     fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, ::Status> {
-        Message::decode(buf)
-            .map_err(from_decode_error)
+        Message::decode(buf).map_err(from_decode_error)
     }
 }
 
@@ -142,8 +147,9 @@ impl<T> Clone for Decoder<T> {
 // ===== impl Encode =====
 
 impl<T> Encode<T>
-where T: Stream<Error = ::Status>,
-      T::Item: ::prost::Message,
+where
+    T: Stream<Error = ::Status>,
+    T::Item: ::prost::Message,
 {
     pub(crate) fn new(inner: ::generic::Encode<Encoder<T::Item>, T>) -> Self {
         Encode { inner }
@@ -151,8 +157,9 @@ where T: Stream<Error = ::Status>,
 }
 
 impl<T> HttpBody for Encode<T>
-where T: Stream<Error = ::Status>,
-      T::Item: ::prost::Message,
+where
+    T: Stream<Error = ::Status>,
+    T::Item: ::prost::Message,
 {
     type Item = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Item;
     type Error = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Error;
@@ -171,9 +178,10 @@ where T: Stream<Error = ::Status>,
 }
 
 impl<T> fmt::Debug for Encode<T>
-where T: Stream + fmt::Debug,
-      T::Item: fmt::Debug,
-      T::Error: fmt::Debug,
+where
+    T: Stream + fmt::Debug,
+    T::Item: fmt::Debug,
+    T::Error: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Encode")
@@ -181,4 +189,3 @@ where T: Stream + fmt::Debug,
             .finish()
     }
 }
-

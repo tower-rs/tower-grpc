@@ -5,16 +5,6 @@ pub mod server;
 
 mod codec;
 
-pub(crate) use self::codec::{
-    Direction,
-};
+pub(crate) use self::codec::Direction;
 
-pub use self::codec::{
-    Codec,
-    Encoder,
-    Decoder,
-    Streaming,
-    Encode,
-    EncodeBuf,
-    DecodeBuf,
-};
+pub use self::codec::{Codec, DecodeBuf, Decoder, Encode, EncodeBuf, Encoder, Streaming};

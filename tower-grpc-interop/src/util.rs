@@ -1,4 +1,4 @@
-use ::pb;
+use pb;
 
 use std::{default, iter};
 

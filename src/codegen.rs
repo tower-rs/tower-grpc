@@ -2,76 +2,57 @@
 pub mod server {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::{Body, BoxBody, error::Never, Request, Response, Code, Status};
-        pub use ::generic::server::{
-            StreamingService,
-            UnaryService,
-            ClientStreamingService,
-            ServerStreamingService,
+        pub use codec::{Encode, Streaming};
+        pub use generic::server::{
+            ClientStreamingService, ServerStreamingService, StreamingService, UnaryService,
         };
-        pub use ::server::{
-            unary,
-            client_streaming,
-            server_streaming,
-            streaming,
-            unimplemented,
-        };
-        pub use ::codec::{
-            Encode,
-            Streaming,
-        };
+        pub use server::{client_streaming, server_streaming, streaming, unary, unimplemented};
+        pub use {error::Never, Body, BoxBody, Code, Request, Response, Status};
     }
 
     /// Re-export types from the `future` crate.
     pub mod futures {
-        pub use ::futures::{Future, Stream, Poll, Async};
-        pub use ::futures::future::{FutureResult, ok};
+        pub use futures::future::{ok, FutureResult};
+        pub use futures::{Async, Future, Poll, Stream};
     }
 
     /// Re-exported types from the `http` crate.
     pub mod http {
-        pub use ::http::{Request, Response, HeaderMap};
+        pub use http::{HeaderMap, Request, Response};
     }
 
     /// Re-exported types from the `tower` crate.
     pub mod tower {
-        pub use ::tower_service::Service;
-        pub use ::tower::MakeService;
-        pub use ::tower_http_service::{Body as HttpBody};
+        pub use tower::MakeService;
+        pub use tower_http_service::Body as HttpBody;
+        pub use tower_service::Service;
     }
 
     #[cfg(feature = "tower-h2")]
     /// Re-exported types from `tower-h2` crate.
     pub mod tower_h2 {
-        pub use ::tower_h2::{Body, RecvBody};
+        pub use tower_h2::{Body, RecvBody};
     }
 }
 
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use ::client::{
-            Grpc,
-            Encodable,
-            unary,
-            client_streaming,
-            server_streaming,
-            streaming,
-        };
-        pub use ::generic::client::GrpcService;
-        pub use ::{Body, Request, Response, Code, Status};
+        pub use client::{client_streaming, server_streaming, streaming, unary, Encodable, Grpc};
+        pub use generic::client::GrpcService;
+        pub use {Body, Code, Request, Response, Status};
     }
 
     pub mod http {
-        pub use ::http::uri::{Uri, PathAndQuery};
+        pub use http::uri::{PathAndQuery, Uri};
     }
 
     /// Re-export types from the `future` crate.
     pub mod futures {
-        pub use ::futures::{Stream, Future, Poll};
+        pub use futures::{Future, Poll, Stream};
     }
 
     pub mod tower {
-        pub use ::tower_http_service::{Body as HttpBody};
+        pub use tower_http_service::Body as HttpBody;
     }
 }

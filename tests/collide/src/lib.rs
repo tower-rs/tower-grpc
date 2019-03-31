@@ -27,4 +27,3 @@ mod tests {
         mem::size_of::<::hello::HelloRequest>();
     }
 }
-

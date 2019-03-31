@@ -1,10 +1,10 @@
-use {Request, Response};
 use super::server_streaming;
-use generic::{Encoder, Encode};
 use generic::server::UnaryService;
+use generic::{Encode, Encoder};
+use {Request, Response};
 
-use {http};
-use futures::{Future, Stream, Poll};
+use futures::{Future, Poll, Stream};
+use http;
 use tower_service::Service;
 
 use std::fmt;
@@ -33,9 +33,10 @@ struct InnerFuture<T>(T);
 // ===== impl ResponseFuture ======
 
 impl<T, E, S> ResponseFuture<T, E, S>
-where T: UnaryService<S::Item, Response = E::Item>,
-      E: Encoder,
-      S: Stream<Error = ::Status>,
+where
+    T: UnaryService<S::Item, Response = E::Item>,
+    E: Encoder,
+    S: Stream<Error = ::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = server_streaming::ResponseFuture::new(Inner(inner), request, encoder);
@@ -44,9 +45,10 @@ where T: UnaryService<S::Item, Response = E::Item>,
 }
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
-where T: UnaryService<S::Item, Response = E::Item>,
-      E: Encoder,
-      S: Stream<Error = ::Status>,
+where
+    T: UnaryService<S::Item, Response = E::Item>,
+    E: Encoder,
+    S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, Once<T::Response>>>;
     type Error = ::error::Never;
@@ -59,7 +61,8 @@ where T: UnaryService<S::Item, Response = E::Item>,
 // ===== impl Inner =====
 
 impl<T, R> Service<Request<R>> for Inner<T>
-where T: UnaryService<R>,
+where
+    T: UnaryService<R>,
 {
     type Response = Response<Once<T::Response>>;
     type Error = ::Status;
@@ -78,7 +81,9 @@ where T: UnaryService<R>,
 // ===== impl InnerFuture ======
 
 impl<T, U> Future for InnerFuture<T>
-where T: Future<Item = Response<U>, Error = ::Status> {
+where
+    T: Future<Item = Response<U>, Error = ::Status>,
+{
     type Item = Response<Once<U>>;
     type Error = ::Status;
 
@@ -107,11 +112,12 @@ impl<T> Stream for Once<T> {
 }
 
 impl<T, E, S> fmt::Debug for ResponseFuture<T, E, S>
-where T: UnaryService<S::Item> + fmt::Debug,
-      T::Response: fmt::Debug,
-      T::Future: fmt::Debug,
-      E: fmt::Debug,
-      S: Stream + fmt::Debug,
+where
+    T: UnaryService<S::Item> + fmt::Debug,
+    T::Response: fmt::Debug,
+    T::Future: fmt::Debug,
+    E: fmt::Debug,
+    S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")

@@ -1,11 +1,11 @@
-use Body;
-use error::Error;
 use super::client_streaming;
+use error::Error;
+use Body;
 
 use std::fmt;
 
 use futures::{stream, Future, Poll};
-use http::{Response};
+use http::Response;
 use prost::Message;
 
 pub struct ResponseFuture<T, U, B: Body> {
@@ -22,11 +22,12 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 }
 
 impl<T, U, B> Future for ResponseFuture<T, U, B>
-where T: Message + Default,
-      U: Future<Item = Response<B>>,
-      U::Error: Into<Error>,
-      B: Body,
-      B::Error: Into<Error>,
+where
+    T: Message + Default,
+    U: Future<Item = Response<B>>,
+    U::Error: Into<Error>,
+    B: Body,
+    B::Error: Into<Error>,
 {
     type Item = ::Response<T>;
     type Error = ::Status;

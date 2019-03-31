@@ -1,8 +1,8 @@
 use codec::{Encode, Encoder};
-use generic::server::{StreamingService, streaming};
+use generic::server::{streaming, StreamingService};
 
-use {http, prost};
 use futures::{Future, Poll, Stream};
+use {http, prost};
 
 use std::fmt;
 
@@ -16,8 +16,7 @@ where
     inner: Inner<T::Future, T::Response>,
 }
 
-type Inner<T, U> =
-    streaming::ResponseFuture<T, Encoder<U>>;
+type Inner<T, U> = streaming::ResponseFuture<T, Encoder<U>>;
 
 impl<T, S> ResponseFuture<T, S>
 where
@@ -49,12 +48,13 @@ where
 }
 
 impl<T, S> fmt::Debug for ResponseFuture<T, S>
-where T: StreamingService<S> + fmt::Debug,
-      S: Stream<Error = ::Status> + fmt::Debug,
-      S::Item: prost::Message + Default + fmt::Debug,
-      T::Response: prost::Message + fmt::Debug,
-      T::ResponseStream: fmt::Debug,
-      T::Future: fmt::Debug,
+where
+    T: StreamingService<S> + fmt::Debug,
+    S: Stream<Error = ::Status> + fmt::Debug,
+    S::Item: prost::Message + Default + fmt::Debug,
+    T::Response: prost::Message + fmt::Debug,
+    T::ResponseStream: fmt::Debug,
+    T::Future: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("streaming::ResponseFuture")

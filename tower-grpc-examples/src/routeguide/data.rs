@@ -2,10 +2,10 @@
 
 use serde_json;
 
-use std::{env, io};
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::Path;
+use std::{env, io};
 
 #[derive(Debug, Deserialize)]
 struct Feature {
@@ -26,17 +26,20 @@ pub fn load() -> Vec<::routeguide::Feature> {
 
     let mut file = File::open(&args[1]).ok().expect("failed to open data file");
     let mut data = String::new();
-    file.read_to_string(&mut data).ok().expect("failed to read data file");
+    file.read_to_string(&mut data)
+        .ok()
+        .expect("failed to read data file");
 
     let decoded: Vec<Feature> = serde_json::from_str(&data).unwrap();
 
-    decoded.into_iter().map(|feature| {
-        ::routeguide::Feature {
+    decoded
+        .into_iter()
+        .map(|feature| ::routeguide::Feature {
             name: feature.name,
             location: Some(::routeguide::Point {
                 longitude: feature.location.longitude,
                 latitude: feature.location.latitude,
             }),
-        }
-    }).collect()
+        })
+        .collect()
 }

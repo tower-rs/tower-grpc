@@ -5,7 +5,10 @@ fn main() {
     tower_grpc_build::Config::new()
         .enable_server(true)
         .enable_client(true)
-        .build(&["proto/helloworld/helloworld.proto"], &["proto/helloworld"])
+        .build(
+            &["proto/helloworld/helloworld.proto"],
+            &["proto/helloworld"],
+        )
         .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
 
     // Build metadata
@@ -19,6 +22,9 @@ fn main() {
     tower_grpc_build::Config::new()
         .enable_server(true)
         .enable_client(true)
-        .build(&["proto/routeguide/route_guide.proto"], &["proto/routeguide"])
+        .build(
+            &["proto/routeguide/route_guide.proto"],
+            &["proto/routeguide"],
+        )
         .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
 }

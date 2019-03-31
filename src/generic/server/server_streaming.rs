@@ -1,10 +1,10 @@
-use {Request, Response};
 use super::streaming;
-use generic::{Encoder, Encode};
 use generic::server::ServerStreamingService;
+use generic::{Encode, Encoder};
+use {Request, Response};
 
-use {http};
-use futures::{Future, Stream, Poll};
+use futures::{Future, Poll, Stream};
+use http;
 
 use std::fmt;
 
@@ -38,9 +38,10 @@ enum State<T, S> {
 // ===== impl ResponseFuture ======
 
 impl<T, E, S> ResponseFuture<T, E, S>
-where T: ServerStreamingService<S::Item, Response = E::Item>,
-      E: Encoder,
-      S: Stream<Error = ::Status>,
+where
+    T: ServerStreamingService<S::Item, Response = E::Item>,
+    E: Encoder,
+    S: Stream<Error = ::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = Inner {
@@ -54,9 +55,10 @@ where T: ServerStreamingService<S::Item, Response = E::Item>,
 }
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
-where T: ServerStreamingService<S::Item, Response = E::Item>,
-      E: Encoder,
-      S: Stream<Error = ::Status>,
+where
+    T: ServerStreamingService<S::Item, Response = E::Item>,
+    E: Encoder,
+    S: Stream<Error = ::Status>,
 {
     type Item = http::Response<Encode<E, T::ResponseStream>>;
     type Error = ::error::Never;
@@ -69,8 +71,9 @@ where T: ServerStreamingService<S::Item, Response = E::Item>,
 // ===== impl Inner =====
 
 impl<T, S> Future for Inner<T, S>
-where T: ServerStreamingService<S::Item>,
-      S: Stream<Error = ::Status>,
+where
+    T: ServerStreamingService<S::Item>,
+    S: Stream<Error = ::Status>,
 {
     type Item = Response<T::ResponseStream>;
     type Error = ::Status;
@@ -80,41 +83,36 @@ where T: ServerStreamingService<S::Item>,
 
         loop {
             let msg = match *self.state.as_mut().unwrap() {
-                Requesting(ref mut request) => {
-                    try_ready!(request.get_mut().poll())
-                }
+                Requesting(ref mut request) => try_ready!(request.get_mut().poll()),
                 Responding(ref mut fut) => {
                     return fut.poll();
                 }
             };
 
             match msg {
-                Some(msg) => {
-                    match self.state.take().unwrap() {
-                        Requesting(request) => {
-                            let request = request.map(|_| msg);
-                            let response = self.inner.call(request);
+                Some(msg) => match self.state.take().unwrap() {
+                    Requesting(request) => {
+                        let request = request.map(|_| msg);
+                        let response = self.inner.call(request);
 
-                            self.state = Some(Responding(response));
-                        }
-                        _ => unreachable!(),
+                        self.state = Some(Responding(response));
                     }
-                }
-                None => return Err(::Status::new(
-                    ::Code::Internal,
-                    "Missing request message.")),
+                    _ => unreachable!(),
+                },
+                None => return Err(::Status::new(::Code::Internal, "Missing request message.")),
             }
         }
     }
 }
 
 impl<T, E, S> fmt::Debug for ResponseFuture<T, E, S>
-where T: ServerStreamingService<S::Item> + fmt::Debug,
-      T::Response: fmt::Debug,
-      T::ResponseStream: fmt::Debug,
-      T::Future: fmt::Debug,
-      E: fmt::Debug,
-      S: Stream + fmt::Debug,
+where
+    T: ServerStreamingService<S::Item> + fmt::Debug,
+    T::Response: fmt::Debug,
+    T::ResponseStream: fmt::Debug,
+    T::Future: fmt::Debug,
+    E: fmt::Debug,
+    S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
@@ -124,11 +122,12 @@ where T: ServerStreamingService<S::Item> + fmt::Debug,
 }
 
 impl<T, S> fmt::Debug for Inner<T, S>
-where T: ServerStreamingService<S::Item> + fmt::Debug,
-      T::Response: fmt::Debug,
-      T::ResponseStream: fmt::Debug,
-      T::Future: fmt::Debug,
-      S: Stream + fmt::Debug,
+where
+    T: ServerStreamingService<S::Item> + fmt::Debug,
+    T::Response: fmt::Debug,
+    T::ResponseStream: fmt::Debug,
+    T::Future: fmt::Debug,
+    S: Stream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Inner")

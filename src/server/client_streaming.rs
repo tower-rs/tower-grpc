@@ -1,8 +1,8 @@
 use codec::{Encode, Encoder};
-use generic::server::{ClientStreamingService, client_streaming, unary};
+use generic::server::{client_streaming, unary, ClientStreamingService};
 
-use {http, prost};
 use futures::{Future, Poll, Stream};
+use {http, prost};
 
 use std::fmt;
 
@@ -14,8 +14,7 @@ where
     inner: Inner<T::Future, T::Response>,
 }
 
-type Inner<T, U> =
-    client_streaming::ResponseFuture<T, Encoder<U>>;
+type Inner<T, U> = client_streaming::ResponseFuture<T, Encoder<U>>;
 
 impl<T, S> ResponseFuture<T, S>
 where

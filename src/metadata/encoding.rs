@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use http::header::HeaderValue;
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 use std::hash::Hash;
 
 /// A possible error when converting a `MetadataValue` from a string or byte
@@ -12,10 +12,10 @@ pub struct InvalidMetadataValue {
 }
 
 mod value_encoding {
+    use super::InvalidMetadataValueBytes;
     use bytes::Bytes;
     use http::header::HeaderValue;
     use std::fmt;
-    use super::InvalidMetadataValueBytes;
 
     pub trait Sealed {
         #[doc(hidden)]
@@ -64,15 +64,11 @@ impl self::value_encoding::Sealed for Ascii {
     }
 
     fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes> {
-        HeaderValue::from_bytes(value)
-            .map_err(|_| { InvalidMetadataValueBytes::new() })
+        HeaderValue::from_bytes(value).map_err(|_| InvalidMetadataValueBytes::new())
     }
 
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes> {
-       HeaderValue::from_shared(value)
-            .map_err(|_| {
-                InvalidMetadataValueBytes::new()
-            })
+        HeaderValue::from_shared(value).map_err(|_| InvalidMetadataValueBytes::new())
     }
 
     fn from_static(value: &'static str) -> HeaderValue {
@@ -113,9 +109,8 @@ impl self::value_encoding::Sealed for Binary {
     }
 
     fn from_bytes(value: &[u8]) -> Result<HeaderValue, InvalidMetadataValueBytes> {
-        let encoded_value : String = base64::encode_config(value, base64::STANDARD_NO_PAD);
-        HeaderValue::from_shared(encoded_value.into())
-            .map_err(|_| { InvalidMetadataValueBytes::new() })
+        let encoded_value: String = base64::encode_config(value, base64::STANDARD_NO_PAD);
+        HeaderValue::from_shared(encoded_value.into()).map_err(|_| InvalidMetadataValueBytes::new())
     }
 
     fn from_shared(value: Bytes) -> Result<HeaderValue, InvalidMetadataValueBytes> {
@@ -136,7 +131,7 @@ impl self::value_encoding::Sealed for Binary {
     fn decode(value: &[u8]) -> Result<Bytes, InvalidMetadataValueBytes> {
         base64::decode(value)
             .map(|bytes_vec| bytes_vec.into())
-            .map_err(|_| { InvalidMetadataValueBytes::new() })
+            .map_err(|_| InvalidMetadataValueBytes::new())
     }
 
     fn equals(a: &HeaderValue, b: &[u8]) -> bool {

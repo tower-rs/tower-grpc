@@ -1,23 +1,23 @@
 extern crate bytes;
 extern crate env_logger;
-extern crate http;
 extern crate futures;
+extern crate http;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower_h2;
+extern crate tower;
 extern crate tower_add_origin;
 extern crate tower_grpc;
+extern crate tower_h2;
 extern crate tower_service;
-extern crate tower;
 
 use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
+use tower::MakeService;
 use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
-use tower::MakeService;
 
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
@@ -31,7 +31,8 @@ pub fn main() {
     let h2_settings = Default::default();
     let mut make_client = client::Connect::new(Dst, h2_settings, DefaultExecutor::current());
 
-    let say_hello = make_client.make_service(())
+    let say_hello = make_client
+        .make_service(())
         .map(move |conn| {
             use hello_world::client::Greeter;
 
@@ -45,9 +46,11 @@ pub fn main() {
         .and_then(|mut client| {
             use hello_world::HelloRequest;
 
-            client.say_hello(Request::new(HelloRequest {
-                name: "What is in a name?".to_string(),
-            })).map_err(|e| panic!("gRPC request failed; err={:?}", e))
+            client
+                .say_hello(Request::new(HelloRequest {
+                    name: "What is in a name?".to_string(),
+                }))
+                .map_err(|e| panic!("gRPC request failed; err={:?}", e))
         })
         .and_then(|response| {
             println!("RESPONSE = {:?}", response);
@@ -76,4 +79,3 @@ impl Service<()> for Dst {
         TcpStream::connect(&addr)
     }
 }
-

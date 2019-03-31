@@ -1,9 +1,9 @@
 use bytes::Bytes;
 use h2;
-use http::{self, HeaderMap};
 use http::header::HeaderValue;
+use http::{self, HeaderMap};
+use percent_encoding::{percent_decode, percent_encode, EncodeSet, DEFAULT_ENCODE_SET};
 use std::{error::Error, fmt};
-use percent_encoding::{percent_encode, percent_decode, DEFAULT_ENCODE_SET, EncodeSet};
 
 const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
 const GRPC_STATUS_MESSAGE_HEADER: &str = "grpc-message";
@@ -76,13 +76,7 @@ impl Status {
     // TODO: This should probably be made public eventually. Need to decide on
     // the exact argument type.
     pub(crate) fn from_error(err: &(dyn Error + 'static)) -> Status {
-        Status::try_from_error(err)
-            .unwrap_or_else(|| {
-                Status::new(
-                    Code::Unknown,
-                    err.to_string(),
-                )
-            })
+        Status::try_from_error(err).unwrap_or_else(|| Status::new(Code::Unknown, err.to_string()))
     }
 
     fn try_from_error(err: &(dyn Error + 'static)) -> Option<Status> {
@@ -108,13 +102,13 @@ impl Status {
     fn from_h2_error(err: &h2::Error) -> Status {
         // See https://github.com/grpc/grpc/blob/3977c30/doc/PROTOCOL-HTTP2.md#errors
         let code = match err.reason() {
-            Some(h2::Reason::NO_ERROR) |
-            Some(h2::Reason::PROTOCOL_ERROR) |
-            Some(h2::Reason::INTERNAL_ERROR) |
-            Some(h2::Reason::FLOW_CONTROL_ERROR) |
-            Some(h2::Reason::SETTINGS_TIMEOUT) |
-            Some(h2::Reason::COMPRESSION_ERROR) |
-            Some(h2::Reason::CONNECT_ERROR) => Code::Internal,
+            Some(h2::Reason::NO_ERROR)
+            | Some(h2::Reason::PROTOCOL_ERROR)
+            | Some(h2::Reason::INTERNAL_ERROR)
+            | Some(h2::Reason::FLOW_CONTROL_ERROR)
+            | Some(h2::Reason::SETTINGS_TIMEOUT)
+            | Some(h2::Reason::COMPRESSION_ERROR)
+            | Some(h2::Reason::CONNECT_ERROR) => Code::Internal,
             Some(h2::Reason::REFUSED_STREAM) => Code::Unavailable,
             Some(h2::Reason::CANCEL) => Code::Cancelled,
             Some(h2::Reason::ENHANCE_YOUR_CALM) => Code::ResourceExhausted,
@@ -123,11 +117,7 @@ impl Status {
             _ => Code::Unknown,
         };
 
-
-        Status::new(
-            code,
-            format!("h2 protocol error: {}", err),
-        )
+        Status::new(code, format!("h2 protocol error: {}", err))
     }
 
     fn to_h2_error(&self) -> h2::Error {
@@ -140,7 +130,6 @@ impl Status {
         reason.into()
     }
 
-
     pub(crate) fn map_error<E>(err: E) -> Status
     where
         E: Into<Box<dyn Error + Send + Sync>>,
@@ -151,14 +140,18 @@ impl Status {
     pub(crate) fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
         header_map.get(GRPC_STATUS_HEADER_CODE).map(|code| {
             let code = Code::from_bytes(code.as_ref());
-            let error_message = header_map.get(GRPC_STATUS_MESSAGE_HEADER)
-                .map(|header|
+            let error_message = header_map
+                .get(GRPC_STATUS_MESSAGE_HEADER)
+                .map(|header| {
                     percent_decode(header.as_bytes())
                         .decode_utf8()
-                        .map(|cow| cow.to_string()))
+                        .map(|cow| cow.to_string())
+                })
                 .unwrap_or_else(|| Ok(String::new()));
-            let details = header_map.get(GRPC_STATUS_DETAILS_HEADER)
-                .map(|h| Bytes::from(h.as_bytes())).unwrap_or_else(Bytes::new);
+            let details = header_map
+                .get(GRPC_STATUS_DETAILS_HEADER)
+                .map(|h| Bytes::from(h.as_bytes()))
+                .unwrap_or_else(Bytes::new);
             match error_message {
                 Ok(message) => Status {
                     code,
@@ -214,23 +207,31 @@ impl Status {
         header_map.insert(GRPC_STATUS_HEADER_CODE, self.code.to_header_value());
 
         if !self.message.is_empty() {
-            let is_need_encode = self.message.as_bytes().iter().any(|&x| DEFAULT_ENCODE_SET.contains(x));
-            let to_write = 
-                if is_need_encode {
-                    percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
+            let is_need_encode = self
+                .message
+                .as_bytes()
+                .iter()
+                .any(|&x| DEFAULT_ENCODE_SET.contains(x));
+            let to_write = if is_need_encode {
+                percent_encode(&self.message().as_bytes(), DEFAULT_ENCODE_SET)
                     .to_string()
                     .into()
-                } else {
-                    Bytes::from(self.message().as_bytes())
-                };
+            } else {
+                Bytes::from(self.message().as_bytes())
+            };
 
-            header_map.insert(GRPC_STATUS_MESSAGE_HEADER, HeaderValue::from_shared(to_write)
-                    .map_err(invalid_header_value_byte)?);  
+            header_map.insert(
+                GRPC_STATUS_MESSAGE_HEADER,
+                HeaderValue::from_shared(to_write).map_err(invalid_header_value_byte)?,
+            );
         }
-            
+
         if !self.details.is_empty() {
-            header_map.insert(GRPC_STATUS_DETAILS_HEADER, HeaderValue::from_shared(self.details.clone())
-                .map_err(invalid_header_value_byte)?);
+            header_map.insert(
+                GRPC_STATUS_DETAILS_HEADER,
+                HeaderValue::from_shared(self.details.clone())
+                    .map_err(invalid_header_value_byte)?,
+            );
         }
 
         Ok(())
@@ -292,7 +293,10 @@ impl Error for Status {}
 ///
 /// Take the `Status` value from `trailers` if it is available, else from `status_code`.
 ///
-pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::StatusCode) -> Result<(), Status> {
+pub(crate) fn infer_grpc_status(
+    trailers: Option<HeaderMap>,
+    status_code: http::StatusCode,
+) -> Result<(), Status> {
     if let Some(trailers) = trailers {
         if let Some(status) = Status::from_header_map(&trailers) {
             if status.code() == Code::Ok {
@@ -309,10 +313,10 @@ pub(crate) fn infer_grpc_status(trailers: Option<HeaderMap>, status_code: http::
         http::StatusCode::UNAUTHORIZED => Code::Unauthenticated,
         http::StatusCode::FORBIDDEN => Code::PermissionDenied,
         http::StatusCode::NOT_FOUND => Code::Unimplemented,
-        http::StatusCode::TOO_MANY_REQUESTS |
-        http::StatusCode::BAD_GATEWAY |
-        http::StatusCode::SERVICE_UNAVAILABLE |
-        http::StatusCode::GATEWAY_TIMEOUT => Code::Unavailable,
+        http::StatusCode::TOO_MANY_REQUESTS
+        | http::StatusCode::BAD_GATEWAY
+        | http::StatusCode::SERVICE_UNAVAILABLE
+        | http::StatusCode::GATEWAY_TIMEOUT => Code::Unavailable,
         _ => Code::Unknown,
     };
 
@@ -336,32 +340,28 @@ impl Code {
 
     pub(crate) fn from_bytes(bytes: &[u8]) -> Code {
         match bytes.len() {
-            1 => {
-                match bytes[0] {
-                    b'0' => Code::Ok,
-                    b'1' => Code::Cancelled,
-                    b'2' => Code::Unknown,
-                    b'3' => Code::InvalidArgument,
-                    b'4' => Code::DeadlineExceeded,
-                    b'5' => Code::NotFound,
-                    b'6' => Code::AlreadyExists,
-                    b'7' => Code::PermissionDenied,
-                    b'8' => Code::ResourceExhausted,
-                    b'9' => Code::FailedPrecondition,
-                    _ => Code::parse_err(),
-                }
+            1 => match bytes[0] {
+                b'0' => Code::Ok,
+                b'1' => Code::Cancelled,
+                b'2' => Code::Unknown,
+                b'3' => Code::InvalidArgument,
+                b'4' => Code::DeadlineExceeded,
+                b'5' => Code::NotFound,
+                b'6' => Code::AlreadyExists,
+                b'7' => Code::PermissionDenied,
+                b'8' => Code::ResourceExhausted,
+                b'9' => Code::FailedPrecondition,
+                _ => Code::parse_err(),
             },
-            2 => {
-                match (bytes[0], bytes[1]) {
-                    (b'1', b'0') => Code::Aborted,
-                    (b'1', b'1') => Code::OutOfRange,
-                    (b'1', b'2') => Code::Unimplemented,
-                    (b'1', b'3') => Code::Internal,
-                    (b'1', b'4') => Code::Unavailable,
-                    (b'1', b'5') => Code::DataLoss,
-                    (b'1', b'6') => Code::Unauthenticated,
-                    _ => Code::parse_err(),
-                }
+            2 => match (bytes[0], bytes[1]) {
+                (b'1', b'0') => Code::Aborted,
+                (b'1', b'1') => Code::OutOfRange,
+                (b'1', b'2') => Code::Unimplemented,
+                (b'1', b'3') => Code::Internal,
+                (b'1', b'4') => Code::Unavailable,
+                (b'1', b'5') => Code::DataLoss,
+                (b'1', b'6') => Code::Unauthenticated,
+                _ => Code::parse_err(),
             },
             _ => Code::parse_err(),
         }
@@ -400,16 +400,16 @@ impl Code {
 impl From<i32> for Code {
     fn from(i: i32) -> Self {
         match i {
-            0  => Code::Ok,
-            1  => Code::Cancelled,
-            2  => Code::Unknown,
-            3  => Code::InvalidArgument,
-            4  => Code::DeadlineExceeded,
-            5  => Code::NotFound,
-            6  => Code::AlreadyExists,
-            7  => Code::PermissionDenied,
-            8  => Code::ResourceExhausted,
-            9  => Code::FailedPrecondition,
+            0 => Code::Ok,
+            1 => Code::Cancelled,
+            2 => Code::Unknown,
+            3 => Code::InvalidArgument,
+            4 => Code::DeadlineExceeded,
+            5 => Code::NotFound,
+            6 => Code::AlreadyExists,
+            7 => Code::PermissionDenied,
+            8 => Code::ResourceExhausted,
+            9 => Code::FailedPrecondition,
             10 => Code::Aborted,
             11 => Code::OutOfRange,
             12 => Code::Unimplemented,
@@ -423,12 +423,10 @@ impl From<i32> for Code {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use error::Error;
-
 
     #[derive(Debug)]
     struct Nested(Error);
@@ -495,12 +493,9 @@ mod tests {
         for i in 0..(Code::__NonExhaustive as i32) {
             let code = Code::from(i);
             assert_eq!(
-                i,
-                code as i32,
+                i, code as i32,
                 "Code::from({}) returned {:?} which is {}",
-                i,
-                code,
-                code as i32,
+                i, code, code as i32,
             );
         }
 

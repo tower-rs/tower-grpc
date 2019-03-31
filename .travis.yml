@@ -8,11 +8,16 @@ matrix:
   include:
   - rust: nightly
   - rust: stable
+    env: RUSTFMT=1
     before_deploy: cargo doc --no-deps
   allow_failures:
     - rust: nightly
 
+before_script:
+  - if [ "$RUSTFMT" = 1 ]; then rustup component add rustfmt; fi
+
 script:
+  - if [ "$RUSTFMT" = 1 ]; then cargo fmt -- --check; fi
   # build test crates
   - cargo build --all
   # run unit tests

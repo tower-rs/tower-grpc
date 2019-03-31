@@ -2,8 +2,8 @@ use body::{Body, HttpBody};
 use error::Error;
 use Status;
 
-use bytes::{Buf, BufMut, BytesMut, Bytes, IntoBuf};
-use futures::{Stream, Poll, Async};
+use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
+use futures::{Async, Poll, Stream};
 use http::{HeaderMap, StatusCode};
 
 use std::collections::VecDeque;
@@ -120,16 +120,13 @@ pub(crate) enum Direction {
     /// For streaming responses with zero response payloads, the HTTP
     /// status is provided immediately. In this case no additional
     /// trailers are expected.
-    EmptyResponse
+    EmptyResponse,
 }
 
 #[derive(Debug)]
 enum State {
     ReadHeader,
-    ReadBody {
-        compression: bool,
-        len: usize,
-    },
+    ReadBody { compression: bool, len: usize },
     Done,
 }
 
@@ -153,9 +150,10 @@ pub struct BufList<B> {
 // ===== impl Encode =====
 
 impl<T, U> Encode<T, U>
-where T: Encoder<Item = U::Item>,
-      U: Stream,
-      U::Error: Into<Error>,
+where
+    T: Encoder<Item = U::Item>,
+    U: Stream,
+    U::Error: Into<Error>,
 {
     fn new(encoder: T, inner: U, role: Role) -> Self {
         Encode {
@@ -183,9 +181,10 @@ where T: Encoder<Item = U::Item>,
 }
 
 impl<T, U> HttpBody for Encode<T, U>
-where T: Encoder<Item = U::Item>,
-      U: Stream,
-      U::Error: Into<Error>,
+where
+    T: Encoder<Item = U::Item>,
+    U: Stream,
+    U::Error: Into<Error>,
 {
     type Item = BytesBuf;
     type Error = Status;
@@ -210,7 +209,7 @@ where T: Encoder<Item = U::Item>,
                         Ok(None.into())
                     }
                 }
-            },
+            }
         }
     }
 
@@ -228,13 +227,17 @@ where T: Encoder<Item = U::Item>,
 }
 
 impl<T, U> EncodeInner<T, U>
-where T: Encoder<Item = U::Item>,
-      U: Stream,
-      U::Error: Into<Error>,
+where
+    T: Encoder<Item = U::Item>,
+    U: Stream,
+    U::Error: Into<Error>,
 {
     fn poll_encode(&mut self, buf: &mut BytesMut) -> Poll<Option<BytesBuf>, Status> {
         match self {
-            EncodeInner::Ok { ref mut inner, ref mut encoder } => {
+            EncodeInner::Ok {
+                ref mut inner,
+                ref mut encoder,
+            } => {
                 let item = try_ready!(inner.poll().map_err(|err| {
                     let err = err.into();
                     debug!("encoder inner stream error: {:?}", err);
@@ -243,10 +246,10 @@ where T: Encoder<Item = U::Item>,
 
                 let item = if let Some(item) = item {
                     buf.reserve(5);
-                    unsafe { buf.advance_mut(5); }
-                    encoder.encode(item, &mut EncodeBuf {
-                        bytes: buf,
-                    })?;
+                    unsafe {
+                        buf.advance_mut(5);
+                    }
+                    encoder.encode(item, &mut EncodeBuf { bytes: buf })?;
 
                     // now that we know length, we can write the header
                     let len = buf.len() - 5;
@@ -272,8 +275,9 @@ where T: Encoder<Item = U::Item>,
 // ===== impl Streaming =====
 
 impl<T, U> Streaming<T, U>
-where T: Decoder,
-      U: Body,
+where
+    T: Decoder,
+    U: Body,
 {
     pub(crate) fn new(decoder: T, inner: U, direction: Direction) -> Self {
         Streaming {
@@ -299,13 +303,15 @@ where T: Decoder,
                     trace!("message compressed, compression not supported yet");
                     return Err(::Status::new(
                         ::Code::Unimplemented,
-                        "Message compressed, compression not supported yet.".to_string()));
-                },
+                        "Message compressed, compression not supported yet.".to_string(),
+                    ));
+                }
                 f => {
                     trace!("unexpected compression flag");
                     return Err(::Status::new(
                         ::Code::Internal,
-                        format!("Unexpected compression flag: {}", f)));
+                        format!("Unexpected compression flag: {}", f),
+                    ));
                 }
             };
             let len = self.bufs.get_u32_be() as usize;
@@ -328,7 +334,7 @@ where T: Decoder,
                 Ok(msg) => {
                     self.state = State::ReadHeader;
                     return Ok(Some(msg));
-                },
+                }
                 Err(e) => {
                     return Err(e);
                 }
@@ -340,8 +346,9 @@ where T: Decoder,
 }
 
 impl<T, U> Stream for Streaming<T, U>
-where T: Decoder,
-      U: Body,
+where
+    T: Decoder,
+    U: Body,
 {
     type Item = T::Item;
     type Error = Status;
@@ -370,7 +377,8 @@ where T: Decoder,
                     trace!("unexpected EOF decoding stream");
                     return Err(::Status::new(
                         ::Code::Internal,
-                        "Unexpected EOF decoding stream.".to_string()))
+                        "Unexpected EOF decoding stream.".to_string(),
+                    ));
                 } else {
                     self.state = State::Done;
                     break;
@@ -401,8 +409,7 @@ where
     B::Item: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Streaming")
-            .finish()
+        f.debug_struct("Streaming").finish()
     }
 }
 
@@ -461,8 +468,7 @@ impl<'a> Buf for DecodeBuf<'a> {
 
 impl<'a> fmt::Debug for DecodeBuf<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("DecodeBuf")
-            .finish()
+        f.debug_struct("DecodeBuf").finish()
     }
 }
 
@@ -480,9 +486,7 @@ impl<'a> Drop for DecodeBuf<'a> {
 impl<T: Buf> Buf for BufList<T> {
     #[inline]
     fn remaining(&self) -> usize {
-        self.bufs.iter()
-            .map(|buf| buf.remaining())
-            .sum()
+        self.bufs.iter().map(|buf| buf.remaining()).sum()
     }
 
     #[inline]
@@ -510,4 +514,3 @@ impl<T: Buf> Buf for BufList<T> {
         }
     }
 }
-
