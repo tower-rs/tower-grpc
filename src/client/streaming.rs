@@ -1,6 +1,6 @@
-use Body;
 use codec::{Direction, Streaming};
 use error::Error;
+use Body;
 
 use futures::{Future, Poll};
 use http::Response;
@@ -27,10 +27,11 @@ impl<T, U> ResponseFuture<T, U> {
 }
 
 impl<T, U, B> Future for ResponseFuture<T, U>
-where T: Message + Default,
-      U: Future<Item = Response<B>>,
-      U::Error: Into<Error>,
-      B: Body,
+where
+    T: Message + Default,
+    U: Future<Item = Response<B>>,
+    U::Error: Into<Error>,
+    B: Body,
 {
     type Item = ::Response<Streaming<T, B>>;
     type Error = ::Status;
@@ -40,12 +41,12 @@ where T: Message + Default,
         use generic::Streaming;
 
         // Get the response
-        let response = try_ready!(self.inner.poll().map_err(|err| {
-            ::Status::from_error(&*(err.into()))
-        }));
+        let response = try_ready!(self
+            .inner
+            .poll()
+            .map_err(|err| ::Status::from_error(&*(err.into()))));
 
         let status_code = response.status();
-
 
         // Check the headers for `grpc-status`, in which case we should not parse the body.
         let trailers_only_status = ::Status::from_header_map(response.headers());
@@ -62,9 +63,8 @@ where T: Message + Default,
             Direction::EmptyResponse
         };
 
-        let response = response.map(move |body| {
-            Streaming::new(Decoder::new(), body, streaming_direction)
-        });
+        let response =
+            response.map(move |body| Streaming::new(Decoder::new(), body, streaming_direction));
 
         Ok(::Response::from_http(response).into())
     }

@@ -8,11 +8,11 @@ extern crate http;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower_h2;
+extern crate tower;
 extern crate tower_add_origin;
 extern crate tower_grpc;
+extern crate tower_h2;
 extern crate tower_service;
-extern crate tower;
 
 extern crate serde;
 extern crate serde_json;
@@ -22,10 +22,10 @@ extern crate serde_derive;
 use futures::{Future, Poll};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
+use tower::MakeService;
 use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
-use tower::MakeService;
 
 use routeguide::Point;
 
@@ -37,13 +37,13 @@ pub mod routeguide {
 pub fn main() {
     let _ = ::env_logger::init();
 
-
     let uri: http::Uri = format!("http://localhost:10000").parse().unwrap();
 
     let h2_settings = Default::default();
     let mut make_client = client::Connect::new(Dst, h2_settings, DefaultExecutor::current());
 
-    let rg = make_client.make_service(())
+    let rg = make_client
+        .make_service(())
         .map(move |conn| {
             use routeguide::client::RouteGuide;
 
@@ -87,4 +87,3 @@ impl Service<()> for Dst {
         TcpStream::connect(&([127, 0, 0, 1], 10000).into())
     }
 }
-

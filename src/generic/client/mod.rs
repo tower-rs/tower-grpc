@@ -5,7 +5,6 @@ use tower_service::Service;
 use body::{Body, HttpBody};
 use error::Error;
 
-
 /// A specialization of tower_service::Service.
 ///
 /// Existing tower_service::Service implementations with the correct form will
@@ -29,7 +28,7 @@ pub trait GrpcService<ReqBody> {
     /// Helper when needing to pass this type to bounds needing `Service`.
     fn into_service(self) -> IntoService<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         IntoService(self)
     }
@@ -37,7 +36,7 @@ pub trait GrpcService<ReqBody> {
     /// Helper when needing to pass this type to bounds needing `Service`.
     fn as_service(&mut self) -> AsService<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         AsService(self)
     }

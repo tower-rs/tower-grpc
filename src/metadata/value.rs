@@ -1,17 +1,13 @@
 use bytes::Bytes;
 use http::header::HeaderValue;
 
-use std::{cmp, fmt};
 use std::error::Error;
-use std::str::FromStr;
 use std::marker::PhantomData;
+use std::str::FromStr;
+use std::{cmp, fmt};
 
 use super::encoding::{
-    Ascii,
-    Binary,
-    InvalidMetadataValue,
-    InvalidMetadataValueBytes,
-    ValueEncoding,
+    Ascii, Binary, InvalidMetadataValue, InvalidMetadataValueBytes, ValueEncoding,
 };
 use super::key::MetadataKey;
 
@@ -105,11 +101,10 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// ```
     #[inline]
     pub fn try_from_bytes(src: &[u8]) -> Result<Self, InvalidMetadataValueBytes> {
-        VE::from_bytes(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
+        VE::from_bytes(src).map(|value| MetadataValue {
+            inner: value,
+            phantom: PhantomData,
+        })
     }
 
     /// Attempt to convert a `Bytes` buffer to a `MetadataValue`.
@@ -127,11 +122,10 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// implementation once the trait is stabilized in std.
     #[inline]
     pub fn from_shared(src: Bytes) -> Result<Self, InvalidMetadataValueBytes> {
-        VE::from_shared(src)
-            .map(|value| MetadataValue {
-                inner: value,
-                phantom: PhantomData,
-            })
+        VE::from_shared(src).map(|value| MetadataValue {
+            inner: value,
+            phantom: PhantomData,
+        })
     }
 
     /// Convert a `Bytes` directly into a `MetadataValue` without validating.
@@ -258,7 +252,10 @@ impl<VE: ValueEncoding> MetadataValue<VE> {
     /// value encoding.
     #[inline]
     pub(crate) fn unchecked_from_header_value(value: HeaderValue) -> Self {
-        MetadataValue { inner: value, phantom: PhantomData }
+        MetadataValue {
+            inner: value,
+            phantom: PhantomData,
+        }
     }
 
     /// Converts a HeaderValue reference to a MetadataValue. This method assumes
@@ -311,7 +308,7 @@ impl MetadataValue<Ascii> {
                 inner: value,
                 phantom: PhantomData,
             })
-            .map_err(|_| { InvalidMetadataValue::new() })
+            .map_err(|_| InvalidMetadataValue::new())
     }
 
     /// Converts a MetadataKey into a MetadataValue<Ascii>.
@@ -364,7 +361,7 @@ impl MetadataValue<Ascii> {
     /// assert_eq!(val.to_str().unwrap(), "hello");
     /// ```
     pub fn to_str(&self) -> Result<&str, ToStrError> {
-        return self.inner.to_str().map_err(|_| { ToStrError::new() })
+        return self.inner.to_str().map_err(|_| ToStrError::new());
     }
 
     /// Converts a `MetadataValue` to a byte slice. For Binary values, use
@@ -413,8 +410,7 @@ impl<VE: ValueEncoding> fmt::Debug for MetadataValue<VE> {
     }
 }
 
-impl<KeyVE: ValueEncoding>
-From<MetadataKey<KeyVE>> for MetadataValue<Ascii> {
+impl<KeyVE: ValueEncoding> From<MetadataKey<KeyVE>> for MetadataValue<Ascii> {
     #[inline]
     fn from(h: MetadataKey<KeyVE>) -> MetadataValue<Ascii> {
         MetadataValue {
@@ -486,7 +482,12 @@ mod from_metadata_value_tests {
     #[test]
     fn it_can_insert_metadata_key_as_metadata_value() {
         let mut map = MetadataMap::new();
-        map.insert("accept", MetadataKey::<Ascii>::from_bytes(b"hello-world").unwrap().into());
+        map.insert(
+            "accept",
+            MetadataKey::<Ascii>::from_bytes(b"hello-world")
+                .unwrap()
+                .into(),
+        );
 
         assert_eq!(
             map.get("accept").unwrap(),
@@ -666,7 +667,8 @@ impl<'a, VE: ValueEncoding> PartialOrd<MetadataValue<VE>> for &'a MetadataValue<
 }
 
 impl<'a, VE: ValueEncoding, T: ?Sized> PartialEq<&'a T> for MetadataValue<VE>
-    where MetadataValue<VE>: PartialEq<T>
+where
+    MetadataValue<VE>: PartialEq<T>,
 {
     #[inline]
     fn eq(&self, other: &&'a T) -> bool {
@@ -675,7 +677,8 @@ impl<'a, VE: ValueEncoding, T: ?Sized> PartialEq<&'a T> for MetadataValue<VE>
 }
 
 impl<'a, VE: ValueEncoding, T: ?Sized> PartialOrd<&'a T> for MetadataValue<VE>
-    where MetadataValue<VE>: PartialOrd<T>
+where
+    MetadataValue<VE>: PartialOrd<T>,
 {
     #[inline]
     fn partial_cmp(&self, other: &&'a T) -> Option<cmp::Ordering> {
@@ -752,12 +755,16 @@ fn test_value_eq_value() {
     assert!(BMV::from_bytes(b"abc") != BMV::from_bytes(b"ABC"));
 
     // Padding is ignored.
-    assert_eq!(BMV::from_static("SGVsbG8hIQ=="), BMV::from_static("SGVsbG8hIQ"));
+    assert_eq!(
+        BMV::from_static("SGVsbG8hIQ=="),
+        BMV::from_static("SGVsbG8hIQ")
+    );
     // Invalid values are all just invalid from this point of view.
     unsafe {
         assert_eq!(
             BMV::from_shared_unchecked(Bytes::from_static(b"..{}")),
-            BMV::from_shared_unchecked(Bytes::from_static(b"{}..")));
+            BMV::from_shared_unchecked(Bytes::from_static(b"{}.."))
+        );
     }
 }
 

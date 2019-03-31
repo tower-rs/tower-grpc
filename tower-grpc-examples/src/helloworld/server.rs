@@ -5,20 +5,20 @@ extern crate futures;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower_h2;
 extern crate tower_grpc;
+extern crate tower_h2;
 
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
 
-use hello_world::{server, HelloRequest, HelloReply};
+use hello_world::{server, HelloReply, HelloRequest};
 
 use futures::{future, Future, Stream};
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
-use tower_h2::Server;
 use tower_grpc::{Request, Response};
+use tower_h2::Server;
 
 #[derive(Clone, Debug)]
 struct Greet;
@@ -48,7 +48,8 @@ pub fn main() {
     let addr = "[::1]:50051".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
 
-    let serve = bind.incoming()
+    let serve = bind
+        .incoming()
         .for_each(move |sock| {
             if let Err(e) = sock.set_nodelay(true) {
                 return Err(e);

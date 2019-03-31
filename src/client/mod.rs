@@ -1,9 +1,9 @@
-pub mod unary;
 pub mod client_streaming;
 pub mod server_streaming;
 pub mod streaming;
+pub mod unary;
 
-use futures::{stream, Stream, Poll};
+use futures::{stream, Poll, Stream};
 use http::{uri, Uri};
 use prost::Message;
 
@@ -35,16 +35,16 @@ impl<T> Grpc<T> {
     where
         T: GrpcService<R>,
     {
-        self.inner.poll_ready()
-            .map_err(|err| {
-                ::Status::from_error(&*(err.into()))
-            })
+        self.inner
+            .poll_ready()
+            .map_err(|err| ::Status::from_error(&*(err.into())))
     }
 
-    pub fn unary<M1, M2, R>(&mut self,
-                         request: ::Request<M1>,
-                         path: uri::PathAndQuery)
-        -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
+    pub fn unary<M1, M2, R>(
+        &mut self,
+        request: ::Request<M1>,
+        path: uri::PathAndQuery,
+    ) -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
     where
         T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
@@ -55,10 +55,11 @@ impl<T> Grpc<T> {
         unary::ResponseFuture::new(response)
     }
 
-    pub fn client_streaming<B, M, R>(&mut self,
-                                  request: ::Request<B>,
-                                  path: uri::PathAndQuery)
-        -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
+    pub fn client_streaming<B, M, R>(
+        &mut self,
+        request: ::Request<B>,
+        path: uri::PathAndQuery,
+    ) -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
     where
         T: GrpcService<R>,
         B: Encodable<R>,
@@ -67,10 +68,11 @@ impl<T> Grpc<T> {
         client_streaming::ResponseFuture::new(response)
     }
 
-    pub fn server_streaming<M1, M2, R>(&mut self,
-                                    request: ::Request<M1>,
-                                    path: uri::PathAndQuery)
-        -> server_streaming::ResponseFuture<M2, T::Future>
+    pub fn server_streaming<M1, M2, R>(
+        &mut self,
+        request: ::Request<M1>,
+        path: uri::PathAndQuery,
+    ) -> server_streaming::ResponseFuture<M2, T::Future>
     where
         T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
@@ -88,10 +90,11 @@ impl<T> Grpc<T> {
     /// **B**: The request stream of gRPC message values.
     /// **M**: The response **message** (not stream) type.
     /// **R**: The type of the request body.
-    pub fn streaming<B, M, R>(&mut self,
-                           request: ::Request<B>,
-                           path: uri::PathAndQuery)
-        -> streaming::ResponseFuture<M, T::Future>
+    pub fn streaming<B, M, R>(
+        &mut self,
+        request: ::Request<B>,
+        path: uri::PathAndQuery,
+    ) -> streaming::ResponseFuture<M, T::Future>
     where
         T: GrpcService<R>,
         B: Encodable<R>,
@@ -105,8 +108,7 @@ impl<T> Grpc<T> {
         parts.path_and_query = Some(path);
 
         // Get the URI;
-        let uri = Uri::from_parts(parts)
-            .expect("path_and_query only is valid Uri");
+        let uri = Uri::from_parts(parts).expect("path_and_query only is valid Uri");
 
         // Convert the request body
         let request = request.map(Encodable::into_encode);
@@ -115,15 +117,16 @@ impl<T> Grpc<T> {
         let mut request = request.into_http(uri);
 
         // Add the gRPC related HTTP headers
-        request.headers_mut()
+        request
+            .headers_mut()
             .insert(header::TE, HeaderValue::from_static("trailers"));
 
         // Set the content type
         // TODO: Don't hard code this here
         let content_type = "application/grpc+proto";
-        request.headers_mut().insert(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static(content_type));
+        request
+            .headers_mut()
+            .insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
 
         // Call the inner HTTP service
         let response = self.inner.call(request);
@@ -135,8 +138,9 @@ impl<T> Grpc<T> {
 // ===== impl Encodable =====
 
 impl<T, U> Encodable<BoxBody> for T
-where T: Stream<Item = U, Error = ::Status> + Send + 'static,
-      U: Message + 'static,
+where
+    T: Stream<Item = U, Error = ::Status> + Send + 'static,
+    U: Message + 'static,
 {
     fn into_encode(self) -> BoxBody {
         use codec::Encoder;

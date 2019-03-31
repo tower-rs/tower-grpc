@@ -1,5 +1,5 @@
 use futures::{Future, Poll};
-use {http};
+use http;
 
 use {Code, Status};
 
@@ -24,7 +24,8 @@ impl Future for ResponseFuture {
         let status = self.status.take().expect("polled after complete");
 
         let mut resp = http::Response::new(());
-        status.add_header(resp.headers_mut())
+        status
+            .add_header(resp.headers_mut())
             .expect("generated unimplemented message should be valid");
         Ok(resp.into())
     }

@@ -62,7 +62,8 @@ impl<T> Request<T> {
     }
 
     pub fn map<F, U>(self, f: F) -> Request<U>
-    where F: FnOnce(T) -> U,
+    where
+        F: FnOnce(T) -> U,
     {
         let message = f(self.message);
 

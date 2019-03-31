@@ -1,13 +1,13 @@
 use std::fmt;
 
-use bytes::{Bytes, Buf, IntoBuf};
+use bytes::{Buf, Bytes, IntoBuf};
 use futures::Poll;
 use http;
 pub use tower_http_service::Body as HttpBody;
 
-use Status;
-use error::Error;
 use self::sealed::Sealed;
+use error::Error;
+use Status;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -52,7 +52,8 @@ impl<T> Sealed for T
 where
     T: HttpBody,
     T::Error: Into<Error>,
-{}
+{
+}
 
 /// Dynamic `Send` body object.
 pub struct BoxBody {
@@ -66,9 +67,7 @@ struct MapBody<B>(B);
 impl BoxBody {
     /// Create a new `BoxBody` backed by `inner`.
     pub fn new(inner: Box<Body<Item = BytesBuf, Error = Status> + Send>) -> Self {
-        BoxBody {
-            inner,
-        }
+        BoxBody { inner }
     }
 
     /// Create a new `BoxBody` mapping item and error to the default types.
@@ -100,8 +99,7 @@ impl HttpBody for BoxBody {
 
 impl fmt::Debug for BoxBody {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BoxBody")
-            .finish()
+        f.debug_struct("BoxBody").finish()
     }
 }
 

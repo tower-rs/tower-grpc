@@ -1,11 +1,11 @@
-use Body;
 use super::streaming;
-use codec::{Streaming};
+use codec::Streaming;
 use error::Error;
+use Body;
 
 use std::fmt;
 
-use futures::{Future, Stream, Poll};
+use futures::{Future, Poll, Stream};
 use http::{response, Response};
 use prost::Message;
 
@@ -32,11 +32,12 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 }
 
 impl<T, U, B> Future for ResponseFuture<T, U, B>
-where T: Message + Default,
-      U: Future<Item = Response<B>>,
-      U::Error: Into<Error>,
-      B: Body,
-      B::Error: Into<Error>,
+where
+    T: Message + Default,
+    U: Future<Item = Response<B>>,
+    U::Error: Into<Error>,
+    B: Body,
+    B::Error: Into<Error>,
 {
     type Item = ::Response<T>;
     type Error = ::Status;
@@ -44,15 +45,19 @@ where T: Message + Default,
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
             let response = match self.state {
-                State::WaitResponse(ref mut inner) => {
-                    try_ready!(inner.poll())
-                }
-                State::WaitMessage { ref mut head, ref mut stream } => {
+                State::WaitResponse(ref mut inner) => try_ready!(inner.poll()),
+                State::WaitMessage {
+                    ref mut head,
+                    ref mut stream,
+                } => {
                     let message = match try_ready!(stream.poll()) {
                         Some(message) => message,
-                        None => return Err(::Status::new(
+                        None => {
+                            return Err(::Status::new(
                                 ::Code::Internal,
-                                "Missing response message.")),
+                                "Missing response message.",
+                            ));
+                        }
                     };
 
                     let head = head.take().unwrap();
@@ -62,9 +67,7 @@ where T: Message + Default,
                 }
             };
 
-            let (head, body) = response
-                .into_http()
-                .into_parts();
+            let (head, body) = response.into_http().into_parts();
 
             self.state = State::WaitMessage {
                 head: Some(head),
@@ -97,10 +100,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            State::WaitResponse(ref future) => f.debug_tuple("WaitResponse")
-                .field(future)
-                .finish(),
-            State::WaitMessage { ref head, ref stream } => f.debug_struct("WaitMessage")
+            State::WaitResponse(ref future) => f.debug_tuple("WaitResponse").field(future).finish(),
+            State::WaitMessage {
+                ref head,
+                ref stream,
+            } => f
+                .debug_struct("WaitMessage")
                 .field("head", head)
                 .field("stream", stream)
                 .finish(),

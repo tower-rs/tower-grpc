@@ -8,8 +8,8 @@ extern crate futures;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower_h2;
 extern crate tower_grpc;
+extern crate tower_h2;
 
 extern crate serde;
 extern crate serde_json;
@@ -20,14 +20,14 @@ mod data;
 pub mod routeguide {
     include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));
 }
-use routeguide::{server, Point, Rectangle, Feature, RouteSummary, RouteNote};
+use routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
 
-use futures::{future, stream, Future, Stream, Sink};
 use futures::sync::mpsc;
+use futures::{future, stream, Future, Sink, Stream};
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
-use tower_h2::Server;
 use tower_grpc::{Request, Response, Streaming};
+use tower_h2::Server;
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -48,7 +48,8 @@ struct State {
 // Implement hash for Point
 impl Hash for Point {
     fn hash<H>(&self, state: &mut H)
-    where H: Hasher,
+    where
+        H: Hasher,
     {
         self.latitude.hash(state);
         self.longitude.hash(state);
@@ -80,7 +81,8 @@ impl routeguide::server::RouteGuide for RouteGuide {
     }
 
     type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Status> + Send>;
-    type ListFeaturesFuture = future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Status>;
+    type ListFeaturesFuture =
+        future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Status>;
 
     /// Lists all features contained within the given bounding Rectangle.
     fn list_features(&mut self, request: Request<Rectangle>) -> Self::ListFeaturesFuture {
@@ -109,7 +111,8 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(Response::new(Box::new(rx)))
     }
 
-    type RecordRouteFuture = Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Status> + Send>;
+    type RecordRouteFuture =
+        Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Status> + Send>;
 
     /// Records a route composited of a sequence of points.
     ///
@@ -122,46 +125,50 @@ impl routeguide::server::RouteGuide for RouteGuide {
         let now = Instant::now();
         let state = self.state.clone();
 
-        let response = request.into_inner()
+        let response = request
+            .into_inner()
             .map_err(|e| {
                 println!("  !!! err={:?}", e);
                 e
             })
             // Iterate over all points, building up the route summary
-            .fold((RouteSummary::default(), None), move |(mut summary, last_point), point| {
-                println!("  ==> Point = {:?}", point);
+            .fold(
+                (RouteSummary::default(), None),
+                move |(mut summary, last_point), point| {
+                    println!("  ==> Point = {:?}", point);
 
-                // Increment the point count
-                summary.point_count += 1;
+                    // Increment the point count
+                    summary.point_count += 1;
 
-                // Find features
-                for feature in &state.features[..] {
-                    if feature.location.as_ref() == Some(&point) {
-                        summary.feature_count += 1;
+                    // Find features
+                    for feature in &state.features[..] {
+                        if feature.location.as_ref() == Some(&point) {
+                            summary.feature_count += 1;
+                        }
                     }
-                }
 
-                // Calculate the distance
-                if let Some(ref last_point) = last_point {
-                    summary.distance += calc_distance(last_point, &point);
-                }
+                    // Calculate the distance
+                    if let Some(ref last_point) = last_point {
+                        summary.distance += calc_distance(last_point, &point);
+                    }
 
-                Ok::<_, tower_grpc::Status>((summary, Some(point)))
-            })
+                    Ok::<_, tower_grpc::Status>((summary, Some(point)))
+                },
+            )
             // Map the route summary to a gRPC response
             .map(move |(mut summary, _)| {
                 println!("  => Done = {:?}", summary);
 
                 summary.elapsed_time = now.elapsed().as_secs() as i32;
                 Response::new(summary)
-            })
-            ;
+            });
 
         Box::new(response)
     }
 
     type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Status> + Send>;
-    type RouteChatFuture = future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Status>;
+    type RouteChatFuture =
+        future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Status>;
 
     // Receives a stream of message/location pairs, and responds with a stream
     // of all previous messages at each of those locations.
@@ -170,19 +177,18 @@ impl routeguide::server::RouteGuide for RouteGuide {
 
         let state = self.state.clone();
 
-        let response = request.into_inner()
+        let response = request
+            .into_inner()
             .map(move |note| {
                 let location = note.location.clone().unwrap();
                 let mut notes = state.notes.lock().unwrap();
-                let notes = notes.entry(location)
-                    .or_insert(vec![]);
+                let notes = notes.entry(location).or_insert(vec![]);
 
                 notes.push(note);
 
                 stream::iter_ok(notes.clone())
             })
-            .flatten()
-            ;
+            .flatten();
 
         future::ok(Response::new(Box::new(response)))
     }
@@ -199,10 +205,10 @@ fn in_range(point: &Point, rect: &Rectangle) -> bool {
     let top = cmp::max(lo.latitude, hi.latitude);
     let bottom = cmp::min(lo.latitude, hi.latitude);
 
-    point.longitude >= left &&
-        point.longitude <= right &&
-        point.latitude >= bottom &&
-        point.latitude <= top
+    point.longitude >= left
+        && point.longitude <= right
+        && point.latitude >= bottom
+        && point.latitude <= top
 }
 
 /// Calculates the distance between two points using the "haversine" formula.
@@ -222,9 +228,8 @@ fn calc_distance(p1: &Point, p2: &Point) -> i32 {
     let delta_lat = (lat2 - lat1).to_radians();
     let delta_lng = (lng2 - lng1).to_radians();
 
-    let a = (delta_lat / 2f64).sin() * (delta_lat / 2f64).sin() +
-        (lat_rad1).cos() * (lat_rad2).cos() *
-        (delta_lng / 2f64).sin() * (delta_lng / 2f64).sin();
+    let a = (delta_lat / 2f64).sin() * (delta_lat / 2f64).sin()
+        + (lat_rad1).cos() * (lat_rad2).cos() * (delta_lng / 2f64).sin() * (delta_lng / 2f64).sin();
 
     let c = 2f64 * a.sqrt().atan2((1f64 - a).sqrt());
 
@@ -233,7 +238,6 @@ fn calc_distance(p1: &Point, p2: &Point) -> i32 {
 
 pub fn main() {
     let _ = ::env_logger::init();
-
 
     let handler = RouteGuide {
         state: Arc::new(State {
@@ -253,7 +257,8 @@ pub fn main() {
 
     println!("listining on {:?}", addr);
 
-    let serve = bind.incoming()
+    let serve = bind
+        .incoming()
         .for_each(move |sock| {
             if let Err(e) = sock.set_nodelay(true) {
                 return Err(e);

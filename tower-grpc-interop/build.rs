@@ -1,9 +1,7 @@
 extern crate tower_grpc_build;
 
 fn main() {
-    let files = &[
-        "proto/grpc/testing/test.proto",
-    ];
+    let files = &["proto/grpc/testing/test.proto"];
     let dirs = &["proto/grpc/testing"];
 
     // Build grpc-interop

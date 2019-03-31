@@ -5,19 +5,19 @@ extern crate base64;
 extern crate bytes;
 #[macro_use]
 extern crate futures;
-extern crate http;
 extern crate h2;
+extern crate http;
 #[macro_use]
 extern crate log;
 extern crate percent_encoding;
+extern crate tower;
 extern crate tower_http_service;
 extern crate tower_service;
-extern crate tower;
 
-#[cfg(feature = "tower-h2")]
-extern crate tower_h2;
 #[cfg(feature = "protobuf")]
 extern crate prost;
+#[cfg(feature = "tower-h2")]
+extern crate tower_h2;
 
 pub mod client;
 pub mod generic;
@@ -30,9 +30,9 @@ mod response;
 mod status;
 
 pub use body::{Body, BoxBody};
-pub use status::{Code, Status};
 pub use request::Request;
 pub use response::Response;
+pub use status::{Code, Status};
 
 #[cfg(feature = "protobuf")]
 pub mod server;
@@ -46,4 +46,3 @@ mod codec;
 
 #[cfg(feature = "protobuf")]
 pub use codec::{Encode, Streaming};
-

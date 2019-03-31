@@ -46,21 +46,21 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
 
                 Ok(MetadataKey {
                     inner: name,
-                    phantom: PhantomData
+                    phantom: PhantomData,
                 })
-            },
-            Err(_) => Err(InvalidMetadataKey::new())
+            }
+            Err(_) => Err(InvalidMetadataKey::new()),
         }
     }
 
     /// Converts a static string to a `MetadataKey`.
     ///
     /// This function panics when the static string is a invalid metadata key.
-    /// 
-    /// This function requires the static string to only contain lowercase 
-    /// characters, numerals and symbols, as per the HTTP/2.0 specification 
+    ///
+    /// This function requires the static string to only contain lowercase
+    /// characters, numerals and symbols, as per the HTTP/2.0 specification
     /// and header names internal representation within this library.
-    /// 
+    ///
     ///
     /// # Examples
     ///
@@ -68,7 +68,7 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
     /// # use tower_grpc::metadata::*;
     /// // Parsing a metadata key
     /// let CUSTOM_KEY: &'static str = "custom-key";
-    /// 
+    ///
     /// let a = AsciiMetadataKey::from_bytes(b"custom-key").unwrap();
     /// let b = AsciiMetadataKey::from_static(CUSTOM_KEY);
     /// assert_eq!(a, b);
@@ -131,7 +131,10 @@ impl<VE: ValueEncoding> MetadataKey<VE> {
     /// "-bin" or non-"-bin" suffix, it does not validate its input.
     #[inline]
     pub(crate) fn unchecked_from_header_name(name: HeaderName) -> Self {
-        MetadataKey { inner: name, phantom: PhantomData, }
+        MetadataKey {
+            inner: name,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -139,8 +142,7 @@ impl<VE: ValueEncoding> FromStr for MetadataKey<VE> {
     type Err = InvalidMetadataKey;
 
     fn from_str(s: &str) -> Result<Self, InvalidMetadataKey> {
-        MetadataKey::from_bytes(s.as_bytes())
-            .map_err(|_| InvalidMetadataKey::new())
+        MetadataKey::from_bytes(s.as_bytes()).map_err(|_| InvalidMetadataKey::new())
     }
 }
 
@@ -200,7 +202,6 @@ impl<'a, VE: ValueEncoding> PartialEq<&'a MetadataKey<VE>> for MetadataKey<VE> {
     }
 }
 
-
 impl<'a, VE: ValueEncoding> PartialEq<MetadataKey<VE>> for &'a MetadataKey<VE> {
     #[inline]
     fn eq(&self, other: &MetadataKey<VE>) -> bool {
@@ -227,7 +228,6 @@ impl<VE: ValueEncoding> PartialEq<str> for MetadataKey<VE> {
         self.inner.eq(other)
     }
 }
-
 
 impl<VE: ValueEncoding> PartialEq<MetadataKey<VE>> for str {
     /// Performs a case-insensitive comparison of the string against the header
@@ -257,7 +257,6 @@ impl<'a, VE: ValueEncoding> PartialEq<&'a str> for MetadataKey<VE> {
         *self == **other
     }
 }
-
 
 impl<'a, VE: ValueEncoding> PartialEq<MetadataKey<VE>> for &'a str {
     /// Performs a case-insensitive comparison of the string against the header

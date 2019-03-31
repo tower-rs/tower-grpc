@@ -1,9 +1,9 @@
-use {Response};
 use error::{Error, Never};
-use generic::{Encoder, Encode};
+use generic::{Encode, Encoder};
+use Response;
 
-use {http};
-use futures::{Future, Stream, Poll, Async};
+use futures::{Async, Future, Poll, Stream};
+use http;
 use http::header;
 
 #[derive(Debug)]
@@ -15,10 +15,10 @@ pub struct ResponseFuture<T, E> {
 // ===== impl ResponseFuture =====
 
 impl<T, E, S> ResponseFuture<T, E>
-where T: Future<Item = Response<S>,
-               Error = ::Status>,
-      E: Encoder,
-      S: Stream<Item = E::Item>,
+where
+    T: Future<Item = Response<S>, Error = ::Status>,
+    E: Encoder,
+    S: Stream<Item = E::Item>,
 {
     pub fn new(inner: T, encoder: E) -> Self {
         ResponseFuture {
@@ -29,11 +29,11 @@ where T: Future<Item = Response<S>,
 }
 
 impl<T, E, S> Future for ResponseFuture<T, E>
-where T: Future<Item = Response<S>,
-               Error = ::Status>,
-      E: Encoder,
-      S: Stream<Item = E::Item>,
-      S::Error: Into<Error>,
+where
+    T: Future<Item = Response<S>, Error = ::Status>,
+    E: Encoder,
+    S: Stream<Item = E::Item>,
+    S::Error: Into<Error>,
 {
     type Item = http::Response<Encode<E, S>>;
     type Error = Never;
@@ -61,9 +61,7 @@ where T: Future<Item = Response<S>,
         let encoder = self.encoder.take().expect("encoder consumed");
 
         // Map the response body
-        let response = response.map(move |body| {
-            Encode::response(encoder, body)
-        });
+        let response = response.map(move |body| Encode::response(encoder, body));
 
         Ok(response.into())
     }

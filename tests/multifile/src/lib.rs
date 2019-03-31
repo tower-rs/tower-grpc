@@ -1,7 +1,7 @@
 extern crate bytes;
 extern crate prost;
-extern crate tower_h2;
 extern crate tower_grpc;
+extern crate tower_h2;
 
 pub mod hello {
     include!(concat!(env!("OUT_DIR"), "/hello.rs"));
@@ -23,14 +23,15 @@ mod tests {
 
     #[test]
     fn can_call() {
-        use ::hello::{HelloRequest};
-        use ::hello::client::Hello;
-        use ::tower_h2::BoxBody;
-        use ::tower_grpc::codegen::client::*;
+        use hello::client::Hello;
+        use hello::HelloRequest;
+        use tower_grpc::codegen::client::*;
+        use tower_h2::BoxBody;
 
         #[allow(dead_code)]
         fn zomg<T>(client: &mut Hello<T>)
-        where T: tower_h2::HttpService<BoxBody>,
+        where
+            T: tower_h2::HttpService<BoxBody>,
         {
             let request = HelloRequest {
                 name: "hello".to_string(),

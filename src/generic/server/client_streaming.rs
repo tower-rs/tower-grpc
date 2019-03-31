@@ -1,10 +1,10 @@
-use {Response};
 use super::streaming;
 use super::unary::Once;
-use generic::{Encoder, Encode};
+use generic::{Encode, Encoder};
+use Response;
 
-use {http};
 use futures::{Future, Poll};
+use http;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
@@ -19,8 +19,9 @@ struct Inner<T> {
 // ===== impl ResponseFuture ======
 
 impl<T, E> ResponseFuture<T, E>
-where T: Future<Item = Response<E::Item>, Error = ::Status>,
-      E: Encoder,
+where
+    T: Future<Item = Response<E::Item>, Error = ::Status>,
+    E: Encoder,
 {
     pub fn new(inner: T, encoder: E) -> Self {
         let inner = Inner { inner };
@@ -30,8 +31,9 @@ where T: Future<Item = Response<E::Item>, Error = ::Status>,
 }
 
 impl<T, E> Future for ResponseFuture<T, E>
-where T: Future<Item = Response<E::Item>, Error = ::Status>,
-      E: Encoder,
+where
+    T: Future<Item = Response<E::Item>, Error = ::Status>,
+    E: Encoder,
 {
     type Item = http::Response<Encode<E, Once<E::Item>>>;
     type Error = ::error::Never;
@@ -44,7 +46,8 @@ where T: Future<Item = Response<E::Item>, Error = ::Status>,
 // ===== impl Inner ======
 
 impl<T, U> Future for Inner<T>
-where T: Future<Item = Response<U>, Error = ::Status>
+where
+    T: Future<Item = Response<U>, Error = ::Status>,
 {
     type Item = Response<Once<U>>;
     type Error = ::Status;
