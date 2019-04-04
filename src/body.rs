@@ -3,7 +3,7 @@ use std::fmt;
 use bytes::{Buf, Bytes, IntoBuf};
 use futures::Poll;
 use http;
-pub use tower_http_service::Body as HttpBody;
+pub use tower_http::Body as HttpBody;
 
 use self::sealed::Sealed;
 use error::Error;

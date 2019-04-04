@@ -35,7 +35,7 @@ h2 = "0.1.11"
 log = "0.4"
 percent-encoding = "1.0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
-tower-http-service = { git = "https://github.com/tower-rs/tower-http" }
+tower-http = { git = "https://github.com/tower-rs/tower-http" }
 tower-service = "0.2"
 tower-util = { git = "https://github.com/tower-rs/tower" }
 

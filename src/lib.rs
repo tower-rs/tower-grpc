@@ -10,7 +10,7 @@ extern crate http;
 #[macro_use]
 extern crate log;
 extern crate percent_encoding;
-extern crate tower_http_service;
+extern crate tower_http;
 extern crate tower_service;
 extern crate tower_util;
 
