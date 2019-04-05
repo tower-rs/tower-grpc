@@ -1,6 +1,18 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 extern crate tower_grpc_build;
+//use syn::parse::{Parse, ParseStream, Result};
+//use syn::spanned::Spanned;
+//use syn::{parse_macro_input, Expr, Ident, Token, Type, Visibility};
+//
+//
+//struct ProtoParas {
+//    protos_dir: Expr,
+//    includes_dir: Expr,
+//    service_name: Ident,
+//    messages_names: Expr,
+//}
+
 
 #[proc_macro]
 pub fn include_proto(input: TokenStream) -> TokenStream {
@@ -17,6 +29,7 @@ pub fn include_proto(input: TokenStream) -> TokenStream {
         .enable_client(true)
         .build(&[paras[0]], &[paras[1]])
         .unwrap_or_else(|e| panic!("protobuf compilation failed: {}", e));
+    println!("{:?}", _output);
 
     let gen = format!("pub mod {} {{ include!(concat!(env!(\"OUT_DIR\"), \"/{}.rs\")); }} use {}::{{{}}};", paras[2], paras[2], paras[2], msgs);
     gen.parse().unwrap()

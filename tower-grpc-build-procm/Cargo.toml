@@ -8,4 +8,6 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
+syn = "*"
+quote = "*"
 tower-grpc-build = { path = "../tower-grpc-build" }
