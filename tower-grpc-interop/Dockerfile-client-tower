@@ -1,4 +1,4 @@
-FROM rust:1.23.0
+FROM rust:1.33.0
 
 COPY Cargo.toml Cargo.lock /usr/src/tower-grpc/
 COPY . /usr/src/tower-grpc/
