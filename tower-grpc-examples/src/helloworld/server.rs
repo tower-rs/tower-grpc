@@ -13,21 +13,12 @@ extern crate tower_grpc_build_procm;
 use tower_grpc_build_procm::include_proto;
 
 
-
-include_proto!(
-/home/travis/build/tower-rs/tower-grpc/tower-grpc-examples/proto/helloworld/helloworld.proto,
-/home/travis/build/tower-rs/tower-grpc/tower-grpc-examples/proto/helloworld,
-helloworld,
-server|HelloRequest|HelloReply
-);
-
-
-
+include_proto!({("/helloworld.rs",hello_world),("/routeguide.rs",routeguide)});
 
 //pub mod hello_world {
 //    include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 //}
-//use hello_world::{server, HelloRequest, HelloReply};
+use hello_world::{server, HelloRequest, HelloReply};
 
 use futures::{future, Future, Stream};
 use tokio::executor::DefaultExecutor;
