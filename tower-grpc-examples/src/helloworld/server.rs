@@ -44,7 +44,6 @@ impl server::Greeter for Greet {
 }
 
 pub fn main() {
-
     let _ = ::env_logger::init();
 
     let new_service = server::GreeterServer::new(Greet);
