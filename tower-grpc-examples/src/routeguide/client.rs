@@ -19,15 +19,17 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-use futures::{Future, Poll};
+use futures::{Future, Poll, Stream};
+use std::time::{Duration, Instant};
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
+use tokio::timer::Interval;
 use tower_grpc::Request;
 use tower_h2::client;
 use tower_service::Service;
 use tower_util::MakeService;
 
-use routeguide::Point;
+use routeguide::{Point, RouteNote};
 
 mod data;
 pub mod routeguide {
@@ -44,6 +46,9 @@ pub fn main() {
 
     let rg = make_client
         .make_service(())
+        .map_err(|e| {
+            panic!("HTTP/2 connection failed; err={:?}", e);
+        })
         .map(move |conn| {
             use routeguide::client::RouteGuide;
 
@@ -55,18 +60,43 @@ pub fn main() {
             RouteGuide::new(conn)
         })
         .and_then(|mut client| {
-            client
+            let start = Instant::now();
+            let r_feature = client
                 .get_feature(Request::new(Point {
                     latitude: 409146138,
                     longitude: -746188906,
                 }))
-                .map_err(|e| panic!("gRPC request failed; err={:?}", e))
-        })
-        .map(|response| {
-            println!("RESPONSE = {:?}", response);
-        })
-        .map_err(|e| {
-            println!("ERR = {:?}", e);
+                .map_err(|e| eprintln!("GetFeature request failed; err={:?}", e))
+                .map(|response| {
+                    println!("RESPONSE = {:?}", response);
+                });
+            let outbound = Interval::new_interval(Duration::from_secs(1))
+                .map(move |t| {
+                    let elapsed = t.duration_since(start);
+                    RouteNote {
+                        location: Some(Point {
+                            latitude: 409146138 + elapsed.as_secs() as i32,
+                            longitude: -746188906,
+                        }),
+                        message: format!("at {:?}", elapsed),
+                    }
+                })
+                .map_err(|e| panic!("timer error; err={:?}", e));
+            let r_chat = client
+                .route_chat(Request::new(outbound))
+                .map_err(|e| {
+                    eprintln!("RouteChat request failed; err={:?}", e);
+                })
+                .and_then(|response| {
+                    let inbound = response.into_inner();
+                    inbound
+                        .for_each(|note| {
+                            println!("NOTE = {:?}", note);
+                            Ok(())
+                        })
+                        .map_err(|e| eprintln!("gRPC inbound stream error: {:?}", e))
+                });
+            tokio::spawn(r_feature.and_then(|()| r_chat))
         });
 
     tokio::run(rg);
