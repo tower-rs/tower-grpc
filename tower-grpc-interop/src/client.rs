@@ -10,9 +10,9 @@ extern crate log;
 extern crate prost;
 extern crate rustls;
 extern crate tokio_core;
-extern crate tower_add_origin;
 extern crate tower_grpc;
 extern crate tower_h2;
+extern crate tower_request_modifier;
 
 use std::error::Error;
 use std::fmt;
@@ -228,22 +228,24 @@ fn assert_success(
 
 struct TestClients {
     test_client: TestService<
-        tower_add_origin::AddOrigin<
+        tower_request_modifier::RequestModifier<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
                 tower_grpc::BoxBody,
             >,
+            tower_grpc::BoxBody,
         >,
     >,
 
     unimplemented_client: UnimplementedService<
-        tower_add_origin::AddOrigin<
+        tower_request_modifier::RequestModifier<
             tower_h2::client::Connection<
                 tokio_core::net::TcpStream,
                 tokio_core::reactor::Handle,
                 tower_grpc::BoxBody,
             >,
+            tower_grpc::BoxBody,
         >,
     >,
 }
@@ -718,8 +720,8 @@ impl Testcase {
                             .map_err(|_| panic!("failed HTTP/2.0 handshake"))
                     })
                     .map(move |conn| {
-                        tower_add_origin::Builder::new()
-                            .uri(server.uri.clone())
+                        tower_request_modifier::Builder::new()
+                            .set_origin(server.uri.clone())
                             .build(conn)
                             .unwrap()
                     }),
