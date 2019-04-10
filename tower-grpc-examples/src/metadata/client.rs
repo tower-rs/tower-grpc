@@ -5,9 +5,9 @@ extern crate http;
 extern crate log;
 extern crate prost;
 extern crate tokio;
-extern crate tower_add_origin;
 extern crate tower_grpc;
 extern crate tower_h2;
+extern crate tower_request_modifier;
 extern crate tower_service;
 extern crate tower_util;
 
@@ -36,8 +36,8 @@ pub fn main() {
         .map(move |conn| {
             use metadata::client::Doorman;
 
-            let conn = tower_add_origin::Builder::new()
-                .uri(uri)
+            let conn = tower_request_modifier::Builder::new()
+                .set_origin(uri)
                 .build(conn)
                 .unwrap();
 
