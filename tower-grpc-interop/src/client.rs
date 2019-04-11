@@ -721,8 +721,8 @@ impl TestClients {
 
         let stream = stream::iter_ok(vec![make_ping_pong_request(0)]);
         let mut req_stream = Request::new(stream);
-        req_unary.metadata_mut().insert(key1, value1.clone());
-        req_unary.metadata_mut().insert_bin(key2, value2.clone());
+        req_stream.metadata_mut().insert(key1, value1.clone());
+        req_stream.metadata_mut().insert_bin(key2, value2.clone());
 
         let value1_cloned = value1.clone();
         let value2_cloned = value2.clone();
@@ -736,7 +736,8 @@ impl TestClients {
                         e.metadata().get(key1) == Some(&value1_cloned),
                         format!("result={:?}", e.metadata().get(key1))
                     ),
-                    // TODO trailing metadata not implemented?
+                    // TODO fails when run against reference go interop server
+                    // reading binary trailing metadata not implemented by client (see #27)
                     test_assert!(
                         "metadata bin must match in unary",
                         e.metadata().get_bin(key2) == Some(&value2_cloned),
@@ -752,7 +753,6 @@ impl TestClients {
             .map(move |e| {
                 println!("{:?}", e.metadata());
                 vec![
-                    // TODO no metadata returned
                     test_assert!(
                         "metadata string must match in duplex",
                         e.metadata().get(key1) == Some(&value1),
