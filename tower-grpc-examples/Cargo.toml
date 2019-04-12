@@ -37,6 +37,9 @@ prost = "0.5"
 tokio = "0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
+# tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+tower-hyper = { path = "../../tower-hyper" }
+hyper = "0.12"
 tower-grpc = { path = "../" }
 tower-service = "0.2"
 tower-util = { git = "https://github.com/tower-rs/tower" }

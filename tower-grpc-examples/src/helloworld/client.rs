@@ -2,20 +2,26 @@ extern crate bytes;
 extern crate env_logger;
 extern crate futures;
 extern crate http;
+extern crate hyper;
 extern crate log;
 extern crate prost;
 extern crate tokio;
 extern crate tower_grpc;
 extern crate tower_h2;
+extern crate tower_hyper;
 extern crate tower_request_modifier;
 extern crate tower_service;
 extern crate tower_util;
 
 use futures::{Future, Poll};
+use hyper::client::conn::Builder;
+use hyper::client::connect::{Destination, HttpConnector};
+use hyper::Body;
 use tokio::executor::DefaultExecutor;
 use tokio::net::tcp::{ConnectFuture, TcpStream};
 use tower_grpc::Request;
-use tower_h2::client;
+use tower_hyper::client;
+use tower_hyper::util::Connector;
 use tower_service::Service;
 use tower_util::MakeService;
 
@@ -28,11 +34,12 @@ pub fn main() {
 
     let uri: http::Uri = format!("http://[::1]:50051").parse().unwrap();
 
-    let h2_settings = Default::default();
-    let mut make_client = client::Connect::new(Dst, h2_settings, DefaultExecutor::current());
+    let dst = Destination::try_from_uri(uri.clone()).unwrap();
+    let connector = Connector::new(HttpConnector::new(1));
+    let mut make_client = client::Connect::new(connector, Builder::new());
 
     let say_hello = make_client
-        .make_service(())
+        .make_service(dst)
         .map(move |conn| {
             use hello_world::client::Greeter;
 
