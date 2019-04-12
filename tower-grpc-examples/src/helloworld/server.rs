@@ -17,7 +17,7 @@ use hello_world::{server, HelloReply, HelloRequest};
 use futures::{future, Future, Stream};
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response};
-use tower_hyper::server::Server;
+use tower_hyper::server::{Http, Server};
 
 #[derive(Clone, Debug)]
 struct Greet;
@@ -42,6 +42,7 @@ pub fn main() {
     let new_service = server::GreeterServer::new(Greet);
 
     let mut server = Server::new(new_service);
+    let http = Http::new().http2_only(true).clone();
 
     let addr = "[::1]:50051".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
@@ -53,7 +54,7 @@ pub fn main() {
                 return Err(e);
             }
 
-            let serve = server.serve(sock);
+            let serve = server.serve_with(sock, http.clone());
             tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
 
             Ok(())

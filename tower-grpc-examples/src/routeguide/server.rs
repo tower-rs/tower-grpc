@@ -26,7 +26,7 @@ use futures::sync::mpsc;
 use futures::{future, stream, Future, Sink, Stream};
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Streaming};
-use tower_hyper::server::Server;
+use tower_hyper::server::{Http, Server};
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -249,6 +249,7 @@ pub fn main() {
     let new_service = server::RouteGuideServer::new(handler);
 
     let mut server = Server::new(new_service);
+    let http = Http::new().http2_only(true).clone();
 
     let addr = "127.0.0.1:10000".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
@@ -262,7 +263,7 @@ pub fn main() {
                 return Err(e);
             }
 
-            let serve = server.serve(sock);
+            let serve = server.serve_with(sock, http.clone());
             tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
 
             Ok(())

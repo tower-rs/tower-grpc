@@ -29,7 +29,8 @@ pub fn main() {
 
     let dst = Destination::try_from_uri(uri.clone()).unwrap();
     let connector = util::Connector::new(HttpConnector::new(4));
-    let mut make_client = client::Connect::new(connector, client::Builder::new());
+    let settings = client::Builder::new().http2_only(true).clone();
+    let mut make_client = client::Connect::new(connector, settings);
 
     let doorman = make_client
         .make_service(dst)
