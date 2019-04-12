@@ -18,6 +18,8 @@ extern crate tower_util;
 extern crate prost;
 #[cfg(feature = "tower-h2")]
 extern crate tower_h2;
+#[cfg(feature = "tower-hyper")]
+extern crate tower_hyper;
 
 pub mod client;
 pub mod generic;

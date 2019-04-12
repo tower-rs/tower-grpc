@@ -7,7 +7,6 @@ extern crate log;
 extern crate prost;
 extern crate tokio;
 extern crate tower_grpc;
-extern crate tower_h2;
 extern crate tower_hyper;
 extern crate tower_request_modifier;
 extern crate tower_service;

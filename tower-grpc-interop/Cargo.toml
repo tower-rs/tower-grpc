@@ -32,4 +32,4 @@ rustls = "0.14.0"
 domain = "0.2.2"
 
 [build-dependencies]
-tower-grpc-build = { path = "../tower-grpc-build" }
+tower-grpc-build = { path = "../tower-grpc-build", features = ["tower-h2"] }

@@ -317,12 +317,13 @@ macro_rules! try_ready {
         }
 
         #[cfg(feature = "tower-hyper")]
+        // Service that converts tower_grpc::BoxBody to tower_hyper bodies
         {
             let imp = scope
                 .new_impl(&name)
                 .generic("T")
                 .target_generic("T")
-                .impl_trait("tower::Service<http::Request<tower_hyper::body::RecvBody>>")
+                .impl_trait("tower::Service<http::Request<tower_hyper::RecvBody>>")
                 .bound("T", &service.name)
                 .associate_type(
                     "Response",
@@ -344,7 +345,7 @@ macro_rules! try_ready {
 
             imp.new_fn("call")
                 .arg_mut_self()
-                .arg("request", "http::Request<tower_hyper::body::RecvBody>")
+                .arg("request", "http::Request<tower_hyper::RecvBody>")
                 .ret("Self::Future")
                 .line("let request = request.map(|b| grpc::BoxBody::map_from(b));")
                 .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)");
