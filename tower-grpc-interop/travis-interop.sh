@@ -37,4 +37,4 @@ trap 'echo ":; killing test server"; kill ${SERVER_PID};' EXIT
 
 # run the interop test client against the server.
 cargo run -p tower-grpc-interop --bin client -- \
-    --test_case=client_streaming,empty_stream,empty_unary,large_unary,ping_pong,server_streaming,status_code_and_message,unimplemented_method,unimplemented_service,special_status_message
+    --test_case=client_streaming,empty_stream,empty_unary,large_unary,ping_pong,server_streaming,status_code_and_message,unimplemented_method,unimplemented_service,special_status_message,custom_metadata

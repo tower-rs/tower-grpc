@@ -32,7 +32,7 @@ use pb::client::UnimplementedService;
 use pb::SimpleRequest;
 use pb::StreamingInputCallRequest;
 
-mod pb {
+pub mod pb {
     #![allow(dead_code)]
     #![allow(unused_imports)]
     include!(concat!(env!("OUT_DIR"), "/grpc.testing.rs"));
@@ -702,6 +702,78 @@ impl TestClients {
                 future::ok::<Vec<TestAssertion>, Box<Error>>(assertions)
             })
     }
+
+    fn custom_metadata_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
+        let key1 = "x-grpc-test-echo-initial";
+        let value1 = MetadataValue::from_str("test_initial_metadata_value").unwrap();
+        let key2 = "x-grpc-test-echo-trailing-bin";
+        let value2 = MetadataValue::from_bytes(&[0xab, 0xab, 0xab]);
+
+        let req = SimpleRequest {
+            response_type: pb::PayloadType::Compressable as i32,
+            response_size: LARGE_RSP_SIZE,
+            payload: Some(util::client_payload(LARGE_REQ_SIZE)),
+            ..Default::default()
+        };
+        let mut req_unary = Request::new(req);
+        req_unary.metadata_mut().insert(key1, value1.clone());
+        req_unary.metadata_mut().insert_bin(key2, value2.clone());
+
+        let stream = stream::iter_ok(vec![make_ping_pong_request(0)]);
+        let mut req_stream = Request::new(stream);
+        req_stream.metadata_mut().insert(key1, value1.clone());
+        req_stream.metadata_mut().insert_bin(key2, value2.clone());
+
+        let value1_cloned = value1.clone();
+        let value2_cloned = value2.clone();
+        let unary = self
+            .test_client
+            .unary_call(req_unary)
+            .map(move |e| {
+                vec![
+                    test_assert!(
+                        "metadata string must match in unary",
+                        e.metadata().get(key1) == Some(&value1_cloned),
+                        format!("result={:?}", e.metadata().get(key1))
+                    ),
+                    // TODO fails when run against reference go interop server
+                    // reading binary trailing metadata not implemented by client (see #27)
+                    test_assert!(
+                        "metadata bin must match in unary",
+                        e.metadata().get_bin(key2) == Some(&value2_cloned),
+                        format!("result={:?}", e.metadata().get_bin(key1))
+                    ),
+                ]
+            })
+            .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) });
+
+        let duplex = self
+            .test_client
+            .full_duplex_call(req_stream)
+            .map(move |e| {
+                println!("{:?}", e.metadata());
+                vec![
+                    test_assert!(
+                        "metadata string must match in duplex",
+                        e.metadata().get(key1) == Some(&value1),
+                        format!("result={:?}", e.metadata().get(key1))
+                    ),
+                    test_assert!(
+                        "metadata bin must match in duplex",
+                        e.metadata().get_bin(key2) == Some(&value2),
+                        format!("result={:?}", e.metadata().get_bin(key1))
+                    ),
+                ]
+            })
+            .map_err(|tower_error| -> Box<Error> { Box::new(tower_error) });
+
+        unary.join(duplex).map(|(mut l, mut r)| {
+            l.append(&mut r);
+            l
+        })
+    }
 }
 
 impl Testcase {
@@ -748,6 +820,7 @@ impl Testcase {
             Testcase::special_status_message => core.run(clients.special_status_message_test()),
             Testcase::unimplemented_method => core.run(clients.unimplemented_method_test()),
             Testcase::unimplemented_service => core.run(clients.unimplemented_service_test()),
+            Testcase::custom_metadata => core.run(clients.custom_metadata_test()),
             Testcase::compute_engine_creds
             | Testcase::jwt_token_creds
             | Testcase::oauth2_auth_token

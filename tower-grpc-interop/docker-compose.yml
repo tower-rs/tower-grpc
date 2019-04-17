@@ -12,6 +12,8 @@ services:
     build:
       context: ..
       dockerfile: tower-grpc-interop/Dockerfile-client-tower
-    command: --test_case=empty_unary --server_host="server-go" # this is the only one that works
+    command:
+    - --test_case=client_streaming,empty_stream,empty_unary,large_unary,ping_pong,server_streaming,status_code_and_message,unimplemented_method,unimplemented_service,special_status_message,custom_metadata
+    - --server_host="server-go"
     depends_on:
     - server-go
