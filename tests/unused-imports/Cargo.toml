@@ -8,7 +8,7 @@ publish = false
 bytes = "0.4"
 prost = "0.5"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
-tower-grpc = { path = "../../" }
+tower-grpc = { path = "../../tower-grpc" }
 
 [build-dependencies]
 tower-grpc-build = { path = "../../tower-grpc-build" }
