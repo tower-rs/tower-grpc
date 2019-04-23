@@ -25,8 +25,8 @@ mod tests {
     fn can_call() {
         use hello::client::Hello;
         use hello::HelloRequest;
-        use tower_grpc::BoxBody;
         use tower_grpc::codegen::client::*;
+        use tower_grpc::BoxBody;
 
         #[allow(dead_code)]
         fn zomg<T>(client: &mut Hello<T>)
