@@ -21,7 +21,7 @@ script:
   # build test crates
   - cargo build --all
   # run unit tests
-  - cargo test
+  - cargo test --all
   # run interop tests
   - ./tower-grpc-interop/travis-interop.sh
 

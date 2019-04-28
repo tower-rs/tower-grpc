@@ -26,12 +26,12 @@ mod tests {
         use hello::client::Hello;
         use hello::HelloRequest;
         use tower_grpc::codegen::client::*;
-        use tower_h2::BoxBody;
+        use tower_grpc::BoxBody;
 
         #[allow(dead_code)]
         fn zomg<T>(client: &mut Hello<T>)
         where
-            T: tower_h2::HttpService<BoxBody>,
+            T: ::tower_grpc::generic::client::GrpcService<BoxBody>,
         {
             let request = HelloRequest {
                 name: "hello".to_string(),

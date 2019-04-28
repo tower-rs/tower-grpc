@@ -40,7 +40,7 @@ tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 hyper = "0.12"
 tower-grpc = { path = "../", features = ["tower-hyper"] }
 tower-service = "0.2"
-tower-util = { git = "https://github.com/tower-rs/tower" }
+tower-util = "0.1"
 
 # For the routeguide example
 serde = "1.0"
