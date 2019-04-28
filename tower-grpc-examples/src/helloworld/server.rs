@@ -15,6 +15,7 @@ pub mod hello_world {
 use hello_world::{server, HelloReply, HelloRequest};
 
 use futures::{future, Future, Stream};
+use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response};
 use tower_hyper::server::{Http, Server};
@@ -42,7 +43,9 @@ pub fn main() {
     let new_service = server::GreeterServer::new(Greet);
 
     let mut server = Server::new(new_service);
+
     let http = Http::new().http2_only(true).clone();
+    let http = http.with_executor(DefaultExecutor::current());
 
     let addr = "[::1]:50051".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");

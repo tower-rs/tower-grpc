@@ -323,7 +323,7 @@ macro_rules! try_ready {
                 .new_impl(&name)
                 .generic("T")
                 .target_generic("T")
-                .impl_trait("tower::Service<http::Request<tower_hyper::RecvBody>>")
+                .impl_trait("tower::Service<http::Request<tower_hyper::Body>>")
                 .bound("T", &service.name)
                 .associate_type(
                     "Response",
@@ -345,7 +345,7 @@ macro_rules! try_ready {
 
             imp.new_fn("call")
                 .arg_mut_self()
-                .arg("request", "http::Request<tower_hyper::RecvBody>")
+                .arg("request", "http::Request<tower_hyper::Body>")
                 .ret("Self::Future")
                 .line("let request = request.map(|b| grpc::BoxBody::map_from(b));")
                 .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)");
