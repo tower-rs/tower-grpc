@@ -38,7 +38,7 @@ tokio = "0.1"
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 hyper = "0.12"
-tower-grpc = { path = "../", features = ["tower-hyper"] }
+tower-grpc = { path = "../tower-grpc", features = ["tower-hyper"] }
 tower-service = "0.2"
 tower-util = "0.1"
 
