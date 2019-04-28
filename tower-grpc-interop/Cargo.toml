@@ -27,7 +27,7 @@ tower-grpc = { path = "../tower-grpc" }
 tower-service = "0.2"
 
 clap = "~2.29"
-console = "0.5.0"
+console = "0.7"
 rustls = "0.14.0"
 domain = "0.2.2"
 
