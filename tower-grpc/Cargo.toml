@@ -9,7 +9,7 @@ authors = [
 license = "MIT"
 
 [features]
-default = ["protobuf", "tower-h2"]
+default = ["protobuf"]
 protobuf = ["prost"]
 
 [dependencies]
