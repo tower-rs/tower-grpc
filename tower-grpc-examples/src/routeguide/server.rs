@@ -9,7 +9,7 @@ extern crate log;
 extern crate prost;
 extern crate tokio;
 extern crate tower_grpc;
-extern crate tower_h2;
+extern crate tower_hyper;
 
 extern crate serde;
 extern crate serde_json;
@@ -27,7 +27,7 @@ use futures::{future, stream, Future, Sink, Stream};
 use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Streaming};
-use tower_h2::Server;
+use tower_hyper::server::{Http, Server};
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -249,8 +249,9 @@ pub fn main() {
 
     let new_service = server::RouteGuideServer::new(handler);
 
-    let h2_settings = Default::default();
-    let mut h2 = Server::new(new_service, h2_settings, DefaultExecutor::current());
+    let mut server = Server::new(new_service);
+    let http = Http::new().http2_only(true).clone();
+    let http = http.with_executor(DefaultExecutor::current());
 
     let addr = "127.0.0.1:10000".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
@@ -264,7 +265,7 @@ pub fn main() {
                 return Err(e);
             }
 
-            let serve = h2.serve(sock);
+            let serve = server.serve_with(sock, http.clone());
             tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
 
             Ok(())

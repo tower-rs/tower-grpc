@@ -28,6 +28,12 @@ pub mod server {
         pub use tower_util::MakeService;
     }
 
+    #[cfg(feature = "tower-hyper")]
+    /// Re-exported types from `tower-hyper` crate.
+    pub mod tower_hyper {
+        pub use tower_hyper::Body;
+    }
+
     #[cfg(feature = "tower-h2")]
     /// Re-exported types from `tower-h2` crate.
     pub mod tower_h2 {

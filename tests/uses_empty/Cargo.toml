@@ -5,7 +5,7 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 publish = false
 
 [dependencies]
-tower-grpc = { path = "../../tower-grpc" }
+tower-grpc = { path = "../../tower-grpc", features = ["tower-h2"] }
 
 [build-dependencies]
-tower-grpc-build = { path = "../../tower-grpc-build" }
+tower-grpc-build = { path = "../../tower-grpc-build", features = ["tower-h2"] }

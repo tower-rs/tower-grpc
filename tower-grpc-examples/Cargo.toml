@@ -35,9 +35,10 @@ log = "0.4"
 http = "0.1"
 prost = "0.5"
 tokio = "0.1"
-tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
-tower-grpc = { path = "../tower-grpc" }
+tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+hyper = "0.12"
+tower-grpc = { path = "../tower-grpc", features = ["tower-hyper"] }
 tower-service = "0.2"
 tower-util = "0.1"
 
@@ -47,4 +48,4 @@ serde_json = "1.0"
 serde_derive = "1.0"
 
 [build-dependencies]
-tower-grpc-build = { path = "../tower-grpc-build" }
+tower-grpc-build = { path = "../tower-grpc-build",  features = ["tower-hyper"]  }
