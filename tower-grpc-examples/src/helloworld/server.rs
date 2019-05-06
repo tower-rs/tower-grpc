@@ -58,7 +58,7 @@ pub fn main() {
             }
 
             let serve = server.serve_with(sock, http.clone());
-            tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
+            tokio::spawn(serve.map_err(|e| error!("hyper error: {:?}", e)));
 
             Ok(())
         })
