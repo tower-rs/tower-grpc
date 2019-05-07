@@ -24,7 +24,6 @@ use routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
 
 use futures::sync::mpsc;
 use futures::{future, stream, Future, Sink, Stream};
-use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response, Streaming};
 use tower_hyper::server::{Http, Server};
@@ -251,7 +250,6 @@ pub fn main() {
 
     let mut server = Server::new(new_service);
     let http = Http::new().http2_only(true).clone();
-    let http = http.with_executor(DefaultExecutor::current());
 
     let addr = "127.0.0.1:10000".parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
