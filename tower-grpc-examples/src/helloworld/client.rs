@@ -34,7 +34,8 @@ pub fn main() {
 
     let say_hello = make_client
         .make_service(dst)
-        .map(move |conn| {
+        .map_err(|e| panic!("connect error: {:?}", e))
+        .and_then(move |conn| {
             use hello_world::client::Greeter;
 
             let conn = tower_request_modifier::Builder::new()
@@ -42,16 +43,15 @@ pub fn main() {
                 .build(conn)
                 .unwrap();
 
-            Greeter::new(conn)
+            // Wait until the client is ready...
+            Greeter::new(conn).ready()
         })
         .and_then(|mut client| {
             use hello_world::HelloRequest;
 
-            client
-                .say_hello(Request::new(HelloRequest {
-                    name: "What is in a name?".to_string(),
-                }))
-                .map_err(|e| panic!("gRPC request failed; err={:?}", e))
+            client.say_hello(Request::new(HelloRequest {
+                name: "What is in a name?".to_string(),
+            }))
         })
         .and_then(|response| {
             println!("RESPONSE = {:?}", response);

@@ -50,7 +50,7 @@ pub fn main() {
         .map_err(|e| {
             panic!("HTTP/2 connection failed; err={:?}", e);
         })
-        .map(move |conn| {
+        .and_then(move |conn| {
             use routeguide::client::RouteGuide;
 
             let conn = tower_request_modifier::Builder::new()
@@ -59,18 +59,29 @@ pub fn main() {
                 .unwrap();
 
             RouteGuide::new(conn)
+                // Wait until the client is ready...
+                .ready()
+                .map_err(|e| eprintln!("client closed: {:?}", e))
         })
         .and_then(|mut client| {
             let start = Instant::now();
-            let r_feature = client
+            client
                 .get_feature(Request::new(Point {
                     latitude: 409146138,
                     longitude: -746188906,
                 }))
                 .map_err(|e| eprintln!("GetFeature request failed; err={:?}", e))
-                .map(|response| {
-                    println!("RESPONSE = {:?}", response);
-                });
+                .and_then(move |response| {
+                    println!("FEATURE = {:?}", response);
+
+                    // Wait for the client to be ready again...
+                    client
+                        .ready()
+                        .map_err(|e| eprintln!("client closed: {:?}", e))
+                })
+                .map(move |client| (client, start))
+        })
+        .and_then(|(mut client, start)| {
             let outbound = Interval::new_interval(Duration::from_secs(1))
                 .map(move |t| {
                     let elapsed = t.duration_since(start);
@@ -82,8 +93,9 @@ pub fn main() {
                         message: format!("at {:?}", elapsed),
                     }
                 })
-                .map_err(|e| panic!("timer error; err={:?}", e));
-            let r_chat = client
+                .map_err(|e| panic!("timer error: {:?}", e));
+
+            client
                 .route_chat(Request::new(outbound))
                 .map_err(|e| {
                     eprintln!("RouteChat request failed; err={:?}", e);
@@ -96,8 +108,7 @@ pub fn main() {
                             Ok(())
                         })
                         .map_err(|e| eprintln!("gRPC inbound stream error: {:?}", e))
-                });
-            tokio::spawn(r_feature.and_then(|()| r_chat))
+                })
         });
 
     tokio::run(rg);
