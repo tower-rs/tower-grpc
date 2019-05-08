@@ -186,14 +186,14 @@ where
     U: Stream,
     U::Error: Into<Error>,
 {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Status> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
         match self.inner.poll_encode(&mut self.buf) {
             Ok(ok) => Ok(ok),
             Err(status) => {

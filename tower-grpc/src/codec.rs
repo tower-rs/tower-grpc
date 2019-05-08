@@ -161,15 +161,15 @@ where
     T: Stream<Error = ::Status>,
     T::Item: ::prost::Message,
 {
-    type Item = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Item;
+    type Data = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Data;
     type Error = <::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Error;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        self.inner.poll_buf()
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        self.inner.poll_data()
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {

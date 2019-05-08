@@ -32,7 +32,7 @@ where
     T: HttpBody,
     T::Error: Into<Error>,
 {
-    type Item = T::Item;
+    type Item = T::Data;
     type Error = T::Error;
 
     fn is_end_stream(&self) -> bool {
@@ -40,7 +40,7 @@ where
     }
 
     fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        HttpBody::poll_buf(self)
+        HttpBody::poll_data(self)
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
@@ -81,14 +81,14 @@ impl BoxBody {
 }
 
 impl HttpBody for BoxBody {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.inner.is_end_stream()
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
         self.inner.poll_buf()
     }
 
@@ -110,14 +110,14 @@ where
     B: Body,
     B::Item: Into<Bytes>,
 {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.0.is_end_stream()
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
         let item = try_ready!(self.0.poll_buf().map_err(Status::map_error));
         Ok(item.map(|buf| buf.into().into_buf()).into())
     }
