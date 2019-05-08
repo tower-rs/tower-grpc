@@ -3,12 +3,12 @@ pub mod server_streaming;
 pub mod streaming;
 pub mod unary;
 
-use futures::{stream, Poll, Stream};
+use futures::{stream, Future, Poll, Stream};
 use http::{uri, Uri};
 use prost::Message;
 
 use body::BoxBody;
-use generic::client::GrpcService;
+use generic::client::{GrpcService, IntoService};
 
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {
@@ -37,6 +37,16 @@ impl<T> Grpc<T> {
     {
         self.inner
             .poll_ready()
+            .map_err(|err| ::Status::from_error(&*(err.into())))
+    }
+
+    pub fn ready<R>(self) -> impl Future<Item = Self, Error = ::Status>
+    where
+        T: GrpcService<R>,
+    {
+        use tower_util::Ready;
+        Ready::new(self.inner.into_service())
+            .map(|IntoService(inner)| Grpc { inner })
             .map_err(|err| ::Status::from_error(&*(err.into())))
     }
 

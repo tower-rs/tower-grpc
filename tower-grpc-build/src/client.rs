@@ -50,6 +50,11 @@ impl ServiceGenerator {
             .generic("T")
             .target_generic("T");
 
+        // TODO: figure out what to do about potential conflicts with these
+        // "inherent" methods and those from the gRPC service methods.
+        //
+        // For instance, if the service had a method named "new".
+
         imp.new_fn("new")
             .vis("pub")
             .arg("inner", "T")
@@ -58,12 +63,22 @@ impl ServiceGenerator {
             .line("Self { inner }");
 
         imp.new_fn("poll_ready")
+            .doc("Poll whether this client is ready to send another request.")
             .generic("R")
             .bound("T", "grpc::GrpcService<R>")
             .vis("pub")
             .arg_mut_self()
             .ret("futures::Poll<(), grpc::Status>")
             .line("self.inner.poll_ready()");
+
+        imp.new_fn("ready")
+            .doc("Get a `Future` of when this client is ready to send another request.")
+            .generic("R")
+            .bound("T", "grpc::GrpcService<R>")
+            .vis("pub")
+            .arg_self()
+            .ret("impl futures::Future<Item = Self, Error = grpc::Status>")
+            .line("futures::Future::map(self.inner.ready(), |inner| Self { inner })");
 
         for method in &service.methods {
             let name = &method.name;

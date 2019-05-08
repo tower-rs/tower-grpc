@@ -34,7 +34,8 @@ pub fn main() {
 
     let doorman = make_client
         .make_service(dst)
-        .map(move |conn| {
+        .map_err(|e| panic!("connect error: {:?}", e))
+        .and_then(move |conn| {
             use metadata::client::Doorman;
 
             let conn = tower_request_modifier::Builder::new()
@@ -42,7 +43,8 @@ pub fn main() {
                 .build(conn)
                 .unwrap();
 
-            Doorman::new(conn)
+            // Wait until the client is ready...
+            Doorman::new(conn).ready()
         })
         .and_then(|mut client| {
             use metadata::EnterRequest;
@@ -55,9 +57,7 @@ pub fn main() {
                 .metadata_mut()
                 .insert("metadata", "Here is a cookie".parse().unwrap());
 
-            client
-                .ask_to_enter(request)
-                .map_err(|e| panic!("gRPC request failed; err={:?}", e))
+            client.ask_to_enter(request)
         })
         .map(|response| {
             println!("RESPONSE = {:?}", response);

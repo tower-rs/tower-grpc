@@ -84,7 +84,7 @@ where
 
 /// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
 #[derive(Debug)]
-pub struct IntoService<T>(T);
+pub struct IntoService<T>(pub(crate) T);
 
 impl<T, ReqBody> Service<Request<ReqBody>> for IntoService<T>
 where
