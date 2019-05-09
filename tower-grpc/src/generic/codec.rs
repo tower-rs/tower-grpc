@@ -101,7 +101,7 @@ pub struct Streaming<T, B: Body> {
     inner: B,
 
     /// buffer
-    bufs: BufList<B::Item>,
+    bufs: BufList<B::Data>,
 
     /// Decoding state
     state: State,
@@ -364,7 +364,7 @@ where
                 None => (),
             }
 
-            let chunk = try_ready!(self.inner.poll_buf().map_err(|err| {
+            let chunk = try_ready!(self.inner.poll_data().map_err(|err| {
                 let err = err.into();
                 debug!("decoder inner stream error: {:?}", err);
                 Status::from_error(&*err)
@@ -406,7 +406,7 @@ impl<T, B> fmt::Debug for Streaming<T, B>
 where
     T: fmt::Debug,
     B: Body + fmt::Debug,
-    B::Item: fmt::Debug,
+    B::Data: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Streaming").finish()

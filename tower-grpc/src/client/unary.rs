@@ -42,7 +42,7 @@ where
     T: fmt::Debug,
     U: fmt::Debug,
     B: Body + fmt::Debug,
-    B::Item: fmt::Debug,
+    B::Data: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ResponseFuture")
