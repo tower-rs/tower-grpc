@@ -101,7 +101,7 @@ pub struct Streaming<T, B: Body> {
     inner: B,
 
     /// buffer
-    bufs: BufList<B::Item>,
+    bufs: BufList<B::Data>,
 
     /// Decoding state
     state: State,
@@ -186,14 +186,14 @@ where
     U: Stream,
     U::Error: Into<Error>,
 {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Status> {
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
         match self.inner.poll_encode(&mut self.buf) {
             Ok(ok) => Ok(ok),
             Err(status) => {
@@ -364,7 +364,7 @@ where
                 None => (),
             }
 
-            let chunk = try_ready!(self.inner.poll_buf().map_err(|err| {
+            let chunk = try_ready!(self.inner.poll_data().map_err(|err| {
                 let err = err.into();
                 debug!("decoder inner stream error: {:?}", err);
                 Status::from_error(&*err)
@@ -406,7 +406,7 @@ impl<T, B> fmt::Debug for Streaming<T, B>
 where
     T: fmt::Debug,
     B: Body + fmt::Debug,
-    B::Item: fmt::Debug,
+    B::Data: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Streaming").finish()

@@ -54,7 +54,7 @@ where
     T::ResponseStream: fmt::Debug,
     T::Future: fmt::Debug,
     B: Body + fmt::Debug,
-    B::Item: fmt::Debug,
+    B::Data: fmt::Debug,
     R: prost::Message + Default,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

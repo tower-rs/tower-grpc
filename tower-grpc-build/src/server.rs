@@ -434,11 +434,11 @@ macro_rules! try_ready {
                 .target_generic("T")
                 .impl_trait("tower::HttpBody")
                 .bound("T", &service.name)
-                .associate_type("Item", "<grpc::BoxBody as grpc::Body>::Item")
+                .associate_type("Data", "<grpc::BoxBody as grpc::Body>::Data")
                 .associate_type("Error", "grpc::Status");
 
             let mut is_end_stream_block = codegen::Block::new("match self.kind");
-            let mut poll_buf_block = codegen::Block::new("match self.kind");
+            let mut poll_data_block = codegen::Block::new("match self.kind");
             let mut poll_trailers_block = codegen::Block::new("match self.kind");
 
             for method in &service.methods {
@@ -446,14 +446,14 @@ macro_rules! try_ready {
 
                 is_end_stream_block.line(&format!("{}(ref v) => v.is_end_stream(),", &upper_name));
 
-                poll_buf_block.line(&format!("{}(ref mut v) => v.poll_buf(),", &upper_name));
+                poll_data_block.line(&format!("{}(ref mut v) => v.poll_data(),", &upper_name));
 
                 poll_trailers_block
                     .line(&format!("{}(ref mut v) => v.poll_trailers(),", &upper_name));
             }
 
             is_end_stream_block.line(&format!("{}(_) => true,", UNIMPLEMENTED_VARIANT));
-            poll_buf_block.line(&format!("{}(_) => Ok(None.into()),", UNIMPLEMENTED_VARIANT));
+            poll_data_block.line(&format!("{}(_) => Ok(None.into()),", UNIMPLEMENTED_VARIANT));
             poll_trailers_block.line(&format!("{}(_) => Ok(None.into()),", UNIMPLEMENTED_VARIANT));
 
             imp.new_fn("is_end_stream")
@@ -463,12 +463,12 @@ macro_rules! try_ready {
                 .line("")
                 .push_block(is_end_stream_block);
 
-            imp.new_fn("poll_buf")
+            imp.new_fn("poll_data")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<Self::Item>, Self::Error>")
+                .ret("futures::Poll<Option<Self::Data>, Self::Error>")
                 .line("use self::Kind::*;")
                 .line("")
-                .push_block(poll_buf_block);
+                .push_block(poll_data_block);
 
             imp.new_fn("poll_trailers")
                 .arg_mut_self()

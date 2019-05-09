@@ -17,12 +17,12 @@ type BytesBuf = <Bytes as IntoBuf>::Buf;
 /// Not to be implemented directly, but instead useful for reducing bounds
 /// boilerplate.
 pub trait Body: Sealed {
-    type Item: Buf;
+    type Data: Buf;
     type Error: Into<Error>;
 
     fn is_end_stream(&self) -> bool;
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error>;
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error>;
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error>;
 }
@@ -32,15 +32,15 @@ where
     T: HttpBody,
     T::Error: Into<Error>,
 {
-    type Item = T::Item;
+    type Data = T::Data;
     type Error = T::Error;
 
     fn is_end_stream(&self) -> bool {
         HttpBody::is_end_stream(self)
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        HttpBody::poll_buf(self)
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        HttpBody::poll_data(self)
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
@@ -57,7 +57,7 @@ where
 
 /// Dynamic `Send` body object.
 pub struct BoxBody {
-    inner: Box<Body<Item = BytesBuf, Error = Status> + Send>,
+    inner: Box<Body<Data = BytesBuf, Error = Status> + Send>,
 }
 
 struct MapBody<B>(B);
@@ -66,7 +66,7 @@ struct MapBody<B>(B);
 
 impl BoxBody {
     /// Create a new `BoxBody` backed by `inner`.
-    pub fn new(inner: Box<Body<Item = BytesBuf, Error = Status> + Send>) -> Self {
+    pub fn new(inner: Box<Body<Data = BytesBuf, Error = Status> + Send>) -> Self {
         BoxBody { inner }
     }
 
@@ -74,22 +74,22 @@ impl BoxBody {
     pub fn map_from<B>(inner: B) -> Self
     where
         B: Body + Send + 'static,
-        B::Item: Into<Bytes>,
+        B::Data: Into<Bytes>,
     {
         BoxBody::new(Box::new(MapBody(inner)))
     }
 }
 
 impl HttpBody for BoxBody {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.inner.is_end_stream()
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        self.inner.poll_buf()
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        self.inner.poll_data()
     }
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
@@ -108,17 +108,17 @@ impl fmt::Debug for BoxBody {
 impl<B> HttpBody for MapBody<B>
 where
     B: Body,
-    B::Item: Into<Bytes>,
+    B::Data: Into<Bytes>,
 {
-    type Item = BytesBuf;
+    type Data = BytesBuf;
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
         self.0.is_end_stream()
     }
 
-    fn poll_buf(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let item = try_ready!(self.0.poll_buf().map_err(Status::map_error));
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        let item = try_ready!(self.0.poll_data().map_err(Status::map_error));
         Ok(item.map(|buf| buf.into().into_buf()).into())
     }
 

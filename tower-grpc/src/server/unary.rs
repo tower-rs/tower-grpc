@@ -58,7 +58,7 @@ where
     T::Response: prost::Message + fmt::Debug,
     T::Future: fmt::Debug,
     B: Body + fmt::Debug,
-    B::Item: fmt::Debug,
+    B::Data: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")
