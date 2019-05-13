@@ -44,8 +44,16 @@ where
             Ok(Async::Ready(response)) => response,
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(status) => {
-                let response = Response::new(Encode::error(status));
-                return Ok(response.into_http().into());
+                // Construct http response
+                let mut response = Response::new(Encode::error(status)).into_http();
+                // Set the content type
+                response.headers_mut().insert(
+                    header::CONTENT_TYPE,
+                    header::HeaderValue::from_static(E::CONTENT_TYPE),
+                );
+
+                // Early return
+                return Ok(response.into());
             }
         };
 

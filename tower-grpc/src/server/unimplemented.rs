@@ -1,5 +1,6 @@
 use futures::{Future, Poll};
 use http;
+use http::header;
 
 use {Code, Status};
 
@@ -23,10 +24,21 @@ impl Future for ResponseFuture {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let status = self.status.take().expect("polled after complete");
 
-        let mut resp = http::Response::new(());
+        // Construct http response
+        let mut response = http::Response::new(());
+
+        // Set the content type
+        // As the rpc is unimplemented we don't care about
+        // specifying the encoding (+proto, +json, +...)
+        // so we can just return a dummy "application/grpc"
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static("application/grpc"),
+        );
+
         status
-            .add_header(resp.headers_mut())
+            .add_header(response.headers_mut())
             .expect("generated unimplemented message should be valid");
-        Ok(resp.into())
+        Ok(response.into())
     }
 }
