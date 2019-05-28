@@ -10,7 +10,6 @@ extern crate tower_grpc;
 extern crate tower_hyper;
 
 use futures::{future, stream, Future, Stream};
-use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_grpc::{Code, Request, Response, Status};
 use tower_hyper::server::Server;

@@ -4,7 +4,7 @@
 extern crate bytes;
 extern crate prost;
 extern crate tower_grpc;
-extern crate tower_h2;
+extern crate tower_hyper;
 
 pub mod server_streaming {
     include!(concat!(env!("OUT_DIR"), "/server_streaming.rs"));
