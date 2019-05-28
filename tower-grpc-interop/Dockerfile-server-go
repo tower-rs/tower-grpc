@@ -1,35 +1,19 @@
-[package]
-name = "tower-grpc-interop"
-version = "0.0.1"
-authors = ["Eliza Weisman <eliza@buoyant.io>"]
-license = "MIT"
+FROM golang:1.9 as build
 
-[[bin]]
-name = "client"
-path = "src/client.rs"
+ENV PACKAGE google.golang.org/grpc/interop/server
+ENV PACKAGEDIR $GOPATH/src/$PACKAGE
 
-[[bin]]
-name = "server"
-path = "src/server.rs"
+RUN go get -u $PACKAGE
 
-[dependencies]
-futures = "0.1.23"
-bytes = "0.4"
-pretty_env_logger = "0.2"
-log = "0.4"
-http = "0.1"
-prost = "0.5"
-tokio-core = "0.1"
-tokio = "0.1"
-tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
-tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
-tower-grpc = { path = "../tower-grpc", features = ["tower-hyper"] }
-tower-service = "0.2"
+WORKDIR $PACKAGEDIR
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server .
 
-clap = "~2.29"
-console = "0.7"
-rustls = "0.14.0"
-domain = "0.2.2"
+FROM alpine:latest
 
-[build-dependencies]
-tower-grpc-build = { path = "../tower-grpc-build", features = ["tower-hyper"] }
+ENV PACKAGE google.golang.org/grpc/interop/server
+ENV PACKAGEDIR $GOPATH/src/$PACKAGE
+
+WORKDIR /root/
+COPY --from=build /go/src/google.golang.org/grpc/interop/server/server .
+
+ENTRYPOINT ["./server"]
