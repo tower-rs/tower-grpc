@@ -233,22 +233,14 @@ fn assert_success(
 struct TestClients {
     test_client: TestService<
         tower_request_modifier::RequestModifier<
-            tower_hyper::client::Connection<
-                // tokio_core::net::TcpStream,
-                // tokio_core::reactor::Handle,
-                tower_grpc::BoxBody,
-            >,
+            tower_hyper::client::Connection<tower_grpc::BoxBody>,
             tower_grpc::BoxBody,
         >,
     >,
 
     unimplemented_client: UnimplementedService<
         tower_request_modifier::RequestModifier<
-            tower_hyper::client::Connection<
-                // tokio_core::net::TcpStream,
-                // tokio_core::reactor::Handle,
-                tower_grpc::BoxBody,
-            >,
+            tower_hyper::client::Connection<tower_grpc::BoxBody>,
             tower_grpc::BoxBody,
         >,
     >,
