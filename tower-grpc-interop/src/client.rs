@@ -7,25 +7,29 @@ extern crate http;
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
+extern crate http_connection;
 extern crate prost;
 extern crate rustls;
 extern crate tokio_core;
 extern crate tower_grpc;
-extern crate tower_h2;
+extern crate tower_hyper;
 extern crate tower_request_modifier;
+extern crate tower_service;
 
 use std::error::Error;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::{future, stream, Future, Stream};
+use futures::{future, stream, Future, Poll, Stream};
 use http::uri::{self, Uri};
+use http_connection::HttpConnection;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor;
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
-use tower_h2::client::Connection;
+use tower_hyper::client::{Connect, Connection};
+use tower_service::Service;
 
 use pb::client::TestService;
 use pb::client::UnimplementedService;
@@ -229,9 +233,9 @@ fn assert_success(
 struct TestClients {
     test_client: TestService<
         tower_request_modifier::RequestModifier<
-            tower_h2::client::Connection<
-                tokio_core::net::TcpStream,
-                tokio_core::reactor::Handle,
+            tower_hyper::client::Connection<
+                // tokio_core::net::TcpStream,
+                // tokio_core::reactor::Handle,
                 tower_grpc::BoxBody,
             >,
             tower_grpc::BoxBody,
@@ -240,9 +244,9 @@ struct TestClients {
 
     unimplemented_client: UnimplementedService<
         tower_request_modifier::RequestModifier<
-            tower_h2::client::Connection<
-                tokio_core::net::TcpStream,
-                tokio_core::reactor::Handle,
+            tower_hyper::client::Connection<
+                // tokio_core::net::TcpStream,
+                // tokio_core::reactor::Handle,
                 tower_grpc::BoxBody,
             >,
             tower_grpc::BoxBody,
@@ -784,20 +788,57 @@ impl Testcase {
     ) -> Result<Vec<TestAssertion>, Box<Error>> {
         let open_connection = |core: &mut tokio_core::reactor::Core| {
             let reactor = core.handle();
-            core.run(
-                TcpStream::connect(&server.addr, &reactor)
-                    .and_then(move |socket| {
-                        // Bind the HTTP/2.0 connection
-                        Connection::handshake(socket, reactor)
-                            .map_err(|_| panic!("failed HTTP/2.0 handshake"))
-                    })
-                    .map(move |conn| {
-                        tower_request_modifier::Builder::new()
-                            .set_origin(server.uri.clone())
-                            .build(conn)
-                            .unwrap()
-                    }),
-            )
+
+            struct TcpConnector(tokio_core::reactor::Handle);
+
+            struct Stream(TcpStream);
+
+            impl Service<SocketAddr> for TcpConnector {
+                type Response = Stream;
+                type Error = ::std::io::Error;
+                type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+
+                fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+                    Ok(().into())
+                }
+
+                fn call(&mut self, req: SocketAddr) -> Self::Future {
+                    Box::new(TcpStream::connect(&req, &self.0).map(|s| Stream(s)))
+                }
+            }
+
+            impl ::std::io::Read for Stream {
+                fn read(&mut self, buf: &mut [u8]) -> ::std::io::Result<usize> {
+                    self.0.read(buf)
+                }
+            }
+
+            impl ::std::io::Write for Stream {
+                fn write(&mut self, buf: &[u8]) -> ::std::io::Result<usize> {
+                    self.0.write(&buf)
+                }
+
+                fn flush(&mut self) -> ::std::io::Result<()> {
+                    self.0.flush()
+                }
+            }
+
+            impl tokio::io::AsyncRead for Stream {}
+            impl tokio::io::AsyncWrite for Stream {
+                fn shutdown(&mut self) -> Poll<(), tokio::io::Error> {
+                    <TcpStream as tokio::io::AsyncWrite>::shutdown(&mut self.0)
+                }
+            }
+            impl HttpConnection for Stream {}
+
+            let mut connector = Connect::new(TcpConnector(reactor.clone()));
+
+            core.run(connector.call(server.addr).map(move |conn| {
+                tower_request_modifier::Builder::new()
+                    .set_origin(server.uri.clone())
+                    .build(conn)
+                    .unwrap()
+            }))
             .expect("connection")
         };
 
