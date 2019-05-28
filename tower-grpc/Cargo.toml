@@ -22,7 +22,7 @@ log = "0.4"
 percent-encoding = "1.0.1"
 tower-h2 = { git = "https://github.com/tower-rs/tower-h2", optional = true }
 tower-hyper = { git = "http://github.com/tower-rs/tower-hyper", optional = true }
-tower-http = { git = "https://github.com/tower-rs/tower-http" }
+http-body = "0.1"
 tower-service = "0.2"
 tower-util = "0.1"
 
