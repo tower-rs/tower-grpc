@@ -12,7 +12,7 @@ extern crate tower_hyper;
 use futures::{future, stream, Future, Stream};
 use tokio::net::TcpListener;
 use tower_grpc::{Code, Request, Response, Status};
-use tower_hyper::server::Server;
+use tower_hyper::server::{Http, Server};
 
 mod pb {
     #![allow(dead_code)]
@@ -211,6 +211,7 @@ fn main() {
 
     let addr = format!("0.0.0.0:{}", port).parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
+    let http = Http::new().http2_only(true).clone();
 
     let serve = bind
         .incoming()
@@ -219,7 +220,7 @@ fn main() {
                 return Err(e);
             }
 
-            let serve = server.serve(sock);
+            let serve = server.serve_with(sock, http.clone());
             tokio::spawn(serve.map_err(|e| error!("hyper error: {:?}", e)));
 
             Ok(())

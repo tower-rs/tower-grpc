@@ -28,7 +28,7 @@ use tokio_core::net::TcpStream;
 use tokio_core::reactor;
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
-use tower_hyper::client::{Connect, Connection};
+use tower_hyper::client::{Builder, Connect};
 use tower_service::Service;
 
 use pb::client::TestService;
@@ -823,7 +823,8 @@ impl Testcase {
             }
             impl HttpConnection for Stream {}
 
-            let mut connector = Connect::new(TcpConnector(reactor.clone()));
+            let builder = Builder::new().http2_only(true).clone();
+            let mut connector = Connect::with_builder(TcpConnector(reactor.clone()), builder);
 
             core.run(connector.call(server.addr).map(move |conn| {
                 tower_request_modifier::Builder::new()
