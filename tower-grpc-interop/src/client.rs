@@ -23,6 +23,7 @@ use std::str::FromStr;
 
 use futures::{future, stream, Future, Poll, Stream};
 use http::uri::{self, Uri};
+use http::Version;
 use http_connection::HttpConnection;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor;
@@ -821,10 +822,14 @@ impl Testcase {
                     <TcpStream as tokio::io::AsyncWrite>::shutdown(&mut self.0)
                 }
             }
-            impl HttpConnection for Stream {}
+            impl HttpConnection for Stream {
+                fn version(&self) -> Option<Version> {
+                    Some(Version::HTTP_2)
+                }
+            }
 
-            let builder = Builder::new().http2_only(true).clone();
-            let mut connector = Connect::with_builder(TcpConnector(reactor.clone()), builder);
+            // let builder = Builder::new().http2_only(true).clone();
+            let mut connector = Connect::new(TcpConnector(reactor.clone()));
 
             core.run(connector.call(server.addr).map(move |conn| {
                 tower_request_modifier::Builder::new()
