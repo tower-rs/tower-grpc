@@ -281,41 +281,6 @@ macro_rules! try_ready {
                 .line("futures::ok(self.clone())");
         }
 
-        #[cfg(feature = "tower-h2")]
-        // Service that converts tower_grpc::BoxBody to tower_h2 bodies
-        {
-            let imp = scope
-                .new_impl(&name)
-                .generic("T")
-                .target_generic("T")
-                .impl_trait("tower::Service<http::Request<tower_h2::RecvBody>>")
-                .bound("T", &service.name)
-                .associate_type(
-                    "Response",
-                    "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Response",
-                )
-                .associate_type(
-                    "Error",
-                    "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Error",
-                )
-                .associate_type(
-                    "Future",
-                    "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Future",
-                );
-
-            imp.new_fn("poll_ready")
-                .arg_mut_self()
-                .ret("futures::Poll<(), Self::Error>")
-                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)");
-
-            imp.new_fn("call")
-                .arg_mut_self()
-                .arg("request", "http::Request<tower_h2::RecvBody>")
-                .ret("Self::Future")
-                .line("let request = request.map(|b| grpc::BoxBody::map_from(b));")
-                .line("tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)");
-        }
-
         #[cfg(feature = "tower-hyper")]
         // Service that converts tower_grpc::BoxBody to tower_hyper bodies
         {

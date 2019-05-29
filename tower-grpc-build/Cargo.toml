@@ -10,5 +10,4 @@ prost-build = "0.5"
 heck = "0.3"
 
 [features]
-tower-h2 = []
 tower-hyper = []

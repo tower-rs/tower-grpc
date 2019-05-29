@@ -21,10 +21,11 @@ http = "0.1"
 prost = "0.5"
 tokio-core = "0.1"
 tokio = "0.1"
-tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../tower-grpc" }
-tower-service = "0.2"
+tower = "0.1"
+http-connection = { git = "https://github.com/hyperium/http-connection" }
 
 clap = "~2.29"
 console = "0.7"
@@ -32,4 +33,4 @@ rustls = "0.14.0"
 domain = "0.2.2"
 
 [build-dependencies]
-tower-grpc-build = { path = "../tower-grpc-build", features = ["tower-h2"] }
+tower-grpc-build = { path = "../tower-grpc-build", features = ["tower-hyper"] }

@@ -7,13 +7,12 @@ extern crate pretty_env_logger;
 extern crate prost;
 extern crate tokio;
 extern crate tower_grpc;
-extern crate tower_h2;
+extern crate tower_hyper;
 
 use futures::{future, stream, Future, Stream};
-use tokio::executor::DefaultExecutor;
 use tokio::net::TcpListener;
 use tower_grpc::{Code, Request, Response, Status};
-use tower_h2::Server;
+use tower_hyper::server::{Http, Server};
 
 mod pb {
     #![allow(dead_code)]
@@ -208,11 +207,11 @@ fn main() {
 
     let new_service = pb::server::TestServiceServer::new(Test);
 
-    let h2_settings = Default::default();
-    let mut h2 = Server::new(new_service, h2_settings, DefaultExecutor::current());
+    let mut server = Server::new(new_service);
 
     let addr = format!("0.0.0.0:{}", port).parse().unwrap();
     let bind = TcpListener::bind(&addr).expect("bind");
+    let http = Http::new().http2_only(true).clone();
 
     let serve = bind
         .incoming()
@@ -221,8 +220,8 @@ fn main() {
                 return Err(e);
             }
 
-            let serve = h2.serve(sock);
-            tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
+            let serve = server.serve_with(sock, http.clone());
+            tokio::spawn(serve.map_err(|e| error!("hyper error: {:?}", e)));
 
             Ok(())
         })

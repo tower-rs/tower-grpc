@@ -33,12 +33,6 @@ pub mod server {
     pub mod tower_hyper {
         pub use tower_hyper::Body;
     }
-
-    #[cfg(feature = "tower-h2")]
-    /// Re-exported types from `tower-h2` crate.
-    pub mod tower_h2 {
-        pub use tower_h2::{Body, RecvBody};
-    }
 }
 
 pub mod client {
