@@ -830,7 +830,7 @@ impl Testcase {
                 }
             }
             impl HttpConnection for Stream {
-                fn version(&self) -> Option<Version> {
+                fn negotiated_version(&self) -> Option<Version> {
                     Some(Version::HTTP_2)
                 }
             }
