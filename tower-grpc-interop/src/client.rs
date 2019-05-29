@@ -27,7 +27,7 @@ use http::Version;
 use http_connection::HttpConnection;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor;
-use tower::{Service, ServiceExt};
+use tower::{buffer::Buffer, Service, ServiceExt};
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
 use tower_hyper::client::{Builder, Connect};
@@ -233,16 +233,22 @@ fn assert_success(
 
 struct TestClients {
     test_client: TestService<
-        tower_request_modifier::RequestModifier<
-            tower_hyper::client::Connection<tower_grpc::BoxBody>,
-            tower_grpc::BoxBody,
+        Buffer<
+            tower_request_modifier::RequestModifier<
+                tower_hyper::client::Connection<tower_grpc::BoxBody>,
+                tower_grpc::BoxBody,
+            >,
+            http::Request<tower_grpc::BoxBody>,
         >,
     >,
 
     unimplemented_client: UnimplementedService<
-        tower_request_modifier::RequestModifier<
-            tower_hyper::client::Connection<tower_grpc::BoxBody>,
-            tower_grpc::BoxBody,
+        Buffer<
+            tower_request_modifier::RequestModifier<
+                tower_hyper::client::Connection<tower_grpc::BoxBody>,
+                tower_grpc::BoxBody,
+            >,
+            http::Request<tower_grpc::BoxBody>,
         >,
     >,
 }
@@ -599,14 +605,15 @@ impl TestClients {
             .unary_call(Request::new(simple_req))
             .then(&validate_response);
 
-        let full_duplex_call = self
-            .test_client
-            .full_duplex_call(Request::new(stream::iter_ok(vec![duplex_req])))
-            .and_then(|response_stream| {
-                // Convert the stream into a plain Vec
-                response_stream.into_inner().map_err(From::from).collect()
-            })
-            .then(&validate_response);
+        let full_duplex_call = self.test_client.clone().ready().then(|svc| {
+            svc.unwrap()
+                .full_duplex_call(Request::new(stream::iter_ok(vec![duplex_req])))
+                .and_then(|response_stream| {
+                    // Convert the stream into a plain Vec
+                    response_stream.into_inner().map_err(From::from).collect()
+                })
+                .then(&validate_response)
+        });
 
         unary_call
             .join(full_duplex_call)
@@ -833,10 +840,12 @@ impl Testcase {
 
             core.run(connector.ready().and_then(|mut connector| {
                 connector.call(server.addr).map(move |conn| {
-                    tower_request_modifier::Builder::new()
+                    let svc = tower_request_modifier::Builder::new()
                         .set_origin(server.uri.clone())
                         .build(conn)
-                        .unwrap()
+                        .unwrap();
+
+                    Buffer::new(svc, 5)
                 })
             }))
             .expect("connection")
