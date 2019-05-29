@@ -24,7 +24,7 @@ tokio = "0.1"
 tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../tower-grpc" }
-tower-service = "0.2"
+tower = "0.1"
 http-connection = { git = "https://github.com/hyperium/http-connection" }
 
 clap = "~2.29"

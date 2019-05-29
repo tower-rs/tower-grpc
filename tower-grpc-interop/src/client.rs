@@ -11,10 +11,10 @@ extern crate http_connection;
 extern crate prost;
 extern crate rustls;
 extern crate tokio_core;
+extern crate tower;
 extern crate tower_grpc;
 extern crate tower_hyper;
 extern crate tower_request_modifier;
-extern crate tower_service;
 
 use std::error::Error;
 use std::fmt;
@@ -27,10 +27,10 @@ use http::Version;
 use http_connection::HttpConnection;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor;
+use tower::{Service, ServiceExt};
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
 use tower_hyper::client::{Builder, Connect};
-use tower_service::Service;
 
 use pb::client::TestService;
 use pb::client::UnimplementedService;
@@ -831,11 +831,13 @@ impl Testcase {
             // let builder = Builder::new().http2_only(true).clone();
             let mut connector = Connect::new(TcpConnector(reactor.clone()));
 
-            core.run(connector.call(server.addr).map(move |conn| {
-                tower_request_modifier::Builder::new()
-                    .set_origin(server.uri.clone())
-                    .build(conn)
-                    .unwrap()
+            core.run(connector.ready().and_then(|mut connector| {
+                connector.call(server.addr).map(move |conn| {
+                    tower_request_modifier::Builder::new()
+                        .set_origin(server.uri.clone())
+                        .build(conn)
+                        .unwrap()
+                })
             }))
             .expect("connection")
         };
