@@ -1,9 +1,9 @@
-pub use generic::server::unary::Once;
+pub use crate::generic::server::unary::Once;
 
-use codec::{Decoder, Encode, Encoder};
-use generic::server::{unary, UnaryService};
-use generic::Streaming;
-use Body;
+use crate::codec::{Decoder, Encode, Encoder};
+use crate::generic::server::{unary, UnaryService};
+use crate::generic::Streaming;
+use crate::Body;
 
 use futures::{Future, Poll};
 use {http, prost};
@@ -42,7 +42,7 @@ where
     B: Body,
 {
     type Item = http::Response<Encode<Once<T::Response>>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

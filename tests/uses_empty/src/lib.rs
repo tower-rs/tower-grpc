@@ -11,7 +11,7 @@ mod tests {
         use tower_grpc::codegen::client::futures::Future;
         use tower_grpc::generic::client::GrpcService;
         use tower_grpc::BoxBody;
-        use uses_empty::client::UsesEmpty;
+        use crate::uses_empty::client::UsesEmpty;
 
         #[allow(dead_code)]
         fn zomg<T, R>(client: &mut UsesEmpty<T>)

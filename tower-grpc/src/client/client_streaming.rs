@@ -1,7 +1,7 @@
 use super::streaming;
-use codec::Streaming;
-use error::Error;
-use Body;
+use crate::codec::Streaming;
+use crate::error::Error;
+use crate::Body;
 
 use std::fmt;
 
@@ -39,8 +39,8 @@ where
     B: Body,
     B::Error: Into<Error>,
 {
-    type Item = ::Response<T>;
-    type Error = ::Status;
+    type Item = crate::Response<T>;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -53,8 +53,8 @@ where
                     let message = match try_ready!(stream.poll()) {
                         Some(message) => message,
                         None => {
-                            return Err(::Status::new(
-                                ::Code::Internal,
+                            return Err(crate::Status::new(
+                                crate::Code::Internal,
                                 "Missing response message.",
                             ));
                         }
@@ -63,7 +63,7 @@ where
                     let head = head.take().unwrap();
                     let response = Response::from_parts(head, message);
 
-                    return Ok(::Response::from_http(response).into());
+                    return Ok(crate::Response::from_http(response).into());
                 }
             };
 

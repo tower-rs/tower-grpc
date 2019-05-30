@@ -1,7 +1,7 @@
 use super::streaming;
 use super::unary::Once;
-use generic::{Encode, Encoder};
-use Response;
+use crate::generic::{Encode, Encoder};
+use crate::Response;
 
 use futures::{Future, Poll};
 use http;
@@ -20,7 +20,7 @@ struct Inner<T> {
 
 impl<T, E> ResponseFuture<T, E>
 where
-    T: Future<Item = Response<E::Item>, Error = ::Status>,
+    T: Future<Item = Response<E::Item>, Error = crate::Status>,
     E: Encoder,
 {
     pub fn new(inner: T, encoder: E) -> Self {
@@ -32,11 +32,11 @@ where
 
 impl<T, E> Future for ResponseFuture<T, E>
 where
-    T: Future<Item = Response<E::Item>, Error = ::Status>,
+    T: Future<Item = Response<E::Item>, Error = crate::Status>,
     E: Encoder,
 {
     type Item = http::Response<Encode<E, Once<E::Item>>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()
@@ -47,10 +47,10 @@ where
 
 impl<T, U> Future for Inner<T>
 where
-    T: Future<Item = Response<U>, Error = ::Status>,
+    T: Future<Item = Response<U>, Error = crate::Status>,
 {
     type Item = Response<Once<U>>;
-    type Error = ::Status;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

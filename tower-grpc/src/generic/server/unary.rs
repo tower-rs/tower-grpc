@@ -1,7 +1,7 @@
 use super::server_streaming;
-use generic::server::UnaryService;
-use generic::{Encode, Encoder};
-use {Request, Response};
+use crate::generic::server::UnaryService;
+use crate::generic::{Encode, Encoder};
+use crate::{Request, Response};
 
 use futures::{Future, Poll, Stream};
 use http;
@@ -36,7 +36,7 @@ impl<T, E, S> ResponseFuture<T, E, S>
 where
     T: UnaryService<S::Item, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = ::Status>,
+    S: Stream<Error = crate::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = server_streaming::ResponseFuture::new(Inner(inner), request, encoder);
@@ -48,10 +48,10 @@ impl<T, E, S> Future for ResponseFuture<T, E, S>
 where
     T: UnaryService<S::Item, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = ::Status>,
+    S: Stream<Error = crate::Status>,
 {
     type Item = http::Response<Encode<E, Once<T::Response>>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()
@@ -65,7 +65,7 @@ where
     T: UnaryService<R>,
 {
     type Response = Response<Once<T::Response>>;
-    type Error = ::Status;
+    type Error = crate::Status;
     type Future = InnerFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -82,10 +82,10 @@ where
 
 impl<T, U> Future for InnerFuture<T>
 where
-    T: Future<Item = Response<U>, Error = ::Status>,
+    T: Future<Item = Response<U>, Error = crate::Status>,
 {
     type Item = Response<Once<U>>;
-    type Error = ::Status;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.0.poll());
@@ -104,7 +104,7 @@ impl<T> Once<T> {
 
 impl<T> Stream for Once<T> {
     type Item = T;
-    type Error = ::Status;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         Ok(self.inner.take().into())

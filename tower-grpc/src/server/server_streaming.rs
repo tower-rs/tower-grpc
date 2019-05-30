@@ -1,6 +1,6 @@
-use codec::{Encode, Encoder, Streaming};
-use generic::server::{server_streaming, ServerStreamingService};
-use Body;
+use crate::codec::{Encode, Encoder, Streaming};
+use crate::generic::server::{server_streaming, ServerStreamingService};
+use crate::Body;
 
 use std::fmt;
 
@@ -38,7 +38,7 @@ where
     B: Body,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());

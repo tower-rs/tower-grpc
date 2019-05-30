@@ -19,7 +19,7 @@ struct Location {
     longitude: i32,
 }
 
-pub fn load() -> Vec<::routeguide::Feature> {
+pub fn load() -> Vec<crate::routeguide::Feature> {
     let args: Vec<_> = env::args().collect();
 
     assert_eq!(args.len(), 2, "unexpected arguments");
@@ -34,9 +34,9 @@ pub fn load() -> Vec<::routeguide::Feature> {
 
     decoded
         .into_iter()
-        .map(|feature| ::routeguide::Feature {
+        .map(|feature| crate::routeguide::Feature {
             name: feature.name,
-            location: Some(::routeguide::Point {
+            location: Some(crate::routeguide::Point {
                 longitude: feature.location.longitude,
                 latitude: feature.location.latitude,
             }),

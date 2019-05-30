@@ -1,6 +1,6 @@
 use super::client_streaming;
-use error::Error;
-use Body;
+use crate::error::Error;
+use crate::Body;
 
 use std::fmt;
 
@@ -12,7 +12,7 @@ pub struct ResponseFuture<T, U, B: Body> {
     inner: client_streaming::ResponseFuture<T, U, B>,
 }
 
-pub type Once<T> = stream::Once<T, ::Status>;
+pub type Once<T> = stream::Once<T, crate::Status>;
 
 impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
@@ -29,8 +29,8 @@ where
     B: Body,
     B::Error: Into<Error>,
 {
-    type Item = ::Response<T>;
-    type Error = ::Status;
+    type Item = crate::Response<T>;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

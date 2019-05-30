@@ -36,7 +36,7 @@ pub fn main() {
         .make_service(dst)
         .map_err(|e| panic!("connect error: {:?}", e))
         .and_then(move |conn| {
-            use metadata::client::Doorman;
+            use crate::metadata::client::Doorman;
 
             let conn = tower_request_modifier::Builder::new()
                 .set_origin(uri)
@@ -47,7 +47,7 @@ pub fn main() {
             Doorman::new(conn).ready()
         })
         .and_then(|mut client| {
-            use metadata::EnterRequest;
+            use crate::metadata::EnterRequest;
 
             let mut request = Request::new(EnterRequest {
                 message: "Hello! Can I come in?".to_string(),

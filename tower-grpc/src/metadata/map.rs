@@ -1982,7 +1982,7 @@ impl<'a, 'b: 'a, VE: ValueEncoding> IntoIterator for &'b GetAll<'a, VE> {
 
 mod into_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
-    use metadata::key::MetadataKey;
+    use crate::metadata::key::MetadataKey;
 
     /// A marker trait used to identify values that can be used as insert keys
     /// to a `MetadataMap`.
@@ -2081,7 +2081,7 @@ mod into_metadata_key {
 mod as_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
     use http::header::{Entry, GetAll, HeaderValue};
-    use metadata::key::{InvalidMetadataKey, MetadataKey};
+    use crate::metadata::key::{InvalidMetadataKey, MetadataKey};
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`.
@@ -2372,7 +2372,7 @@ mod as_metadata_key {
 
 mod as_encoding_agnostic_metadata_key {
     use super::{MetadataMap, ValueEncoding};
-    use metadata::key::MetadataKey;
+    use crate::metadata::key::MetadataKey;
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`, for operations that don't expose the actual value.
@@ -2461,8 +2461,8 @@ mod tests {
 
     #[test]
     fn test_to_headers_encoding() {
-        use Code;
-        use Status;
+        use crate::Code;
+        use crate::Status;
         let special_char_message = "Beyond ascii \t\n\r🌶️💉💧🐮🍺";
         let s1 = Status::new(Code::Unknown, special_char_message);
 

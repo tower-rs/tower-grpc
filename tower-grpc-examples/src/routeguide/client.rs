@@ -28,7 +28,7 @@ use tower_grpc::Request;
 use tower_hyper::{client, util};
 use tower_util::MakeService;
 
-use routeguide::{Point, RouteNote};
+use crate::routeguide::{Point, RouteNote};
 
 mod data;
 pub mod routeguide {
@@ -51,7 +51,7 @@ pub fn main() {
             panic!("HTTP/2 connection failed; err={:?}", e);
         })
         .and_then(move |conn| {
-            use routeguide::client::RouteGuide;
+            use crate::routeguide::client::RouteGuide;
 
             let conn = tower_request_modifier::Builder::new()
                 .set_origin(uri)

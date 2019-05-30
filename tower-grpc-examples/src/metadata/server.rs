@@ -13,7 +13,7 @@ pub mod metadata {
     include!(concat!(env!("OUT_DIR"), "/metadata.rs"));
 }
 
-use metadata::{server, EnterReply, EnterRequest};
+use crate::metadata::{server, EnterReply, EnterRequest};
 
 use futures::{future, Future, Stream};
 use tokio::net::TcpListener;

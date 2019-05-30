@@ -30,12 +30,12 @@ use tokio_core::reactor;
 use tower::{buffer::Buffer, Service, ServiceExt};
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
-use tower_hyper::client::{Builder, Connect};
+use tower_hyper::client::{Connect};
 
-use pb::client::TestService;
-use pb::client::UnimplementedService;
-use pb::SimpleRequest;
-use pb::StreamingInputCallRequest;
+use crate::pb::client::TestService;
+use crate::pb::client::UnimplementedService;
+use crate::pb::SimpleRequest;
+use crate::pb::StreamingInputCallRequest;
 
 pub mod pb {
     #![allow(dead_code)]
@@ -340,7 +340,7 @@ impl PingPongState {
 
 impl TestClients {
     fn empty_unary_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
-        use pb::Empty;
+        use crate::pb::Empty;
         self.test_client
             .empty_call(Request::new(Empty {}))
             .then(|result| {
@@ -451,7 +451,7 @@ impl TestClients {
     fn server_streaming_test(
         &mut self,
     ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
-        use pb::ResponseParameters;
+        use crate::pb::ResponseParameters;
         let req = pb::StreamingOutputCallRequest {
             response_parameters: RESPONSE_LENGTHS
                 .iter()
@@ -670,7 +670,7 @@ impl TestClients {
     fn unimplemented_method_test(
         &mut self,
     ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
-        use pb::Empty;
+        use crate::pb::Empty;
 
         self.test_client
             .unimplemented_call(Request::new(Empty {}))
@@ -690,7 +690,7 @@ impl TestClients {
     fn unimplemented_service_test(
         &mut self,
     ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<Error>> {
-        use pb::Empty;
+        use crate::pb::Empty;
 
         self.unimplemented_client
             .unimplemented_call(Request::new(Empty {}))
@@ -836,7 +836,7 @@ impl Testcase {
             }
 
             // let builder = Builder::new().http2_only(true).clone();
-            let mut connector = Connect::new(TcpConnector(reactor.clone()));
+            let connector = Connect::new(TcpConnector(reactor.clone()));
 
             core.run(connector.ready().and_then(|mut connector| {
                 connector.call(server.addr).map(move |conn| {

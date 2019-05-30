@@ -4,11 +4,11 @@ pub mod streaming;
 pub mod unary;
 pub mod unimplemented;
 
-use codec::{Codec, Streaming};
-use generic::server::{
+use crate::codec::{Codec, Streaming};
+use crate::generic::server::{
     ClientStreamingService, Grpc, ServerStreamingService, StreamingService, UnaryService,
 };
-use Body;
+use crate::Body;
 
 use http;
 use prost;

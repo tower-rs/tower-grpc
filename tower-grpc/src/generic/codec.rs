@@ -1,6 +1,6 @@
-use body::{Body, HttpBody};
-use error::Error;
-use Status;
+use crate::body::{Body, HttpBody};
+use crate::error::Error;
+use crate::Status;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
 use futures::{Async, Poll, Stream};
@@ -9,7 +9,7 @@ use http::{HeaderMap, StatusCode};
 use std::collections::VecDeque;
 use std::fmt;
 
-use status::infer_grpc_status;
+use crate::status::infer_grpc_status;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -219,7 +219,7 @@ where
         }
 
         let map = match self.inner {
-            EncodeInner::Ok { .. } => Status::new(::Code::Ok, "").to_header_map(),
+            EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
@@ -291,7 +291,7 @@ where
         }
     }
 
-    fn decode(&mut self) -> Result<Option<T::Item>, ::Status> {
+    fn decode(&mut self) -> Result<Option<T::Item>, crate::Status> {
         if let State::ReadHeader = self.state {
             if self.bufs.remaining() < 5 {
                 return Ok(None);
@@ -301,15 +301,15 @@ where
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Status::new(
-                        ::Code::Unimplemented,
+                    return Err(crate::Status::new(
+                        crate::Code::Unimplemented,
                         "Message compressed, compression not supported yet.".to_string(),
                     ));
                 }
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Status::new(
-                        ::Code::Internal,
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
                         format!("Unexpected compression flag: {}", f),
                     ));
                 }
@@ -375,8 +375,8 @@ where
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Status::new(
-                        ::Code::Internal,
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
                         "Unexpected EOF decoding stream.".to_string(),
                     ));
                 } else {

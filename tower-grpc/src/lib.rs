@@ -29,10 +29,10 @@ mod request;
 mod response;
 mod status;
 
-pub use body::{Body, BoxBody};
-pub use request::Request;
-pub use response::Response;
-pub use status::{Code, Status};
+pub use crate::body::{Body, BoxBody};
+pub use crate::request::Request;
+pub use crate::response::Response;
+pub use crate::status::{Code, Status};
 
 #[cfg(feature = "protobuf")]
 pub mod server;
@@ -45,4 +45,4 @@ pub mod codegen;
 mod codec;
 
 #[cfg(feature = "protobuf")]
-pub use codec::{Encode, Streaming};
+pub use crate::codec::{Encode, Streaming};

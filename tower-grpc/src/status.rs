@@ -426,7 +426,7 @@ impl From<i32> for Code {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use error::Error;
+    use crate::error::Error;
 
     #[derive(Debug)]
     struct Nested(Error);

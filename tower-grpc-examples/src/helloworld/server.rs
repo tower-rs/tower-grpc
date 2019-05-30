@@ -12,7 +12,7 @@ pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
 
-use hello_world::{server, HelloReply, HelloRequest};
+use crate::hello_world::{server, HelloReply, HelloRequest};
 
 use futures::{future, Future, Stream};
 use tokio::net::TcpListener;

@@ -6,8 +6,8 @@ use http;
 pub use http_body::Body as HttpBody;
 
 use self::sealed::Sealed;
-use error::Error;
-use Status;
+use crate::error::Error;
+use crate::Status;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 

@@ -477,7 +477,7 @@ from_integers! {
 #[cfg(test)]
 mod from_metadata_value_tests {
     use super::*;
-    use metadata::map::MetadataMap;
+    use crate::metadata::map::MetadataMap;
 
     #[test]
     fn it_can_insert_metadata_key_as_metadata_value() {

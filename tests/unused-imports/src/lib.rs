@@ -22,8 +22,8 @@ mod tests {
 
     #[test]
     fn types_are_present() {
-        mem::size_of::<::server_streaming::HelloRequest>();
-        mem::size_of::<::client_streaming::HelloRequest>();
-        mem::size_of::<::bidi::HelloRequest>();
+        mem::size_of::<crate::server_streaming::HelloRequest>();
+        mem::size_of::<crate::client_streaming::HelloRequest>();
+        mem::size_of::<crate::bidi::HelloRequest>();
     }
 }

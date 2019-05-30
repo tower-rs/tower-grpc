@@ -1,7 +1,7 @@
 use super::streaming;
-use codec::Streaming;
-use error::Error;
-use Body;
+use crate::codec::Streaming;
+use crate::error::Error;
+use crate::Body;
 
 use futures::{Future, Poll};
 use http::Response;
@@ -26,8 +26,8 @@ where
     U::Error: Into<Error>,
     B: Body,
 {
-    type Item = ::Response<Streaming<T, B>>;
-    type Error = ::Status;
+    type Item = crate::Response<Streaming<T, B>>;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()

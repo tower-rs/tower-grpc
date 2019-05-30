@@ -2,8 +2,8 @@ use futures::{Future, Poll};
 use http::{Request, Response};
 use tower_service::Service;
 
-use body::{Body, HttpBody};
-use error::Error;
+use crate::body::{Body, HttpBody};
+use crate::error::Error;
 
 /// A specialization of tower_service::Service.
 ///

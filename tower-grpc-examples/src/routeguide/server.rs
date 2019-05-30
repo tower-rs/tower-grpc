@@ -20,7 +20,7 @@ mod data;
 pub mod routeguide {
     include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));
 }
-use routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
+use crate::routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
 
 use futures::sync::mpsc;
 use futures::{future, stream, Future, Sink, Stream};
