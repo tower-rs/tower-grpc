@@ -1,15 +1,14 @@
-use bytes::Bytes;
-use http::header::HeaderValue;
-
-use std::error::Error;
-use std::marker::PhantomData;
-use std::str::FromStr;
-use std::{cmp, fmt};
-
 use super::encoding::{
     Ascii, Binary, InvalidMetadataValue, InvalidMetadataValueBytes, ValueEncoding,
 };
 use super::key::MetadataKey;
+
+use bytes::Bytes;
+use http::header::HeaderValue;
+use std::error::Error;
+use std::marker::PhantomData;
+use std::str::FromStr;
+use std::{cmp, fmt};
 
 /// Represents a custom metadata field value.
 ///
@@ -405,7 +404,7 @@ impl<VE: ValueEncoding> AsRef<[u8]> for MetadataValue<VE> {
 }
 
 impl<VE: ValueEncoding> fmt::Debug for MetadataValue<VE> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         VE::fmt(&self.inner, f)
     }
 }
@@ -477,7 +476,7 @@ from_integers! {
 #[cfg(test)]
 mod from_metadata_value_tests {
     use super::*;
-    use metadata::map::MetadataMap;
+    use crate::metadata::map::MetadataMap;
 
     #[test]
     fn it_can_insert_metadata_key_as_metadata_value() {
@@ -528,7 +527,7 @@ impl ToStrError {
 }
 
 impl fmt::Display for ToStrError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.description().fmt(f)
     }
 }

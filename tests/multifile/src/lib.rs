@@ -17,14 +17,14 @@ mod tests {
 
     #[test]
     fn types_are_present() {
-        mem::size_of::<::hello::HelloRequest>();
-        mem::size_of::<::world::WorldRequest>();
+        mem::size_of::<crate::hello::HelloRequest>();
+        mem::size_of::<crate::world::WorldRequest>();
     }
 
     #[test]
     fn can_call() {
-        use hello::client::Hello;
-        use hello::HelloRequest;
+        use crate::hello::client::Hello;
+        use crate::hello::HelloRequest;
         use tower_grpc::codegen::client::*;
         use tower_grpc::BoxBody;
 

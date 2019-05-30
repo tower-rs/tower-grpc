@@ -8,10 +8,10 @@ pub mod uses_empty {
 mod tests {
     #[test]
     fn can_call() {
+        use crate::uses_empty::client::UsesEmpty;
         use tower_grpc::codegen::client::futures::Future;
         use tower_grpc::generic::client::GrpcService;
         use tower_grpc::BoxBody;
-        use uses_empty::client::UsesEmpty;
 
         #[allow(dead_code)]
         fn zomg<T, R>(client: &mut UsesEmpty<T>)

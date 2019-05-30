@@ -1,11 +1,9 @@
 use super::streaming;
-use generic::server::ServerStreamingService;
-use generic::{Encode, Encoder};
-use {Request, Response};
+use crate::generic::server::ServerStreamingService;
+use crate::generic::{Encode, Encoder};
+use crate::{Request, Response};
 
-use futures::{Future, Poll, Stream};
-use http;
-
+use futures::{try_ready, Future, Poll, Stream};
 use std::fmt;
 
 /// A server streaming response future
@@ -41,7 +39,7 @@ impl<T, E, S> ResponseFuture<T, E, S>
 where
     T: ServerStreamingService<S::Item, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = ::Status>,
+    S: Stream<Error = crate::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = Inner {
@@ -58,10 +56,10 @@ impl<T, E, S> Future for ResponseFuture<T, E, S>
 where
     T: ServerStreamingService<S::Item, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = ::Status>,
+    S: Stream<Error = crate::Status>,
 {
     type Item = http::Response<Encode<E, T::ResponseStream>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()
@@ -73,10 +71,10 @@ where
 impl<T, S> Future for Inner<T, S>
 where
     T: ServerStreamingService<S::Item>,
-    S: Stream<Error = ::Status>,
+    S: Stream<Error = crate::Status>,
 {
     type Item = Response<T::ResponseStream>;
-    type Error = ::Status;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use self::State::*;
@@ -99,7 +97,12 @@ where
                     }
                     _ => unreachable!(),
                 },
-                None => return Err(::Status::new(::Code::Internal, "Missing request message.")),
+                None => {
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
+                        "Missing request message.",
+                    ))
+                }
             }
         }
     }
@@ -114,7 +117,7 @@ where
     E: fmt::Debug,
     S: Stream + fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
             .field("inner", &self.inner)
             .finish()
@@ -129,7 +132,7 @@ where
     T::Future: fmt::Debug,
     S: Stream + fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Inner")
             .field("inner", &self.inner)
             .field("state", &self.state)

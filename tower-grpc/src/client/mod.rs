@@ -3,12 +3,12 @@ pub mod server_streaming;
 pub mod streaming;
 pub mod unary;
 
+use crate::body::BoxBody;
+use crate::generic::client::{GrpcService, IntoService};
+
 use futures::{stream, Future, Poll, Stream};
 use http::{uri, Uri};
 use prost::Message;
-
-use body::BoxBody;
-use generic::client::{GrpcService, IntoService};
 
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {
@@ -31,28 +31,28 @@ impl<T> Grpc<T> {
         Grpc { inner }
     }
 
-    pub fn poll_ready<R>(&mut self) -> Poll<(), ::Status>
+    pub fn poll_ready<R>(&mut self) -> Poll<(), crate::Status>
     where
         T: GrpcService<R>,
     {
         self.inner
             .poll_ready()
-            .map_err(|err| ::Status::from_error(&*(err.into())))
+            .map_err(|err| crate::Status::from_error(&*(err.into())))
     }
 
-    pub fn ready<R>(self) -> impl Future<Item = Self, Error = ::Status>
+    pub fn ready<R>(self) -> impl Future<Item = Self, Error = crate::Status>
     where
         T: GrpcService<R>,
     {
         use tower_util::Ready;
         Ready::new(self.inner.into_service())
             .map(|IntoService(inner)| Grpc { inner })
-            .map_err(|err| ::Status::from_error(&*(err.into())))
+            .map_err(|err| crate::Status::from_error(&*(err.into())))
     }
 
     pub fn unary<M1, M2, R>(
         &mut self,
-        request: ::Request<M1>,
+        request: crate::Request<M1>,
         path: uri::PathAndQuery,
     ) -> unary::ResponseFuture<M2, T::Future, T::ResponseBody>
     where
@@ -67,7 +67,7 @@ impl<T> Grpc<T> {
 
     pub fn client_streaming<B, M, R>(
         &mut self,
-        request: ::Request<B>,
+        request: crate::Request<B>,
         path: uri::PathAndQuery,
     ) -> client_streaming::ResponseFuture<M, T::Future, T::ResponseBody>
     where
@@ -80,7 +80,7 @@ impl<T> Grpc<T> {
 
     pub fn server_streaming<M1, M2, R>(
         &mut self,
-        request: ::Request<M1>,
+        request: crate::Request<M1>,
         path: uri::PathAndQuery,
     ) -> server_streaming::ResponseFuture<M2, T::Future>
     where
@@ -102,7 +102,7 @@ impl<T> Grpc<T> {
     /// **R**: The type of the request body.
     pub fn streaming<B, M, R>(
         &mut self,
-        request: ::Request<B>,
+        request: crate::Request<B>,
         path: uri::PathAndQuery,
     ) -> streaming::ResponseFuture<M, T::Future>
     where
@@ -149,12 +149,12 @@ impl<T> Grpc<T> {
 
 impl<T, U> Encodable<BoxBody> for T
 where
-    T: Stream<Item = U, Error = ::Status> + Send + 'static,
+    T: Stream<Item = U, Error = crate::Status> + Send + 'static,
     U: Message + 'static,
 {
     fn into_encode(self) -> BoxBody {
-        use codec::Encoder;
-        use generic::Encode;
+        use crate::codec::Encoder;
+        use crate::generic::Encode;
 
         let encode = Encode::request(Encoder::new(), self);
         BoxBody::new(Box::new(encode))

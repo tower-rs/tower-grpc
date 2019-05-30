@@ -1,5 +1,3 @@
-extern crate tower_grpc_build;
-
 fn main() {
     // Build helloworld
     tower_grpc_build::Config::new()

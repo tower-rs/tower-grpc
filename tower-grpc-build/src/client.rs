@@ -1,7 +1,5 @@
 use super::ImportType;
-use codegen;
-use comments_to_rustdoc;
-use prost_build;
+use crate::comments_to_rustdoc;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -82,9 +80,9 @@ impl ServiceGenerator {
 
         for method in &service.methods {
             let name = &method.name;
-            let path = ::method_path(service, method);
-            let input_type = ::unqualified(&method.input_type, &method.input_proto_type, 1);
-            let output_type = ::unqualified(&method.output_type, &method.output_proto_type, 1);
+            let path = crate::method_path(service, method);
+            let input_type = crate::unqualified(&method.input_type, &method.input_proto_type, 1);
+            let output_type = crate::unqualified(&method.output_type, &method.output_proto_type, 1);
 
             let func = imp
                 .new_fn(&name)

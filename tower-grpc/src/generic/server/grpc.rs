@@ -1,11 +1,9 @@
 use super::{client_streaming, server_streaming, streaming, unary};
-use generic::server::{
+use crate::generic::server::{
     ClientStreamingService, ServerStreamingService, StreamingService, UnaryService,
 };
-use generic::{Codec, Direction, Streaming};
-use {Body, Request};
-
-use http;
+use crate::generic::{Codec, Direction, Streaming};
+use crate::{Body, Request};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Grpc<T> {

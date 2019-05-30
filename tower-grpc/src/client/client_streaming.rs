@@ -1,13 +1,12 @@
 use super::streaming;
-use codec::Streaming;
-use error::Error;
-use Body;
+use crate::codec::Streaming;
+use crate::error::Error;
+use crate::Body;
 
-use std::fmt;
-
-use futures::{Future, Poll, Stream};
+use futures::{try_ready, Future, Poll, Stream};
 use http::{response, Response};
 use prost::Message;
+use std::fmt;
 
 pub struct ResponseFuture<T, U, B: Body> {
     state: State<T, U, B>,
@@ -39,8 +38,8 @@ where
     B: Body,
     B::Error: Into<Error>,
 {
-    type Item = ::Response<T>;
-    type Error = ::Status;
+    type Item = crate::Response<T>;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -53,8 +52,8 @@ where
                     let message = match try_ready!(stream.poll()) {
                         Some(message) => message,
                         None => {
-                            return Err(::Status::new(
-                                ::Code::Internal,
+                            return Err(crate::Status::new(
+                                crate::Code::Internal,
                                 "Missing response message.",
                             ));
                         }
@@ -63,7 +62,7 @@ where
                     let head = head.take().unwrap();
                     let response = Response::from_parts(head, message);
 
-                    return Ok(::Response::from_http(response).into());
+                    return Ok(crate::Response::from_http(response).into());
                 }
             };
 
@@ -84,7 +83,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ResponseFuture")
             .field("state", &self.state)
             .finish()
@@ -98,7 +97,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             State::WaitResponse(ref future) => f.debug_tuple("WaitResponse").field(future).finish(),
             State::WaitMessage {

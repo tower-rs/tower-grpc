@@ -1,11 +1,9 @@
-use codec::{Encode, Encoder, Streaming};
-use generic::server::{server_streaming, ServerStreamingService};
-use Body;
+use crate::codec::{Encode, Encoder, Streaming};
+use crate::generic::server::{server_streaming, ServerStreamingService};
+use crate::Body;
 
+use futures::{try_ready, Future, Poll};
 use std::fmt;
-
-use futures::{Future, Poll};
-use {http, prost};
 
 pub struct ResponseFuture<T, B, R>
 where
@@ -38,7 +36,7 @@ where
     B: Body,
 {
     type Item = http::Response<Encode<T::ResponseStream>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());
@@ -57,7 +55,7 @@ where
     B::Data: fmt::Debug,
     R: prost::Message + Default,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
             .field("inner", &self.inner)
             .finish()

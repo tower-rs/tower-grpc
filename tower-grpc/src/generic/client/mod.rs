@@ -1,9 +1,9 @@
+use crate::body::{Body, HttpBody};
+use crate::error::Error;
+
 use futures::{Future, Poll};
 use http::{Request, Response};
 use tower_service::Service;
-
-use body::{Body, HttpBody};
-use error::Error;
 
 /// A specialization of tower_service::Service.
 ///
@@ -34,7 +34,7 @@ pub trait GrpcService<ReqBody> {
     }
 
     /// Helper when needing to pass this type to bounds needing `Service`.
-    fn as_service(&mut self) -> AsService<Self>
+    fn as_service(&mut self) -> AsService<'_, Self>
     where
         Self: Sized,
     {
@@ -63,7 +63,7 @@ where
 
 /// Helper when needing to pass a `GrpcService` to bounds needing `Service`.
 #[derive(Debug)]
-pub struct AsService<'a, T: 'a>(&'a mut T);
+pub struct AsService<'a, T>(&'a mut T);
 
 impl<'a, T, ReqBody> Service<Request<ReqBody>> for AsService<'a, T>
 where

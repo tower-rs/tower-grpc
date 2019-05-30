@@ -1,23 +1,16 @@
-extern crate bytes;
-extern crate env_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
+#![deny(warnings, rust_2018_idioms)]
+
+use crate::hello_world::{server, HelloReply, HelloRequest};
+
+use futures::{future, Future, Stream};
+use log::error;
+use tokio::net::TcpListener;
+use tower_grpc::{Request, Response};
+use tower_hyper::server::{Http, Server};
 
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
-
-use hello_world::{server, HelloReply, HelloRequest};
-
-use futures::{future, Future, Stream};
-use tokio::net::TcpListener;
-use tower_grpc::{Request, Response};
-use tower_hyper::server::{Http, Server};
 
 #[derive(Clone, Debug)]
 struct Greet;

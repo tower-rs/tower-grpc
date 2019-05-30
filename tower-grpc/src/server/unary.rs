@@ -1,13 +1,11 @@
-pub use generic::server::unary::Once;
+pub use crate::generic::server::unary::Once;
 
-use codec::{Decoder, Encode, Encoder};
-use generic::server::{unary, UnaryService};
-use generic::Streaming;
-use Body;
+use crate::codec::{Decoder, Encode, Encoder};
+use crate::generic::server::{unary, UnaryService};
+use crate::generic::Streaming;
+use crate::Body;
 
-use futures::{Future, Poll};
-use {http, prost};
-
+use futures::{try_ready, Future, Poll};
 use std::fmt;
 
 pub struct ResponseFuture<T, B, R>
@@ -42,7 +40,7 @@ where
     B: Body,
 {
     type Item = http::Response<Encode<Once<T::Response>>>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let response = try_ready!(self.inner.poll());
@@ -60,7 +58,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")
             .field("inner", &self.inner)
             .finish()

@@ -1,16 +1,4 @@
-extern crate bytes;
-extern crate env_logger;
-extern crate futures;
-extern crate http;
-extern crate hyper;
-extern crate log;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
-extern crate tower_request_modifier;
-extern crate tower_service;
-extern crate tower_util;
+#![deny(warnings, rust_2018_idioms)]
 
 use futures::Future;
 use hyper::client::connect::{Destination, HttpConnector};
@@ -36,7 +24,7 @@ pub fn main() {
         .make_service(dst)
         .map_err(|e| panic!("connect error: {:?}", e))
         .and_then(move |conn| {
-            use hello_world::client::Greeter;
+            use crate::hello_world::client::Greeter;
 
             let conn = tower_request_modifier::Builder::new()
                 .set_origin(uri)
@@ -47,7 +35,7 @@ pub fn main() {
             Greeter::new(conn).ready()
         })
         .and_then(|mut client| {
-            use hello_world::HelloRequest;
+            use crate::hello_world::HelloRequest;
 
             client.say_hello(Request::new(HelloRequest {
                 name: "What is in a name?".to_string(),

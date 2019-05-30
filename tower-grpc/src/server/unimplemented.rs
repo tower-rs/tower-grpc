@@ -1,8 +1,7 @@
-use futures::{Future, Poll};
-use http;
-use http::header;
+use crate::{Code, Status};
 
-use {Code, Status};
+use futures::{Future, Poll};
+use http::header;
 
 #[derive(Debug)]
 pub struct ResponseFuture {
@@ -19,7 +18,7 @@ impl ResponseFuture {
 
 impl Future for ResponseFuture {
     type Item = http::Response<()>;
-    type Error = ::error::Never;
+    type Error = crate::error::Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let status = self.status.take().expect("polled after complete");

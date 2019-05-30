@@ -1,24 +1,16 @@
-extern crate bytes;
-extern crate env_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate http;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
+#![deny(warnings, rust_2018_idioms)]
+
+use crate::metadata::{server, EnterReply, EnterRequest};
+
+use futures::{future, Future, Stream};
+use log::error;
+use tokio::net::TcpListener;
+use tower_grpc::{Request, Response};
+use tower_hyper::server::{Http, Server};
 
 pub mod metadata {
     include!(concat!(env!("OUT_DIR"), "/metadata.rs"));
 }
-
-use metadata::{server, EnterReply, EnterRequest};
-
-use futures::{future, Future, Stream};
-use tokio::net::TcpListener;
-use tower_grpc::{Request, Response};
-use tower_hyper::server::{Http, Server};
 
 #[derive(Clone, Debug)]
 struct Door;

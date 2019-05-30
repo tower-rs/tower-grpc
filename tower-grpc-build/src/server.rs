@@ -1,7 +1,5 @@
 use super::ImportType;
-use codegen;
-use comments_to_rustdoc;
-use prost_build;
+use crate::comments_to_rustdoc;
 
 /// Generates service code
 pub struct ServiceGenerator;
@@ -38,7 +36,7 @@ macro_rules! try_ready {
             self.define_server_struct(service, module.scope());
 
             let support = module
-                .new_module(&::lower_name(&service.name))
+                .new_module(&crate::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
                 .import("super", &service.name);
@@ -76,14 +74,14 @@ macro_rules! try_ready {
 
         for method in &service.methods {
             let name = &method.name;
-            let upper_name = ::to_upper_camel(&method.proto_name);
+            let upper_name = crate::to_upper_camel(&method.proto_name);
             let future_bound;
 
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
                     "futures::Stream<Item = {}, Error = grpc::Status>",
-                    ::unqualified(&method.output_type, &method.output_proto_type, 1)
+                    crate::unqualified(&method.output_type, &method.output_proto_type, 1)
                 );
 
                 future_bound = format!(
@@ -97,7 +95,7 @@ macro_rules! try_ready {
             } else {
                 future_bound = format!(
                     "futures::Future<Item = grpc::Response<{}>, Error = grpc::Status>",
-                    ::unqualified(&method.output_type, &method.output_proto_type, 1)
+                    crate::unqualified(&method.output_type, &method.output_proto_type, 1)
                 );
             }
 
@@ -108,14 +106,14 @@ macro_rules! try_ready {
                 .bound(&future_bound);
 
             for &ty in [&method.input_type, &method.output_type].iter() {
-                if ::should_import(ty) {
-                    let (path, ty) = ::super_import(ty, 1);
+                if crate::should_import(ty) {
+                    let (path, ty) = crate::super_import(ty, 1);
 
                     scope.import(&path, &ty);
                 }
             }
 
-            let input_type = ::unqualified(&method.input_type, &method.input_proto_type, 1);
+            let input_type = crate::unqualified(&method.input_type, &method.input_proto_type, 1);
 
             let request_type = if method.client_streaming {
                 format!("grpc::Request<grpc::Streaming<{}>>", input_type)
@@ -136,7 +134,7 @@ macro_rules! try_ready {
 
     fn define_server_struct(&self, service: &prost_build::Service, scope: &mut codegen::Scope) {
         let name = format!("{}Server", service.name);
-        let lower_name = ::lower_name(&service.name);
+        let lower_name = crate::lower_name(&service.name);
 
         scope
             .new_struct(&name)
@@ -188,10 +186,10 @@ macro_rules! try_ready {
             let mut route_block = codegen::Block::new("match request.uri().path()");
 
             for method in &service.methods {
-                let upper_name = ::to_upper_camel(&method.proto_name);
+                let upper_name = crate::to_upper_camel(&method.proto_name);
 
                 // The service method path.
-                let match_line = format!("{} =>", ::method_path(service, method));
+                let match_line = format!("{} =>", crate::method_path(service, method));
 
                 // Match the service path
                 let mut handle = codegen::Block::new(&match_line);
@@ -342,7 +340,7 @@ macro_rules! try_ready {
                 let mut match_kind = codegen::Block::new("match self.kind");
 
                 for method in &service.methods {
-                    let upper_name = ::to_upper_camel(&method.proto_name);
+                    let upper_name = crate::to_upper_camel(&method.proto_name);
 
                     let match_line = format!("{}(ref mut fut) =>", &upper_name);
 
@@ -378,8 +376,8 @@ macro_rules! try_ready {
 
     fn define_response_body(&self, service: &prost_build::Service, module: &mut codegen::Module) {
         for method in &service.methods {
-            if ::should_import(&method.input_type) {
-                let (path, thing) = ::super_import(&method.input_type, 2);
+            if crate::should_import(&method.input_type) {
+                let (path, thing) = crate::super_import(&method.input_type, 2);
                 module.import(&path, &thing);
             }
         }
@@ -407,7 +405,7 @@ macro_rules! try_ready {
             let mut poll_trailers_block = codegen::Block::new("match self.kind");
 
             for method in &service.methods {
-                let upper_name = ::to_upper_camel(&method.proto_name);
+                let upper_name = crate::to_upper_camel(&method.proto_name);
 
                 is_end_stream_block.line(&format!("{}(ref v) => v.is_end_stream(),", &upper_name));
 
@@ -453,7 +451,7 @@ macro_rules! try_ready {
             .allow("non_camel_case_types");
 
         for method in &service.methods {
-            let upper_name = ::to_upper_camel(&method.proto_name);
+            let upper_name = crate::to_upper_camel(&method.proto_name);
             kind_enum.generic(&upper_name);
             kind_enum.new_variant(&upper_name).tuple(&upper_name);
         }
@@ -471,7 +469,7 @@ macro_rules! try_ready {
         method: &prost_build::Method,
         module: &mut codegen::Module,
     ) {
-        let upper_name = ::to_upper_camel(&method.proto_name);
+        let upper_name = crate::to_upper_camel(&method.proto_name);
 
         module
             .new_struct(&upper_name)
@@ -485,19 +483,19 @@ macro_rules! try_ready {
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
-                request.generic(::unqualified(
+                request.generic(crate::unqualified(
                     &method.input_type,
                     &method.input_proto_type,
                     3,
                 ));
-                response.generic(::unqualified(
+                response.generic(crate::unqualified(
                     &method.output_type,
                     &method.output_proto_type,
                     3,
                 ));
             }
             (false, true) => {
-                request.generic(::unqualified(
+                request.generic(crate::unqualified(
                     &method.input_type,
                     &method.input_proto_type,
                     3,
@@ -505,7 +503,7 @@ macro_rules! try_ready {
                 response.generic(&response_stream);
             }
             (true, false) => {
-                response.generic(::unqualified(
+                response.generic(crate::unqualified(
                     &method.output_type,
                     &method.output_proto_type,
                     3,
@@ -558,20 +556,20 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
         // Add a comment describing this generic
         write!(&mut ret, "    // {}\n", method.proto_name).unwrap();
 
-        let upper_name = ::to_upper_camel(&method.proto_name);
+        let upper_name = crate::to_upper_camel(&method.proto_name);
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(
                     &mut ret,
                     "    grpc::unary::ResponseFuture<methods::{}<T>, grpc::BoxBody, {}>,\n",
                     &upper_name,
-                    ::unqualified(&method.input_type, &method.input_proto_type, 2)
+                    crate::unqualified(&method.input_type, &method.input_proto_type, 2)
                 )
                 .unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::server_streaming::ResponseFuture<methods::{}<T>, grpc::BoxBody, {}>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
+                                 &upper_name, crate::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (true, false) => {
                 write!(
@@ -584,7 +582,7 @@ fn response_fut_kind(service: &prost_build::Service) -> String {
             }
             (true, true) => {
                 let mut request = codegen::Type::new("grpc::Streaming");
-                request.generic(::unqualified(
+                request.generic(crate::unqualified(
                     &method.input_type,
                     &method.input_proto_type,
                     2,
@@ -622,16 +620,16 @@ fn response_body_kind(service: &prost_build::Service) -> String {
     // grpc::Encode<grpc::unary::Once<<methods::SayHello<T> as grpc::UnaryService>::Response>>
     for method in &service.methods {
         write!(&mut ret, "    // {}\n", method.proto_name).unwrap();
-        let upper_name = ::to_upper_camel(&method.proto_name);
+        let upper_name = crate::to_upper_camel(&method.proto_name);
 
         match (method.client_streaming, method.server_streaming) {
             (false, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::UnaryService<{}>>::Response>>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
+                                 &upper_name, crate::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (false, true) => {
                 write!(&mut ret, "    grpc::Encode<<methods::{}<T> as grpc::ServerStreamingService<{}>>::ResponseStream>,\n",
-                                 &upper_name, ::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
+                                 &upper_name, crate::unqualified(&method.input_type, &method.input_proto_type, 2)).unwrap();
             }
             (true, false) => {
                 write!(&mut ret, "    grpc::Encode<grpc::unary::Once<<methods::{}<T> as grpc::ClientStreamingService<{}>>::Response>>,\n",
@@ -661,6 +659,6 @@ fn response_body_kind(service: &prost_build::Service) -> String {
 fn streaming_input_type(method: &prost_build::Method, level: usize) -> String {
     format!(
         "grpc::Streaming<{}>",
-        ::unqualified(&method.input_type, &method.input_proto_type, level)
+        crate::unqualified(&method.input_type, &method.input_proto_type, level)
     )
 }

@@ -1,13 +1,11 @@
-use codec::{Direction, Streaming};
-use error::Error;
-use Body;
+use crate::codec::{Direction, Streaming};
+use crate::error::Error;
+use crate::Body;
+use crate::Code;
 
-use futures::{Future, Poll};
+use futures::{try_ready, Future, Poll};
 use http::Response;
 use prost::Message;
-
-use Code;
-
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -33,23 +31,23 @@ where
     U::Error: Into<Error>,
     B: Body,
 {
-    type Item = ::Response<Streaming<T, B>>;
-    type Error = ::Status;
+    type Item = crate::Response<Streaming<T, B>>;
+    type Error = crate::Status;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use codec::Decoder;
-        use generic::Streaming;
+        use crate::codec::Decoder;
+        use crate::generic::Streaming;
 
         // Get the response
         let response = try_ready!(self
             .inner
             .poll()
-            .map_err(|err| ::Status::from_error(&*(err.into()))));
+            .map_err(|err| crate::Status::from_error(&*(err.into()))));
 
         let status_code = response.status();
 
         // Check the headers for `grpc-status`, in which case we should not parse the body.
-        let trailers_only_status = ::Status::from_header_map(response.headers());
+        let trailers_only_status = crate::Status::from_header_map(response.headers());
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
             if status.code() != Code::Ok {
@@ -66,6 +64,6 @@ where
         let response =
             response.map(move |body| Streaming::new(Decoder::new(), body, streaming_direction));
 
-        Ok(::Response::from_http(response).into())
+        Ok(crate::Response::from_http(response).into())
     }
 }

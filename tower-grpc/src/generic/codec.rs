@@ -1,15 +1,14 @@
-use body::{Body, HttpBody};
-use error::Error;
-use Status;
+use crate::body::{Body, HttpBody};
+use crate::error::Error;
+use crate::status::infer_grpc_status;
+use crate::Status;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
-use futures::{Async, Poll, Stream};
+use futures::{try_ready, Async, Poll, Stream};
 use http::{HeaderMap, StatusCode};
-
+use log::{debug, trace, warn};
 use std::collections::VecDeque;
 use std::fmt;
-
-use status::infer_grpc_status;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -45,7 +44,7 @@ pub trait Encoder {
     const CONTENT_TYPE: &'static str;
 
     /// Encode a message into the provided buffer.
-    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf) -> Result<(), Status>;
+    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf<'_>) -> Result<(), Status>;
 }
 
 /// Decodes gRPC message types
@@ -58,7 +57,7 @@ pub trait Decoder {
     /// The buffer will contain exactly the bytes of a full message. There
     /// is no need to get the length from the bytes, gRPC framing is handled
     /// for you.
-    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<Self::Item, Status>;
+    fn decode(&mut self, buf: &mut DecodeBuf<'_>) -> Result<Self::Item, Status>;
 }
 
 /// Encodes gRPC message types
@@ -138,7 +137,7 @@ pub struct EncodeBuf<'a> {
 
 /// A buffer to decode messages from.
 pub struct DecodeBuf<'a> {
-    bufs: &'a mut Buf,
+    bufs: &'a mut dyn Buf,
     len: usize,
 }
 
@@ -219,7 +218,7 @@ where
         }
 
         let map = match self.inner {
-            EncodeInner::Ok { .. } => Status::new(::Code::Ok, "").to_header_map(),
+            EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
@@ -291,7 +290,7 @@ where
         }
     }
 
-    fn decode(&mut self) -> Result<Option<T::Item>, ::Status> {
+    fn decode(&mut self) -> Result<Option<T::Item>, crate::Status> {
         if let State::ReadHeader = self.state {
             if self.bufs.remaining() < 5 {
                 return Ok(None);
@@ -301,15 +300,15 @@ where
                 0 => false,
                 1 => {
                     trace!("message compressed, compression not supported yet");
-                    return Err(::Status::new(
-                        ::Code::Unimplemented,
+                    return Err(crate::Status::new(
+                        crate::Code::Unimplemented,
                         "Message compressed, compression not supported yet.".to_string(),
                     ));
                 }
                 f => {
                     trace!("unexpected compression flag");
-                    return Err(::Status::new(
-                        ::Code::Internal,
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
                         format!("Unexpected compression flag: {}", f),
                     ));
                 }
@@ -375,8 +374,8 @@ where
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(::Status::new(
-                        ::Code::Internal,
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
                         "Unexpected EOF decoding stream.".to_string(),
                     ));
                 } else {
@@ -408,7 +407,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Streaming").finish()
     }
 }
@@ -467,7 +466,7 @@ impl<'a> Buf for DecodeBuf<'a> {
 }
 
 impl<'a> fmt::Debug for DecodeBuf<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DecodeBuf").finish()
     }
 }

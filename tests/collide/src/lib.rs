@@ -24,6 +24,6 @@ mod tests {
 
     #[test]
     fn types_are_present() {
-        mem::size_of::<::hello::HelloRequest>();
+        mem::size_of::<crate::hello::HelloRequest>();
     }
 }

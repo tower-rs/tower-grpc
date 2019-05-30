@@ -1,37 +1,23 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
-extern crate bytes;
-extern crate env_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
-
-extern crate serde;
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
+#![deny(warnings, rust_2018_idioms)]
 
 mod data;
-pub mod routeguide {
-    include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));
-}
-use routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
+
+use crate::routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSummary};
 
 use futures::sync::mpsc;
 use futures::{future, stream, Future, Sink, Stream};
-use tokio::net::TcpListener;
-use tower_grpc::{Request, Response, Streaming};
-use tower_hyper::server::{Http, Server};
-
+use log::error;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use tokio::net::TcpListener;
+use tower_grpc::{Request, Response, Streaming};
+use tower_hyper::server::{Http, Server};
+
+pub mod routeguide {
+    include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));
+}
 
 #[derive(Debug, Clone)]
 struct RouteGuide {
@@ -79,7 +65,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         future::ok(response)
     }
 
-    type ListFeaturesStream = Box<Stream<Item = Feature, Error = tower_grpc::Status> + Send>;
+    type ListFeaturesStream = Box<dyn Stream<Item = Feature, Error = tower_grpc::Status> + Send>;
     type ListFeaturesFuture =
         future::FutureResult<Response<Self::ListFeaturesStream>, tower_grpc::Status>;
 
@@ -111,7 +97,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
     }
 
     type RecordRouteFuture =
-        Box<Future<Item = Response<RouteSummary>, Error = tower_grpc::Status> + Send>;
+        Box<dyn Future<Item = Response<RouteSummary>, Error = tower_grpc::Status> + Send>;
 
     /// Records a route composited of a sequence of points.
     ///
@@ -165,7 +151,7 @@ impl routeguide::server::RouteGuide for RouteGuide {
         Box::new(response)
     }
 
-    type RouteChatStream = Box<Stream<Item = RouteNote, Error = tower_grpc::Status> + Send>;
+    type RouteChatStream = Box<dyn Stream<Item = RouteNote, Error = tower_grpc::Status> + Send>;
     type RouteChatFuture =
         future::FutureResult<Response<Self::RouteChatStream>, tower_grpc::Status>;
 

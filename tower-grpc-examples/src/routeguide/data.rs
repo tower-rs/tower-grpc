@@ -1,11 +1,7 @@
-#![allow(unused_imports)]
-
-use serde_json;
-
+use serde::Deserialize;
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
-use std::{env, io};
 
 #[derive(Debug, Deserialize)]
 struct Feature {
@@ -19,7 +15,8 @@ struct Location {
     longitude: i32,
 }
 
-pub fn load() -> Vec<::routeguide::Feature> {
+#[allow(dead_code)]
+pub fn load() -> Vec<crate::routeguide::Feature> {
     let args: Vec<_> = env::args().collect();
 
     assert_eq!(args.len(), 2, "unexpected arguments");
@@ -34,9 +31,9 @@ pub fn load() -> Vec<::routeguide::Feature> {
 
     decoded
         .into_iter()
-        .map(|feature| ::routeguide::Feature {
+        .map(|feature| crate::routeguide::Feature {
             name: feature.name,
-            location: Some(::routeguide::Point {
+            location: Some(crate::routeguide::Point {
                 longitude: feature.location.longitude,
                 latitude: feature.location.latitude,
             }),

@@ -40,7 +40,7 @@ mod value_encoding {
         fn values_equal(a: &HeaderValue, b: &HeaderValue) -> bool;
 
         #[doc(hidden)]
-        fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result;
+        fn fmt(value: &HeaderValue, f: &mut fmt::Formatter<'_>) -> fmt::Result;
     }
 }
 
@@ -87,7 +87,7 @@ impl self::value_encoding::Sealed for Ascii {
         a == b
     }
 
-    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(value, f)
     }
 }
@@ -152,7 +152,7 @@ impl self::value_encoding::Sealed for Binary {
         }
     }
 
-    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(value: &HeaderValue, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Ok(decoded) = Self::decode(value.as_bytes()) {
             write!(f, "{:?}", decoded)
         } else {
@@ -176,7 +176,7 @@ impl InvalidMetadataValue {
 }
 
 impl fmt::Display for InvalidMetadataValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.description().fmt(f)
     }
 }
@@ -201,7 +201,7 @@ impl InvalidMetadataValueBytes {
 }
 
 impl fmt::Display for InvalidMetadataValueBytes {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }

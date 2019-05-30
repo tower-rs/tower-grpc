@@ -1,9 +1,8 @@
-use error::{Error, Never};
-use generic::{Encode, Encoder};
-use Response;
+use crate::error::{Error, Never};
+use crate::generic::{Encode, Encoder};
+use crate::Response;
 
 use futures::{Async, Future, Poll, Stream};
-use http;
 use http::header;
 
 #[derive(Debug)]
@@ -16,7 +15,7 @@ pub struct ResponseFuture<T, E> {
 
 impl<T, E, S> ResponseFuture<T, E>
 where
-    T: Future<Item = Response<S>, Error = ::Status>,
+    T: Future<Item = Response<S>, Error = crate::Status>,
     E: Encoder,
     S: Stream<Item = E::Item>,
 {
@@ -30,7 +29,7 @@ where
 
 impl<T, E, S> Future for ResponseFuture<T, E>
 where
-    T: Future<Item = Response<S>, Error = ::Status>,
+    T: Future<Item = Response<S>, Error = crate::Status>,
     E: Encoder,
     S: Stream<Item = E::Item>,
     S::Error: Into<Error>,
