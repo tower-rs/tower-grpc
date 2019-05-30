@@ -165,13 +165,13 @@ impl<VE: ValueEncoding> Borrow<str> for MetadataKey<VE> {
 }
 
 impl<VE: ValueEncoding> fmt::Debug for MetadataKey<VE> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), fmt)
     }
 }
 
 impl<VE: ValueEncoding> fmt::Display for MetadataKey<VE> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self.as_str(), fmt)
     }
 }
@@ -268,7 +268,7 @@ impl<'a, VE: ValueEncoding> PartialEq<MetadataKey<VE>> for &'a str {
 }
 
 impl fmt::Display for InvalidMetadataKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.description().fmt(f)
     }
 }

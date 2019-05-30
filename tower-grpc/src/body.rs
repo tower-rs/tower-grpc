@@ -1,13 +1,11 @@
-use std::fmt;
-
-use bytes::{Buf, Bytes, IntoBuf};
-use futures::Poll;
-use http;
-pub use http_body::Body as HttpBody;
-
 use self::sealed::Sealed;
 use crate::error::Error;
 use crate::Status;
+
+use bytes::{Buf, Bytes, IntoBuf};
+use futures::{Poll, try_ready};
+pub use http_body::Body as HttpBody;
+use std::fmt;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -57,7 +55,7 @@ where
 
 /// Dynamic `Send` body object.
 pub struct BoxBody {
-    inner: Box<Body<Data = BytesBuf, Error = Status> + Send>,
+    inner: Box<dyn Body<Data = BytesBuf, Error = Status> + Send>,
 }
 
 struct MapBody<B>(B);
@@ -66,7 +64,7 @@ struct MapBody<B>(B);
 
 impl BoxBody {
     /// Create a new `BoxBody` backed by `inner`.
-    pub fn new(inner: Box<Body<Data = BytesBuf, Error = Status> + Send>) -> Self {
+    pub fn new(inner: Box<dyn Body<Data = BytesBuf, Error = Status> + Send>) -> Self {
         BoxBody { inner }
     }
 
@@ -98,7 +96,7 @@ impl HttpBody for BoxBody {
 }
 
 impl fmt::Debug for BoxBody {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BoxBody").finish()
     }
 }

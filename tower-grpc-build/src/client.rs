@@ -1,7 +1,5 @@
 use super::ImportType;
-use codegen;
 use crate::comments_to_rustdoc;
-use prost_build;
 
 /// Generates service code
 pub struct ServiceGenerator;

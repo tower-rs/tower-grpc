@@ -1,11 +1,7 @@
-#![allow(unused_imports)]
-
-use serde_json;
-
+use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
-use std::{env, io};
+use std::env;
 
 #[derive(Debug, Deserialize)]
 struct Feature {
@@ -19,6 +15,7 @@ struct Location {
     longitude: i32,
 }
 
+#[allow(dead_code)]
 pub fn load() -> Vec<crate::routeguide::Feature> {
     let args: Vec<_> = env::args().collect();
 

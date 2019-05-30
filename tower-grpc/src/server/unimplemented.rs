@@ -1,8 +1,7 @@
-use futures::{Future, Poll};
-use http;
-use http::header;
-
 use crate::{Code, Status};
+
+use futures::{Future, Poll};
+use http::header;
 
 #[derive(Debug)]
 pub struct ResponseFuture {

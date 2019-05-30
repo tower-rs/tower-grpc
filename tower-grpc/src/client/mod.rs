@@ -3,12 +3,12 @@ pub mod server_streaming;
 pub mod streaming;
 pub mod unary;
 
+use crate::body::BoxBody;
+use crate::generic::client::{GrpcService, IntoService};
+
 use futures::{stream, Future, Poll, Stream};
 use http::{uri, Uri};
 use prost::Message;
-
-use crate::body::BoxBody;
-use crate::generic::client::{GrpcService, IntoService};
 
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {

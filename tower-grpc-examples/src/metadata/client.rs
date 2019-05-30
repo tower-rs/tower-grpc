@@ -1,16 +1,4 @@
-extern crate bytes;
-extern crate env_logger;
-extern crate futures;
-extern crate http;
-extern crate hyper;
-extern crate log;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
-extern crate tower_request_modifier;
-extern crate tower_service;
-extern crate tower_util;
+#![deny(warnings, rust_2018_idioms)]
 
 use futures::Future;
 use hyper::client::connect::{Destination, HttpConnector};

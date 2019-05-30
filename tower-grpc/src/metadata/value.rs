@@ -405,7 +405,7 @@ impl<VE: ValueEncoding> AsRef<[u8]> for MetadataValue<VE> {
 }
 
 impl<VE: ValueEncoding> fmt::Debug for MetadataValue<VE> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         VE::fmt(&self.inner, f)
     }
 }
@@ -528,7 +528,7 @@ impl ToStrError {
 }
 
 impl fmt::Display for ToStrError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.description().fmt(f)
     }
 }

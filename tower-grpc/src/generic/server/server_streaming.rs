@@ -3,9 +3,7 @@ use crate::generic::server::ServerStreamingService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{Future, Poll, Stream};
-use http;
-
+use futures::{Future, Poll, Stream, try_ready};
 use std::fmt;
 
 /// A server streaming response future
@@ -114,7 +112,7 @@ where
     E: fmt::Debug,
     S: Stream + fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
             .field("inner", &self.inner)
             .finish()
@@ -129,7 +127,7 @@ where
     T::Future: fmt::Debug,
     S: Stream + fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Inner")
             .field("inner", &self.inner)
             .field("state", &self.state)

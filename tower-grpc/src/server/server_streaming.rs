@@ -2,10 +2,8 @@ use crate::codec::{Encode, Encoder, Streaming};
 use crate::generic::server::{server_streaming, ServerStreamingService};
 use crate::Body;
 
+use futures::{Future, Poll, try_ready};
 use std::fmt;
-
-use futures::{Future, Poll};
-use {http, prost};
 
 pub struct ResponseFuture<T, B, R>
 where
@@ -57,7 +55,7 @@ where
     B::Data: fmt::Debug,
     R: prost::Message + Default,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("server_streaming::ResponseFuture")
             .field("inner", &self.inner)
             .finish()

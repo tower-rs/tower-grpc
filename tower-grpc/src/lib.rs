@@ -1,23 +1,4 @@
-#![deny(warnings, missing_debug_implementations)]
-//#![deny(missing_docs)]
-
-extern crate base64;
-extern crate bytes;
-#[macro_use]
-extern crate futures;
-extern crate h2;
-extern crate http;
-#[macro_use]
-extern crate log;
-extern crate http_body;
-extern crate percent_encoding;
-extern crate tower_service;
-extern crate tower_util;
-
-#[cfg(feature = "protobuf")]
-extern crate prost;
-#[cfg(feature = "tower-hyper")]
-extern crate tower_hyper;
+#![deny(warnings, missing_debug_implementations, rust_2018_idioms)]
 
 pub mod client;
 pub mod generic;

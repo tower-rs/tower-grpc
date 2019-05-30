@@ -91,7 +91,7 @@ where
     /// Protocol buffer gRPC content type
     const CONTENT_TYPE: &'static str = "application/grpc+proto";
 
-    fn encode(&mut self, item: T, buf: &mut EncodeBuf) -> Result<(), crate::Status> {
+    fn encode(&mut self, item: T, buf: &mut EncodeBuf<'_>) -> Result<(), crate::Status> {
         let len = item.encoded_len();
 
         if buf.remaining_mut() < len {
@@ -133,7 +133,7 @@ where
 {
     type Item = T;
 
-    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<T, crate::Status> {
+    fn decode(&mut self, buf: &mut DecodeBuf<'_>) -> Result<T, crate::Status> {
         Message::decode(buf).map_err(from_decode_error)
     }
 }
@@ -183,7 +183,7 @@ where
     T::Item: fmt::Debug,
     T::Error: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Encode")
             .field("inner", &self.inner)
             .finish()

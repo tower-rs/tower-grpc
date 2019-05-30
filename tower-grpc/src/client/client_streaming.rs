@@ -3,11 +3,10 @@ use crate::codec::Streaming;
 use crate::error::Error;
 use crate::Body;
 
-use std::fmt;
-
-use futures::{Future, Poll, Stream};
+use futures::{Future, Poll, Stream, try_ready};
 use http::{response, Response};
 use prost::Message;
+use std::fmt;
 
 pub struct ResponseFuture<T, U, B: Body> {
     state: State<T, U, B>,
@@ -84,7 +83,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ResponseFuture")
             .field("state", &self.state)
             .finish()
@@ -98,7 +97,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             State::WaitResponse(ref future) => f.debug_tuple("WaitResponse").field(future).finish(),
             State::WaitMessage {

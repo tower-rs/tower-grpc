@@ -10,9 +10,6 @@ use crate::generic::server::{
 };
 use crate::Body;
 
-use http;
-use prost;
-
 pub fn unary<T, B, R>(service: T, request: http::Request<B>) -> unary::ResponseFuture<T, B, R>
 where
     T: UnaryService<R>,

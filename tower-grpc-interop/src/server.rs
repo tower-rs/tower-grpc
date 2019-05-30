@@ -1,15 +1,6 @@
-#[macro_use]
-extern crate clap;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-extern crate prost;
-extern crate tokio;
-extern crate tower_grpc;
-extern crate tower_hyper;
-
+use clap::value_t;
 use futures::{future, stream, Future, Stream};
+use log::error;
 use tokio::net::TcpListener;
 use tower_grpc::{Code, Request, Response, Status};
 use tower_hyper::server::{Http, Server};

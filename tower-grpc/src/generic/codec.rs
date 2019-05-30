@@ -1,15 +1,14 @@
 use crate::body::{Body, HttpBody};
 use crate::error::Error;
 use crate::Status;
+use crate::status::infer_grpc_status;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
-use futures::{Async, Poll, Stream};
+use futures::{Async, Poll, Stream, try_ready};
 use http::{HeaderMap, StatusCode};
-
+use log::{debug, trace, warn};
 use std::collections::VecDeque;
 use std::fmt;
-
-use crate::status::infer_grpc_status;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -45,7 +44,7 @@ pub trait Encoder {
     const CONTENT_TYPE: &'static str;
 
     /// Encode a message into the provided buffer.
-    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf) -> Result<(), Status>;
+    fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf<'_>) -> Result<(), Status>;
 }
 
 /// Decodes gRPC message types
@@ -58,7 +57,7 @@ pub trait Decoder {
     /// The buffer will contain exactly the bytes of a full message. There
     /// is no need to get the length from the bytes, gRPC framing is handled
     /// for you.
-    fn decode(&mut self, buf: &mut DecodeBuf) -> Result<Self::Item, Status>;
+    fn decode(&mut self, buf: &mut DecodeBuf<'_>) -> Result<Self::Item, Status>;
 }
 
 /// Encodes gRPC message types
@@ -138,7 +137,7 @@ pub struct EncodeBuf<'a> {
 
 /// A buffer to decode messages from.
 pub struct DecodeBuf<'a> {
-    bufs: &'a mut Buf,
+    bufs: &'a mut dyn Buf,
     len: usize,
 }
 
@@ -408,7 +407,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Streaming").finish()
     }
 }
@@ -467,7 +466,7 @@ impl<'a> Buf for DecodeBuf<'a> {
 }
 
 impl<'a> fmt::Debug for DecodeBuf<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DecodeBuf").finish()
     }
 }

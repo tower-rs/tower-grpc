@@ -5,9 +5,7 @@ use crate::generic::server::{unary, UnaryService};
 use crate::generic::Streaming;
 use crate::Body;
 
-use futures::{Future, Poll};
-use {http, prost};
-
+use futures::{Future, Poll, try_ready};
 use std::fmt;
 
 pub struct ResponseFuture<T, B, R>
@@ -60,7 +58,7 @@ where
     B: Body + fmt::Debug,
     B::Data: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")
             .field("inner", &self.inner)
             .finish()

@@ -577,7 +577,7 @@ impl MetadataMap {
     /// assert!(map.get_all("host{}".to_string()).iter().next().is_none());
     /// assert!(map.get_all(&("host{}".to_string())).iter().next().is_none());
     /// ```
-    pub fn get_all<K>(&self, key: K) -> GetAll<Ascii>
+    pub fn get_all<K>(&self, key: K) -> GetAll<'_, Ascii>
     where
         K: AsMetadataKey<Ascii>,
     {
@@ -620,7 +620,7 @@ impl MetadataMap {
     /// assert!(map.get_all_bin("host{}-bin".to_string()).iter().next().is_none());
     /// assert!(map.get_all_bin(&("host{}-bin".to_string())).iter().next().is_none());
     /// ```
-    pub fn get_all_bin<K>(&self, key: K) -> GetAll<Binary>
+    pub fn get_all_bin<K>(&self, key: K) -> GetAll<'_, Binary>
     where
         K: AsMetadataKey<Binary>,
     {
@@ -682,7 +682,7 @@ impl MetadataMap {
     ///     }
     /// }
     /// ```
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         Iter {
             inner: self.headers.iter(),
         }
@@ -713,7 +713,7 @@ impl MetadataMap {
     ///     }
     /// }
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut {
+    pub fn iter_mut(&mut self) -> IterMut<'_> {
         IterMut {
             inner: self.headers.iter_mut(),
         }
@@ -745,7 +745,7 @@ impl MetadataMap {
     ///     println!("{:?}", key);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys {
+    pub fn keys(&self) -> Keys<'_> {
         Keys {
             inner: self.headers.keys(),
         }
@@ -776,7 +776,7 @@ impl MetadataMap {
     ///     println!("{:?}", value);
     /// }
     /// ```
-    pub fn values(&self) -> Values {
+    pub fn values(&self) -> Values<'_> {
         Values {
             inner: self.headers.iter(),
         }
@@ -806,7 +806,7 @@ impl MetadataMap {
     ///     }
     /// }
     /// ```
-    pub fn values_mut(&mut self) -> ValuesMut {
+    pub fn values_mut(&mut self) -> ValuesMut<'_> {
         ValuesMut {
             inner: self.headers.iter_mut(),
         }
@@ -852,7 +852,7 @@ impl MetadataMap {
     /// assert!(!map.entry("host{}".to_string()).is_ok());
     /// assert!(!map.entry(&("host{}".to_string())).is_ok());
     /// ```
-    pub fn entry<K>(&mut self, key: K) -> Result<Entry<Ascii>, InvalidMetadataKey>
+    pub fn entry<K>(&mut self, key: K) -> Result<Entry<'_, Ascii>, InvalidMetadataKey>
     where
         K: AsMetadataKey<Ascii>,
     {
@@ -897,7 +897,7 @@ impl MetadataMap {
     /// assert!(!map.entry_bin("host{}-bin".to_string()).is_ok());
     /// assert!(!map.entry_bin(&("host{}-bin".to_string())).is_ok());
     /// ```
-    pub fn entry_bin<K>(&mut self, key: K) -> Result<Entry<Binary>, InvalidMetadataKey>
+    pub fn entry_bin<K>(&mut self, key: K) -> Result<Entry<'_, Binary>, InvalidMetadataKey>
     where
         K: AsMetadataKey<Binary>,
     {
@@ -907,7 +907,7 @@ impl MetadataMap {
     fn generic_entry<VE: ValueEncoding, K>(
         &mut self,
         key: K,
-    ) -> Result<Entry<VE>, InvalidMetadataKey>
+    ) -> Result<Entry<'_, VE>, InvalidMetadataKey>
     where
         K: AsMetadataKey<VE>,
     {
@@ -1725,7 +1725,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     ///
     /// assert_eq!("earth", map.get("host").unwrap());
     /// ```
-    pub fn insert_mult(&mut self, value: MetadataValue<VE>) -> ValueDrain<VE> {
+    pub fn insert_mult(&mut self, value: MetadataValue<VE>) -> ValueDrain<'_, VE> {
         ValueDrain {
             inner: self.inner.insert_mult(value.inner),
             phantom: PhantomData,
@@ -1844,7 +1844,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     ///     assert!(iter.next().is_none());
     /// }
     /// ```
-    pub fn iter(&self) -> ValueIter<VE> {
+    pub fn iter(&self) -> ValueIter<'_, VE> {
         ValueIter {
             inner: Some(self.inner.iter()),
             phantom: PhantomData,
@@ -1875,7 +1875,7 @@ impl<'a, VE: ValueEncoding> OccupiedEntry<'a, VE> {
     /// assert!(i.next().unwrap().is_sensitive());
     /// assert!(i.next().unwrap().is_sensitive());
     /// ```
-    pub fn iter_mut(&mut self) -> ValueIterMut<VE> {
+    pub fn iter_mut(&mut self) -> ValueIterMut<'_, VE> {
         ValueIterMut {
             inner: self.inner.iter_mut(),
             phantom: PhantomData,
@@ -2103,10 +2103,10 @@ mod as_metadata_key {
         fn get_mut(self, map: &mut MetadataMap) -> Option<&mut MetadataValue<VE>>;
 
         #[doc(hidden)]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>>;
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>>;
 
         #[doc(hidden)]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey>;
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey>;
 
         #[doc(hidden)]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue<VE>>;
@@ -2133,13 +2133,13 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>> {
             Some(map.headers.get_all(self.inner))
         }
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             map.headers
                 .entry(self.inner)
                 .map_err(|_| InvalidMetadataKey::new())
@@ -2175,13 +2175,13 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>> {
             Some(map.headers.get_all(&self.inner))
         }
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             map.headers
                 .entry(&self.inner)
                 .map_err(|_| InvalidMetadataKey::new())
@@ -2223,7 +2223,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>> {
             if !VE::is_valid_key(self) {
                 return None;
             }
@@ -2232,7 +2232,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self) {
                 return Err(InvalidMetadataKey::new());
             }
@@ -2280,7 +2280,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>> {
             if !VE::is_valid_key(self.as_str()) {
                 return None;
             }
@@ -2289,7 +2289,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self.as_str()) {
                 return Err(InvalidMetadataKey::new());
             }
@@ -2337,7 +2337,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn get_all(self, map: &MetadataMap) -> Option<GetAll<HeaderValue>> {
+        fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>> {
             if !VE::is_valid_key(self) {
                 return None;
             }
@@ -2346,7 +2346,7 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<HeaderValue>, InvalidMetadataKey> {
+        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self) {
                 return Err(InvalidMetadataKey::new());
             }

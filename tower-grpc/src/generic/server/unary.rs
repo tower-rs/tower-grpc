@@ -3,10 +3,8 @@ use crate::generic::server::UnaryService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{Future, Poll, Stream};
-use http;
+use futures::{Future, Poll, Stream, try_ready};
 use tower_service::Service;
-
 use std::fmt;
 
 pub struct ResponseFuture<T, E, S>
@@ -119,7 +117,7 @@ where
     E: fmt::Debug,
     S: Stream + fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")
             .field("inner", &self.inner)
             .finish()

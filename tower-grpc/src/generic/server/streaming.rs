@@ -3,7 +3,6 @@ use crate::generic::{Encode, Encoder};
 use crate::Response;
 
 use futures::{Async, Future, Poll, Stream};
-use http;
 use http::header;
 
 #[derive(Debug)]

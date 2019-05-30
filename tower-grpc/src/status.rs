@@ -2,6 +2,7 @@ use bytes::Bytes;
 use h2;
 use http::header::HeaderValue;
 use http::{self, HeaderMap};
+use log::{debug, warn, trace};
 use percent_encoding::{percent_decode, percent_encode, EncodeSet, DEFAULT_ENCODE_SET};
 use std::{error::Error, fmt};
 
@@ -239,7 +240,7 @@ impl Status {
 }
 
 impl fmt::Debug for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // A manual impl to reduce the noise of frequently empty fields.
         let mut builder = f.debug_struct("Status");
 
@@ -278,7 +279,7 @@ impl From<Status> for h2::Error {
 }
 
 impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "grpc-status: {:?}, grpc-message: {:?}",
@@ -432,7 +433,7 @@ mod tests {
     struct Nested(Error);
 
     impl fmt::Display for Nested {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "nested error: {}", self.0)
         }
     }

@@ -5,8 +5,6 @@ use crate::generic::server::{
 use crate::generic::{Codec, Direction, Streaming};
 use crate::{Body, Request};
 
-use http;
-
 #[derive(Debug, Clone)]
 pub(crate) struct Grpc<T> {
     codec: T,

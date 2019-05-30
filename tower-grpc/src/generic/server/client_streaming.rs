@@ -3,8 +3,7 @@ use super::unary::Once;
 use crate::generic::{Encode, Encoder};
 use crate::Response;
 
-use futures::{Future, Poll};
-use http;
+use futures::{Future, Poll, try_ready};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
