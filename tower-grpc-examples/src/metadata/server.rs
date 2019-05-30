@@ -3,7 +3,7 @@
 use crate::metadata::{server, EnterReply, EnterRequest};
 
 use futures::{future, Future, Stream};
-use log::{error};
+use log::error;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response};
 use tower_hyper::server::{Http, Server};

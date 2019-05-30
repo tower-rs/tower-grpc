@@ -3,7 +3,7 @@ use crate::generic::server::ServerStreamingService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{Future, Poll, Stream, try_ready};
+use futures::{try_ready, Future, Poll, Stream};
 use std::fmt;
 
 /// A server streaming response future
@@ -97,7 +97,12 @@ where
                     }
                     _ => unreachable!(),
                 },
-                None => return Err(crate::Status::new(crate::Code::Internal, "Missing request message.")),
+                None => {
+                    return Err(crate::Status::new(
+                        crate::Code::Internal,
+                        "Missing request message.",
+                    ))
+                }
             }
         }
     }

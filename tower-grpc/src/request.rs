@@ -1,5 +1,5 @@
-use http;
 use crate::metadata::MetadataMap;
+use http;
 
 #[derive(Debug)]
 pub struct Request<T> {

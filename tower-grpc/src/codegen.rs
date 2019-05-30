@@ -6,7 +6,9 @@ pub mod server {
         pub use crate::generic::server::{
             ClientStreamingService, ServerStreamingService, StreamingService, UnaryService,
         };
-        pub use crate::server::{client_streaming, server_streaming, streaming, unary, unimplemented};
+        pub use crate::server::{
+            client_streaming, server_streaming, streaming, unary, unimplemented,
+        };
         pub use crate::{error::Never, Body, BoxBody, Code, Request, Response, Status};
     }
 
@@ -38,7 +40,9 @@ pub mod server {
 pub mod client {
     /// Re-export types from this crate
     pub mod grpc {
-        pub use crate::client::{client_streaming, server_streaming, streaming, unary, Encodable, Grpc};
+        pub use crate::client::{
+            client_streaming, server_streaming, streaming, unary, Encodable, Grpc,
+        };
         pub use crate::generic::client::GrpcService;
         pub use crate::{Body, Code, Request, Response, Status};
     }

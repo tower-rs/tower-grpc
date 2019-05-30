@@ -2080,8 +2080,8 @@ mod into_metadata_key {
 
 mod as_metadata_key {
     use super::{MetadataMap, MetadataValue, ValueEncoding};
-    use http::header::{Entry, GetAll, HeaderValue};
     use crate::metadata::key::{InvalidMetadataKey, MetadataKey};
+    use http::header::{Entry, GetAll, HeaderValue};
 
     /// A marker trait used to identify values that can be used as search keys
     /// to a `MetadataMap`.
@@ -2106,7 +2106,8 @@ mod as_metadata_key {
         fn get_all(self, map: &MetadataMap) -> Option<GetAll<'_, HeaderValue>>;
 
         #[doc(hidden)]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey>;
+        fn entry(self, map: &mut MetadataMap)
+            -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey>;
 
         #[doc(hidden)]
         fn remove(self, map: &mut MetadataMap) -> Option<MetadataValue<VE>>;
@@ -2139,7 +2140,10 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
+        fn entry(
+            self,
+            map: &mut MetadataMap,
+        ) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             map.headers
                 .entry(self.inner)
                 .map_err(|_| InvalidMetadataKey::new())
@@ -2181,7 +2185,10 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
+        fn entry(
+            self,
+            map: &mut MetadataMap,
+        ) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             map.headers
                 .entry(&self.inner)
                 .map_err(|_| InvalidMetadataKey::new())
@@ -2232,7 +2239,10 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
+        fn entry(
+            self,
+            map: &mut MetadataMap,
+        ) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self) {
                 return Err(InvalidMetadataKey::new());
             }
@@ -2289,7 +2299,10 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
+        fn entry(
+            self,
+            map: &mut MetadataMap,
+        ) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self.as_str()) {
                 return Err(InvalidMetadataKey::new());
             }
@@ -2346,7 +2359,10 @@ mod as_metadata_key {
 
         #[doc(hidden)]
         #[inline]
-        fn entry(self, map: &mut MetadataMap) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
+        fn entry(
+            self,
+            map: &mut MetadataMap,
+        ) -> Result<Entry<'_, HeaderValue>, InvalidMetadataKey> {
             if !VE::is_valid_key(self) {
                 return Err(InvalidMetadataKey::new());
             }

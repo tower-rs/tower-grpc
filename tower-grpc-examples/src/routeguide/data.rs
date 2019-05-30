@@ -1,7 +1,7 @@
 use serde::Deserialize;
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::env;
 
 #[derive(Debug, Deserialize)]
 struct Feature {

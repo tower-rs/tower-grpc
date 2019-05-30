@@ -5,7 +5,7 @@ use crate::generic::server::{unary, UnaryService};
 use crate::generic::Streaming;
 use crate::Body;
 
-use futures::{Future, Poll, try_ready};
+use futures::{try_ready, Future, Poll};
 use std::fmt;
 
 pub struct ResponseFuture<T, B, R>

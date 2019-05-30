@@ -7,13 +7,13 @@ use crate::routeguide::{server, Feature, Point, Rectangle, RouteNote, RouteSumma
 use futures::sync::mpsc;
 use futures::{future, stream, Future, Sink, Stream};
 use log::error;
-use tokio::net::TcpListener;
-use tower_grpc::{Request, Response, Streaming};
-use tower_hyper::server::{Http, Server};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use tokio::net::TcpListener;
+use tower_grpc::{Request, Response, Streaming};
+use tower_hyper::server::{Http, Server};
 
 pub mod routeguide {
     include!(concat!(env!("OUT_DIR"), "/routeguide.rs"));

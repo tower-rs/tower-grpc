@@ -2,7 +2,7 @@ use bytes::Bytes;
 use h2;
 use http::header::HeaderValue;
 use http::{self, HeaderMap};
-use log::{debug, warn, trace};
+use log::{debug, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, EncodeSet, DEFAULT_ENCODE_SET};
 use std::{error::Error, fmt};
 

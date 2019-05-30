@@ -3,9 +3,9 @@ use crate::generic::server::UnaryService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{Future, Poll, Stream, try_ready};
-use tower_service::Service;
+use futures::{try_ready, Future, Poll, Stream};
 use std::fmt;
+use tower_service::Service;
 
 pub struct ResponseFuture<T, E, S>
 where

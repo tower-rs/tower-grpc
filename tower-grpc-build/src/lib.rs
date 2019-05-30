@@ -3,9 +3,9 @@
 mod client;
 mod server;
 
+use heck::CamelCase;
 use std::io;
 use std::path::Path;
-use heck::CamelCase;
 
 /// Code generation configuration
 pub struct Config {

@@ -1,7 +1,7 @@
 use crate::codec::{Encode, Encoder};
 use crate::generic::server::{client_streaming, unary, ClientStreamingService};
 
-use futures::{Future, Poll, Stream, try_ready};
+use futures::{try_ready, Future, Poll, Stream};
 use std::fmt;
 
 pub struct ResponseFuture<T, S>

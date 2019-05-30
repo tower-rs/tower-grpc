@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::Body;
 use crate::Code;
 
-use futures::{Future, Poll, try_ready};
+use futures::{try_ready, Future, Poll};
 use http::Response;
 use prost::Message;
 use std::marker::PhantomData;

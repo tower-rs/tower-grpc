@@ -1,23 +1,24 @@
 use crate::pb::client::TestService;
 use crate::pb::client::UnimplementedService;
 use crate::pb::SimpleRequest;
-use crate::pb::StreamingInputCallRequest;use std::error::Error;
+use crate::pb::StreamingInputCallRequest;
+use std::error::Error;
 
 use clap::{arg_enum, value_t, values_t};
-use log::info;
-use std::fmt;
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
 use futures::{future, stream, Future, Poll, Stream};
 use http::uri::{self, Uri};
 use http::Version;
 use http_connection::HttpConnection;
+use log::info;
+use std::fmt;
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor;
 use tower::{buffer::Buffer, Service, ServiceExt};
 use tower_grpc::metadata::MetadataValue;
 use tower_grpc::Request;
-use tower_hyper::client::{Connect};
+use tower_hyper::client::Connect;
 
 pub mod pb {
     #![allow(dead_code)]
@@ -255,7 +256,10 @@ struct PingPongState {
 }
 
 type PingPongResponsesFuture = Box<
-    dyn Future<Item = (Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>), Error = Box<dyn Error>>,
+    dyn Future<
+        Item = (Vec<pb::StreamingOutputCallResponse>, Vec<TestAssertion>),
+        Error = Box<dyn Error>,
+    >,
 >;
 
 impl PingPongState {
@@ -321,7 +325,9 @@ impl PingPongState {
 }
 
 impl TestClients {
-    fn empty_unary_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
+    fn empty_unary_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
         use crate::pb::Empty;
         self.test_client
             .empty_call(Request::new(Empty {}))
@@ -342,7 +348,9 @@ impl TestClients {
             })
     }
 
-    fn large_unary_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
+    fn large_unary_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
         use std::mem;
         let payload = util::client_payload(LARGE_REQ_SIZE);
         let req = SimpleRequest {
@@ -510,7 +518,9 @@ impl TestClients {
             .then(&assert_success)
     }
 
-    fn empty_stream_test(&mut self) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
+    fn empty_stream_test(
+        &mut self,
+    ) -> impl Future<Item = Vec<TestAssertion>, Error = Box<dyn Error>> {
         let stream = stream::iter_ok(Vec::<pb::StreamingOutputCallRequest>::new());
         self.test_client
             .full_duplex_call(Request::new(stream))

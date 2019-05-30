@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::Status;
 
 use bytes::{Buf, Bytes, IntoBuf};
-use futures::{Poll, try_ready};
+use futures::{try_ready, Poll};
 pub use http_body::Body as HttpBody;
 use std::fmt;
 
