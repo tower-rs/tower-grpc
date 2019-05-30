@@ -3,7 +3,6 @@ use crate::generic::{DecodeBuf, EncodeBuf};
 
 use bytes::BufMut;
 use futures::{Poll, Stream};
-use http;
 use prost::DecodeError;
 use prost::Message;
 

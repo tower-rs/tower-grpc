@@ -1,13 +1,12 @@
-use super::encoding::{Ascii, Binary, ValueEncoding};
-use super::key::{InvalidMetadataKey, MetadataKey};
-use super::value::MetadataValue;
-use http;
-
-use std::marker::PhantomData;
-
 pub use self::as_encoding_agnostic_metadata_key::AsEncodingAgnosticMetadataKey;
 pub use self::as_metadata_key::AsMetadataKey;
 pub use self::into_metadata_key::IntoMetadataKey;
+
+use super::encoding::{Ascii, Binary, ValueEncoding};
+use super::key::{InvalidMetadataKey, MetadataKey};
+use super::value::MetadataValue;
+
+use std::marker::PhantomData;
 
 /// A set of gRPC custom metadata entries.
 ///

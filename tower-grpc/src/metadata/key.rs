@@ -1,7 +1,5 @@
 use bytes::Bytes;
-use http;
 use http::header::HeaderName;
-
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt;

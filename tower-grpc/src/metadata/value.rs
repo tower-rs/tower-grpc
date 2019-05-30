@@ -1,15 +1,14 @@
-use bytes::Bytes;
-use http::header::HeaderValue;
-
-use std::error::Error;
-use std::marker::PhantomData;
-use std::str::FromStr;
-use std::{cmp, fmt};
-
 use super::encoding::{
     Ascii, Binary, InvalidMetadataValue, InvalidMetadataValueBytes, ValueEncoding,
 };
 use super::key::MetadataKey;
+
+use bytes::Bytes;
+use http::header::HeaderValue;
+use std::error::Error;
+use std::marker::PhantomData;
+use std::str::FromStr;
+use std::{cmp, fmt};
 
 /// Represents a custom metadata field value.
 ///
