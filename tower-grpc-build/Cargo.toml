@@ -5,7 +5,7 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 license = "MIT"
 
 [dependencies]
-codegen = { git = "https://github.com/carllerche/codegen" }
+codegen = "0.1.1"
 prost-build = "0.5"
 heck = "0.3"
 
