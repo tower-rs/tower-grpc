@@ -25,7 +25,7 @@ tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../tower-grpc" }
 tower = "0.1"
-http-connection = { git = "https://github.com/hyperium/http-connection" }
+http-connection = "0.1"
 
 clap = "~2.29"
 console = "0.7"
