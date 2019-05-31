@@ -22,7 +22,7 @@ http = "0.1"
 prost = "0.5"
 tokio-core = "0.1"
 tokio = "0.1"
-tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+tower-hyper = "0.1"
 tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 tower-grpc = { path = "../tower-grpc" }
 tower = "0.1"

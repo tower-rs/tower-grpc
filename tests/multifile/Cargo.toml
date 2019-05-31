@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 bytes = "0.4"
 prost = "0.5"
-tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+tower-hyper = "0.1"
 tower-grpc = { path = "../../tower-grpc", features = ["tower-hyper"] }
 
 [build-dependencies]
