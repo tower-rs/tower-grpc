@@ -1,4 +1,10 @@
-#![deny(warnings, missing_debug_implementations, rust_2018_idioms)]
+#![doc(html_root_url = "https://docs.rs/tower-grpc/0.1.0")]
+#![deny(missing_debug_implementations, rust_2018_idioms)]
+// TODO: enable when there actually are docs
+// #![deny(missing_docs)]
+#![cfg_attr(test, deny(warnings))]
+
+//! gRPC client and server implementation based on Tower.
 
 pub mod client;
 pub mod generic;

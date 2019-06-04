@@ -1,3 +1,5 @@
+//! gRPC client
+
 pub mod client_streaming;
 pub mod server_streaming;
 pub mod streaming;
@@ -10,6 +12,9 @@ use futures::{stream, Future, Poll, Stream};
 use http::{uri, Uri};
 use prost::Message;
 
+/// gRPC client handle.
+///
+/// Takes an HTTP service and adds the gRPC protocol.
 #[derive(Debug, Clone)]
 pub struct Grpc<T> {
     /// The inner HTTP/2.0 service.
@@ -17,8 +22,6 @@ pub struct Grpc<T> {
 }
 
 /// Convert a stream of protobuf messages to an HTTP body payload.
-///
-/// TODO: Rename to `IntoEncode` or something...
 pub trait Encodable<T> {
     fn into_encode(self) -> T;
 }
@@ -31,6 +34,7 @@ impl<T> Grpc<T> {
         Grpc { inner }
     }
 
+    /// Returns `Ready` when the service is ready to accept a request.
     pub fn poll_ready<R>(&mut self) -> Poll<(), crate::Status>
     where
         T: GrpcService<R>,
@@ -40,6 +44,8 @@ impl<T> Grpc<T> {
             .map_err(|err| crate::Status::from_error(&*(err.into())))
     }
 
+    /// Consumes `self`, returning a future that yields `self` back once it is ready to accept a
+    /// request.
     pub fn ready<R>(self) -> impl Future<Item = Self, Error = crate::Status>
     where
         T: GrpcService<R>,
@@ -50,6 +56,7 @@ impl<T> Grpc<T> {
             .map_err(|err| crate::Status::from_error(&*(err.into())))
     }
 
+    /// Send a unary gRPC request.
     pub fn unary<M1, M2, R>(
         &mut self,
         request: crate::Request<M1>,
@@ -65,6 +72,7 @@ impl<T> Grpc<T> {
         unary::ResponseFuture::new(response)
     }
 
+    /// Send a client streaing gRPC request.
     pub fn client_streaming<B, M, R>(
         &mut self,
         request: crate::Request<B>,
@@ -78,6 +86,7 @@ impl<T> Grpc<T> {
         client_streaming::ResponseFuture::new(response)
     }
 
+    /// Send a server streaming gRPC request.
     pub fn server_streaming<M1, M2, R>(
         &mut self,
         request: crate::Request<M1>,

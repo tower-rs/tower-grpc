@@ -3,6 +3,7 @@ name = "tower-grpc-examples"
 version = "0.1.0"
 edition = "2018"
 authors = ["Carl Lerche <me@carllerche.com>"]
+publish = false
 
 [[bin]]
 name = "helloworld-server"

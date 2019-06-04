@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2018"
 authors = ["Eliza Weisman <eliza@buoyant.io>"]
 license = "MIT"
+publish = false
 
 [[bin]]
 name = "client"
