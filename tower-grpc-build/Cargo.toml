@@ -2,8 +2,15 @@
 name = "tower-grpc-build"
 version = "0.1.0"
 edition = "2018"
-authors = ["Carl Lerche <me@carllerche.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tower-rs/tower-grpc"
+homepage = "https://github.com/tower-rs/tower-grpc"
+documentation = "https://docs.rs/tower-grpc/0.1.0"
+description = """
+Code generation for tower-grpc
+"""
 
 [dependencies]
 codegen = "0.1.1"

@@ -1,4 +1,6 @@
-#![deny(warnings, rust_2018_idioms)]
+#![doc(html_root_url = "https://docs.rs/tower-grpc-build/0.1.0")]
+#![deny(rust_2018_idioms)]
+#![cfg_attr(test, deny(warnings))]
 
 mod client;
 mod server;
