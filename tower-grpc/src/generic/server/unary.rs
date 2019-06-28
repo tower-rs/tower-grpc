@@ -3,8 +3,11 @@ use crate::generic::server::UnaryService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{try_ready, Future, Poll, Stream};
+use futures::{ready, Stream, TryStream};
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 pub struct ResponseFuture<T, E, S>
@@ -32,9 +35,9 @@ struct InnerFuture<T>(T);
 
 impl<T, E, S> ResponseFuture<T, E, S>
 where
-    T: UnaryService<S::Item, Response = E::Item>,
+    T: UnaryService<S::Ok, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = server_streaming::ResponseFuture::new(Inner(inner), request, encoder);
@@ -44,15 +47,14 @@ where
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
 where
-    T: UnaryService<S::Item, Response = E::Item>,
+    T: UnaryService<S::Ok, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
-    type Item = http::Response<Encode<E, Once<T::Response>>>;
-    type Error = crate::error::Never;
+    type Output = Result<http::Response<Encode<E, Once<T::Response>>>, crate::error::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).poll()
     }
 }
 
@@ -66,7 +68,7 @@ where
     type Error = crate::Status;
     type Future = InnerFuture<T::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self) -> Poll<Result<(), Self::Error>> {
         Ok(().into())
     }
 
@@ -80,14 +82,13 @@ where
 
 impl<T, U> Future for InnerFuture<T>
 where
-    T: Future<Item = Response<U>, Error = crate::Status>,
+    T: Future<Output = Result<Response<U>, crate::Status>>,
 {
-    type Item = Response<Once<U>>;
-    type Error = crate::Status;
+    type Output = Result<Response<Once<U>>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let response = try_ready!(self.0.poll());
-        Ok(Once::map(response).into())
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let response = ready!(Pin::new(&mut self.0).poll());
+        Ok(Once::map(response)).into()
     }
 }
 
@@ -101,10 +102,9 @@ impl<T> Once<T> {
 }
 
 impl<T> Stream for Once<T> {
-    type Item = T;
-    type Error = crate::Status;
+    type Item = Result<T, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Ok(self.inner.take().into())
     }
 }

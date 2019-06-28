@@ -3,10 +3,13 @@ use crate::error::Error;
 use crate::Body;
 use crate::Code;
 
-use futures::{try_ready, Future, Poll};
+use futures::{future::TryFuture, ready};
 use http::Response;
 use prost::Message;
+use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, U> {
@@ -27,21 +30,19 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where
     T: Message + Default,
-    U: Future<Item = Response<B>>,
+    U: TryFuture<Ok = Response<B>>,
     U::Error: Into<Error>,
     B: Body,
 {
-    type Item = crate::Response<Streaming<T, B>>;
-    type Error = crate::Status;
+    type Output = Result<crate::Response<Streaming<T, B>>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         use crate::codec::Decoder;
         use crate::generic::Streaming;
 
         // Get the response
-        let response = try_ready!(self
-            .inner
-            .poll()
+        let response = ready!(Pin::new(&mut self.inner)
+            .try_poll(cx)
             .map_err(|err| crate::Status::from_error(&*(err.into()))));
 
         let status_code = response.status();

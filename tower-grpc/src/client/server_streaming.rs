@@ -3,9 +3,12 @@ use crate::codec::Streaming;
 use crate::error::Error;
 use crate::Body;
 
-use futures::{Future, Poll};
+use futures::future::TryFuture;
 use http::Response;
 use prost::Message;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, U> {
@@ -22,14 +25,13 @@ impl<T, U> ResponseFuture<T, U> {
 impl<T, U, B> Future for ResponseFuture<T, U>
 where
     T: Message + Default,
-    U: Future<Item = Response<B>>,
+    U: TryFuture<Ok = Response<B>>,
     U::Error: Into<Error>,
     B: Body,
 {
-    type Item = crate::Response<Streaming<T, B>>;
-    type Error = crate::Status;
+    type Output = Result<crate::Response<Streaming<T, B>>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).try_poll(cx)
     }
 }

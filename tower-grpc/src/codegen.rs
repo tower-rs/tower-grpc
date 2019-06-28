@@ -12,11 +12,12 @@ pub mod server {
         pub use crate::{error::Never, Body, BoxBody, Code, Request, Response, Status};
     }
 
+    // FIXME: update these to our own types
     /// Re-export types from the `future` crate.
-    pub mod futures {
-        pub use futures::future::{ok, FutureResult};
-        pub use futures::{Async, Future, Poll, Stream};
-    }
+    // pub mod futures {
+    //     pub use futures::future::{ok, FutureResult};
+    //     pub use futures::{Async, Future, Poll, Stream};
+    // }
 
     /// Re-exported types from the `http` crate.
     pub mod http {

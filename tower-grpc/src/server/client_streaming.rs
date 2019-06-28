@@ -1,8 +1,11 @@
 use crate::codec::{Encode, Encoder};
 use crate::generic::server::{client_streaming, unary, ClientStreamingService};
 
-use futures::{try_ready, Future, Poll, Stream};
+use futures::{ready, Stream};
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub struct ResponseFuture<T, S>
 where
@@ -33,13 +36,12 @@ where
     S::Item: prost::Message + Default,
     T::Response: prost::Message,
 {
-    type Item = http::Response<Encode<unary::Once<T::Response>>>;
-    type Error = crate::error::Never;
+    type Output = Result<http::Response<Encode<unary::Once<T::Response>>>, crate::error::Never>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let response = try_ready!(self.inner.poll());
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let response = ready!(Pin::new(&mut self.inner).poll_next(cx));
         let response = response.map(Encode::new);
-        Ok(response.into())
+        Ok(response).into()
     }
 }
 

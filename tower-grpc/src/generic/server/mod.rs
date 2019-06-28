@@ -9,7 +9,8 @@ pub(crate) use self::grpc::Grpc;
 
 use crate::{Request, Response};
 
-use futures::{Future, Stream};
+use futures::stream::{Stream, TryStream};
+use std::future::Future;
 use tower_service::Service;
 
 /// A specialization of tower_service::Service.
@@ -21,10 +22,10 @@ pub trait StreamingService<RequestStream> {
     type Response;
 
     /// Stream of outbound response messages
-    type ResponseStream: Stream<Item = Self::Response, Error = crate::Status>;
+    type ResponseStream: Stream<Item = Result<Self::Response, crate::Status>>;
 
     /// Response future
-    type Future: Future<Item = crate::Response<Self::ResponseStream>, Error = crate::Status>;
+    type Future: Future<Output = Result<crate::Response<Self::ResponseStream>, crate::Status>>;
 
     /// Call the service
     fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
@@ -33,10 +34,10 @@ pub trait StreamingService<RequestStream> {
 impl<T, S1, S2> StreamingService<S1> for T
 where
     T: Service<Request<S1>, Response = Response<S2>, Error = crate::Status>,
-    S1: Stream<Error = crate::Status>,
-    S2: Stream<Error = crate::Status>,
+    S1: TryStream<Error = crate::Status>,
+    S2: TryStream<Error = crate::Status>,
 {
-    type Response = S2::Item;
+    type Response = S2::Ok;
     type ResponseStream = S2;
     type Future = T::Future;
 
@@ -54,7 +55,7 @@ pub trait UnaryService<R> {
     type Response;
 
     /// Response future
-    type Future: Future<Item = crate::Response<Self::Response>, Error = crate::Status>;
+    type Future: Future<Output = Result<crate::Response<Self::Response>, crate::Status>>;
 
     /// Call the service
     fn call(&mut self, request: Request<R>) -> Self::Future;
@@ -81,7 +82,7 @@ pub trait ClientStreamingService<RequestStream> {
     type Response;
 
     /// Response future
-    type Future: Future<Item = crate::Response<Self::Response>, Error = crate::Status>;
+    type Future: Future<Output = Result<crate::Response<Self::Response>, crate::Status>>;
 
     /// Call the service
     fn call(&mut self, request: Request<RequestStream>) -> Self::Future;
@@ -90,7 +91,7 @@ pub trait ClientStreamingService<RequestStream> {
 impl<T, M, S> ClientStreamingService<S> for T
 where
     T: Service<Request<S>, Response = Response<M>, Error = crate::Status>,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
     type Response = M;
     type Future = T::Future;
@@ -109,10 +110,10 @@ pub trait ServerStreamingService<R> {
     type Response;
 
     /// Stream of outbound response messages
-    type ResponseStream: Stream<Item = Self::Response, Error = crate::Status>;
+    type ResponseStream: Stream<Item = Result<Self::Response, crate::Status>>;
 
     /// Response future
-    type Future: Future<Item = crate::Response<Self::ResponseStream>, Error = crate::Status>;
+    type Future: Future<Output = Result<crate::Response<Self::ResponseStream>, crate::Status>>;
 
     /// Call the service
     fn call(&mut self, request: Request<R>) -> Self::Future;
@@ -121,9 +122,9 @@ pub trait ServerStreamingService<R> {
 impl<T, M, S> ServerStreamingService<M> for T
 where
     T: Service<Request<M>, Response = Response<S>, Error = crate::Status>,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
-    type Response = S::Item;
+    type Response = S::Ok;
     type ResponseStream = S;
     type Future = T::Future;
 

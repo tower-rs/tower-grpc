@@ -4,11 +4,14 @@ use crate::status::infer_grpc_status;
 use crate::Status;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
-use futures::{try_ready, Async, Poll, Stream};
+use futures::{ready, Stream, TryStream};
 use http::{HeaderMap, StatusCode};
 use log::{debug, trace, warn};
 use std::collections::VecDeque;
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -150,8 +153,8 @@ pub struct BufList<B> {
 
 impl<T, U> Encode<T, U>
 where
-    T: Encoder<Item = U::Item>,
-    U: Stream,
+    T: Encoder<Item = U::Ok>,
+    U: TryStream,
     U::Error: Into<Error>,
 {
     fn new(encoder: T, inner: U, role: Role) -> Self {
@@ -181,8 +184,8 @@ where
 
 impl<T, U> HttpBody for Encode<T, U>
 where
-    T: Encoder<Item = U::Item>,
-    U: Stream,
+    T: Encoder<Item = U::Ok>,
+    U: TryStream,
     U::Error: Into<Error>,
 {
     type Data = BytesBuf;
@@ -192,52 +195,63 @@ where
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
-        match self.inner.poll_encode(&mut self.buf) {
+    fn poll_data(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Option<Self::Data>, Status>> {
+        match Pin::new(&mut self.inner).poll_encode(cx, &mut self.buf) {
             Ok(ok) => Ok(ok),
             Err(status) => {
                 match self.role {
                     // clients don't send statuses as trailers, so just return
                     // this error directly to allow an HTTP2 rst_stream to be
                     // sent.
-                    Role::Client => Err(status),
+                    Role::Client => Err(status).into(),
                     // otherwise, its better to send this status in the
                     // trailers, instead of a RST_STREAM as the server...
                     Role::Server => {
                         self.inner = EncodeInner::Err(status);
-                        Ok(None.into())
+                        Ok(None).into()
                     }
                 }
             }
         }
     }
 
-    fn poll_trailers(&mut self) -> Poll<Option<HeaderMap>, Status> {
+    fn poll_trailers(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Option<HeaderMap>, Status>> {
         if let Role::Client = self.role {
-            return Ok(Async::Ready(None));
+            return Ok(None).into();
         }
 
         let map = match self.inner {
             EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
-        Ok(Some(map?).into())
+
+        Some(Ok(map?)).into()
     }
 }
 
 impl<T, U> EncodeInner<T, U>
 where
-    T: Encoder<Item = U::Item>,
-    U: Stream,
+    T: Encoder<Item = U::Ok>,
+    U: TryStream,
     U::Error: Into<Error>,
 {
-    fn poll_encode(&mut self, buf: &mut BytesMut) -> Poll<Option<BytesBuf>, Status> {
+    fn poll_encode(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut BytesMut,
+    ) -> Poll<Result<Option<BytesBuf>, Status>> {
         match self {
             EncodeInner::Ok {
                 ref mut inner,
                 ref mut encoder,
             } => {
-                let item = try_ready!(inner.poll().map_err(|err| {
+                let item = ready!(Pin::new(inner).poll(cx).map_err(|err| {
                     let err = err.into();
                     debug!("encoder inner stream error: {:?}", err);
                     Status::from_error(&*err)
@@ -264,9 +278,9 @@ where
                     None
                 };
 
-                return Ok(Async::Ready(item));
+                return Ok(Some(item)).into();
             }
-            _ => return Ok(Async::Ready(None)),
+            _ => return Ok(None).into(),
         }
     }
 }
@@ -349,21 +363,20 @@ where
     T: Decoder,
     U: Body,
 {
-    type Item = T::Item;
-    type Error = Status;
+    type Item = Result<T::Item, Status>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             if let State::Done = self.state {
                 break;
             }
 
             match self.decode()? {
-                Some(val) => return Ok(Async::Ready(Some(val))),
+                Some(val) => return Some(Ok(val)).into(),
                 None => (),
             }
 
-            let chunk = try_ready!(self.inner.poll_data().map_err(|err| {
+            let chunk = ready!(Pin::new(&mut self.inner).poll_data(cx).map_err(|err| {
                 let err = err.into();
                 debug!("decoder inner stream error: {:?}", err);
                 Status::from_error(&*err)
@@ -386,17 +399,17 @@ where
         }
 
         if let Direction::Response(status_code) = self.direction {
-            let trailers = try_ready!(self.inner.poll_trailers().map_err(|err| {
+            let trailers = ready!(Pin::new(&mut self.inner).poll_trailers(cx).map_err(|err| {
                 let err = err.into();
                 debug!("decoder inner trailers error: {:?}", err);
                 Status::from_error(&*err)
             }));
             match infer_grpc_status(trailers, status_code) {
-                Ok(_) => Ok(Async::Ready(None)),
-                Err(err) => Err(err),
+                Ok(_) => Ok(None).into(),
+                Err(err) => Err(err).into(),
             }
         } else {
-            Ok(Async::Ready(None))
+            Ok(None).into()
         }
     }
 }

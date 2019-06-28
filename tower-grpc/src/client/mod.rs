@@ -8,9 +8,11 @@ pub mod unary;
 use crate::body::BoxBody;
 use crate::generic::client::{GrpcService, IntoService};
 
-use futures::{stream, Future, Poll, Stream};
+use futures::{stream, Stream};
 use http::{uri, Uri};
 use prost::Message;
+use std::future::Future;
+use std::task::{Context, Poll};
 
 /// gRPC client handle.
 ///
@@ -35,7 +37,7 @@ impl<T> Grpc<T> {
     }
 
     /// Returns `Ready` when the service is ready to accept a request.
-    pub fn poll_ready<R>(&mut self) -> Poll<(), crate::Status>
+    pub fn poll_ready<R>(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), crate::Status>>
     where
         T: GrpcService<R>,
     {
@@ -158,7 +160,7 @@ impl<T> Grpc<T> {
 
 impl<T, U> Encodable<BoxBody> for T
 where
-    T: Stream<Item = U, Error = crate::Status> + Send + 'static,
+    T: Stream<Item = Result<U, crate::Status>> + Send + 'static,
     U: Message + 'static,
 {
     fn into_encode(self) -> BoxBody {

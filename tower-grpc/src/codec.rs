@@ -2,12 +2,14 @@ use crate::body::{BoxBody, HttpBody};
 use crate::generic::{DecodeBuf, EncodeBuf};
 
 use bytes::BufMut;
-use futures::{Poll, Stream};
+use futures::Stream;
 use prost::DecodeError;
 use prost::Message;
 
 use std::fmt;
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 /// Protobuf codec
 #[derive(Debug)]
@@ -167,12 +169,18 @@ where
         false
     }
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
-        self.inner.poll_data()
+    fn poll_data(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Data>, Self::Error> {
+        Pin::new(&mut self.inner).poll_data()
     }
 
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        self.inner.poll_trailers()
+    fn poll_trailers(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        Pin::new(&mut self.inner).poll_trailers()
     }
 }
 

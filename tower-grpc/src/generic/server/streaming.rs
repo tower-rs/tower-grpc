@@ -2,8 +2,11 @@ use crate::error::{Error, Never};
 use crate::generic::{Encode, Encoder};
 use crate::Response;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Stream, TryStream};
 use http::header;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
@@ -15,7 +18,7 @@ pub struct ResponseFuture<T, E> {
 
 impl<T, E, S> ResponseFuture<T, E>
 where
-    T: Future<Item = Response<S>, Error = crate::Status>,
+    T: Future<Output = Result<Response<S>, crate::Status>>,
     E: Encoder,
     S: Stream<Item = E::Item>,
 {
@@ -29,20 +32,18 @@ where
 
 impl<T, E, S> Future for ResponseFuture<T, E>
 where
-    T: Future<Item = Response<S>, Error = crate::Status>,
+    T: Future<Output = Result<Response<S>, crate::Status>>,
     E: Encoder,
-    S: Stream<Item = E::Item>,
+    S: TryStream<Ok = E::Item>,
     S::Error: Into<Error>,
 {
-    type Item = http::Response<Encode<E, S>>;
-    type Error = Never;
+    type Output = Result<http::Response<Encode<E, S>>, Never>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Get the gRPC response
-        let response = match self.inner.poll() {
-            Ok(Async::Ready(response)) => response,
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            Err(status) => {
+        let response = match Pin::new(&mut self.inner).poll() {
+            Poll::Ready(Ok(response)) => response,
+            Poll::Ready(Err(status)) => {
                 // Construct http response
                 let mut response = Response::new(Encode::error(status)).into_http();
                 // Set the content type
@@ -52,8 +53,9 @@ where
                 );
 
                 // Early return
-                return Ok(response.into());
+                return Ok(response).into();
             }
+            Poll::Pending => return Poll::Pending,
         };
 
         // Convert to an HTTP response
@@ -70,6 +72,6 @@ where
         // Map the response body
         let response = response.map(move |body| Encode::response(encoder, body));
 
-        Ok(response.into())
+        Ok(response).into()
     }
 }

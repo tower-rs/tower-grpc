@@ -3,8 +3,11 @@ use crate::generic::server::ServerStreamingService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{try_ready, Future, Poll, Stream};
+use futures::{ready, Stream, TryStream};
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 /// A server streaming response future
 pub struct ResponseFuture<T, E, S>
@@ -37,9 +40,9 @@ enum State<T, S> {
 
 impl<T, E, S> ResponseFuture<T, E, S>
 where
-    T: ServerStreamingService<S::Item, Response = E::Item>,
+    T: ServerStreamingService<S::Ok, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = Inner {
@@ -54,15 +57,14 @@ where
 
 impl<T, E, S> Future for ResponseFuture<T, E, S>
 where
-    T: ServerStreamingService<S::Item, Response = E::Item>,
+    T: ServerStreamingService<S::Ok, Response = E::Item>,
     E: Encoder,
-    S: Stream<Error = crate::Status>,
+    S: TryStream<Error = crate::Status>,
 {
-    type Item = http::Response<Encode<E, T::ResponseStream>>;
-    type Error = crate::error::Never;
+    type Output = Result<http::Response<Encode<E, T::ResponseStream>>, crate::error::Never>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).poll(cx)
     }
 }
 
@@ -70,20 +72,19 @@ where
 
 impl<T, S> Future for Inner<T, S>
 where
-    T: ServerStreamingService<S::Item>,
-    S: Stream<Error = crate::Status>,
+    T: ServerStreamingService<S::Ok>,
+    S: TryStream<Error = crate::Status>,
 {
-    type Item = Response<T::ResponseStream>;
-    type Error = crate::Status;
+    type Output = Result<Response<T::ResponseStream>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         use self::State::*;
 
         loop {
             let msg = match *self.state.as_mut().unwrap() {
-                Requesting(ref mut request) => try_ready!(request.get_mut().poll()),
+                Requesting(ref mut request) => ready!(Pin::new(&mut request).poll(cx)),
                 Responding(ref mut fut) => {
-                    return fut.poll();
+                    return Pin::new(&mut fut).poll(cx);
                 }
             };
 

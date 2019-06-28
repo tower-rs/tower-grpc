@@ -3,7 +3,10 @@ use super::unary::Once;
 use crate::generic::{Encode, Encoder};
 use crate::Response;
 
-use futures::{try_ready, Future, Poll};
+use futures::ready;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
@@ -19,7 +22,7 @@ struct Inner<T> {
 
 impl<T, E> ResponseFuture<T, E>
 where
-    T: Future<Item = Response<E::Item>, Error = crate::Status>,
+    T: Future<Output = Result<Response<E::Item>, crate::Status>>,
     E: Encoder,
 {
     pub fn new(inner: T, encoder: E) -> Self {
@@ -31,14 +34,13 @@ where
 
 impl<T, E> Future for ResponseFuture<T, E>
 where
-    T: Future<Item = Response<E::Item>, Error = crate::Status>,
+    T: Future<Output = Result<Response<E::Item>, crate::Status>>,
     E: Encoder,
 {
-    type Item = http::Response<Encode<E, Once<E::Item>>>;
-    type Error = crate::error::Never;
+    type Output = Result<http::Response<Encode<E, Once<E::Item>>>, crate::error::Never>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).poll(cx)
     }
 }
 
@@ -46,13 +48,12 @@ where
 
 impl<T, U> Future for Inner<T>
 where
-    T: Future<Item = Response<U>, Error = crate::Status>,
+    T: Future<Output = Result<Response<U>, crate::Status>>,
 {
-    type Item = Response<Once<U>>;
-    type Error = crate::Status;
+    type Output = Result<Response<Once<U>>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let response = try_ready!(self.inner.poll());
-        Ok(Once::map(response).into())
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let response = ready!(Pin::new(&mut self.inner).poll(cx));
+        Ok(Once::map(response)).into()
     }
 }

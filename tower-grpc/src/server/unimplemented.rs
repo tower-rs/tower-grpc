@@ -1,7 +1,9 @@
 use crate::{Code, Status};
 
-use futures::{Future, Poll};
 use http::header;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 #[derive(Debug)]
 pub struct ResponseFuture {
@@ -17,10 +19,9 @@ impl ResponseFuture {
 }
 
 impl Future for ResponseFuture {
-    type Item = http::Response<()>;
-    type Error = crate::error::Never;
+    type Output = Result<http::Response<()>, crate::error::Never>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let status = self.status.take().expect("polled after complete");
 
         // Construct http response
@@ -38,6 +39,6 @@ impl Future for ResponseFuture {
         status
             .add_header(response.headers_mut())
             .expect("generated unimplemented message should be valid");
-        Ok(response.into())
+        Ok(response).into()
     }
 }

@@ -1,8 +1,9 @@
 use crate::body::{Body, HttpBody};
 use crate::error::Error;
 
-use futures::{Future, Poll};
 use http::{Request, Response};
+use std::future::Future;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// A specialization of tower_service::Service.
@@ -14,13 +15,13 @@ pub trait GrpcService<ReqBody> {
     type ResponseBody: Body + HttpBody;
 
     /// Response future
-    type Future: Future<Item = Response<Self::ResponseBody>, Error = Self::Error>;
+    type Future: Future<Output = Result<Response<Self::ResponseBody>, Self::Error>>;
 
     /// Error type
     type Error: Into<Error>;
 
     /// Poll that this service is ready.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Call the service.
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future;
@@ -52,8 +53,8 @@ where
     type Future = T::Future;
     type Error = T::Error;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Service::poll_ready(self)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Service::poll_ready(self, cx)
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
@@ -73,8 +74,8 @@ where
     type Future = T::Future;
     type Error = T::Error;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        GrpcService::poll_ready(self.0)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        GrpcService::poll_ready(self.0, cx)
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
@@ -94,7 +95,7 @@ where
     type Future = T::Future;
     type Error = T::Error;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         GrpcService::poll_ready(&mut self.0)
     }
 

@@ -2,16 +2,19 @@ use super::client_streaming;
 use crate::error::Error;
 use crate::Body;
 
-use futures::{stream, Future, Poll};
+use futures::{future::TryFuture, stream};
 use http::Response;
 use prost::Message;
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub struct ResponseFuture<T, U, B: Body> {
     inner: client_streaming::ResponseFuture<T, U, B>,
 }
 
-pub type Once<T> = stream::Once<T, crate::Status>;
+pub type Once<T> = stream::Once<Result<T, crate::Status>>;
 
 impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
@@ -23,16 +26,15 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where
     T: Message + Default,
-    U: Future<Item = Response<B>>,
+    U: TryFuture<Ok = Response<B>>,
     U::Error: Into<Error>,
     B: Body,
     B::Error: Into<Error>,
 {
-    type Item = crate::Response<T>;
-    type Error = crate::Status;
+    type Output = Result<crate::Response<T>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.inner).try_poll(cx)
     }
 }
 

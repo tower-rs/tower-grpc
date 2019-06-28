@@ -3,10 +3,13 @@ use crate::codec::Streaming;
 use crate::error::Error;
 use crate::Body;
 
-use futures::{try_ready, Future, Poll, Stream};
+use futures::{future::TryFuture, ready};
 use http::{response, Response};
 use prost::Message;
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub struct ResponseFuture<T, U, B: Body> {
     state: State<T, U, B>,
@@ -33,36 +36,33 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where
     T: Message + Default,
-    U: Future<Item = Response<B>>,
+    U: TryFuture<Ok = Response<B>>,
     U::Error: Into<Error>,
     B: Body,
     B::Error: Into<Error>,
 {
-    type Item = crate::Response<T>;
-    type Error = crate::Status;
+    type Output = Result<crate::Response<T>, crate::Status>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            let response = match self.state {
-                State::WaitResponse(ref mut inner) => try_ready!(inner.poll()),
-                State::WaitMessage {
-                    ref mut head,
-                    ref mut stream,
-                } => {
-                    let message = match try_ready!(stream.poll()) {
+            let response = match &mut self.state {
+                State::WaitResponse(inner) => ready!(Pin::new(inner).try_poll()),
+                State::WaitMessage { head, stream } => {
+                    let message = match ready!(Pin::new(stream).poll()) {
                         Some(message) => message,
                         None => {
                             return Err(crate::Status::new(
                                 crate::Code::Internal,
                                 "Missing response message.",
-                            ));
+                            ))
+                            .into();
                         }
                     };
 
                     let head = head.take().unwrap();
                     let response = Response::from_parts(head, message);
 
-                    return Ok(crate::Response::from_http(response).into());
+                    return Ok(crate::Response::from_http(response)).into();
                 }
             };
 
