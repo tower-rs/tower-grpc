@@ -22,8 +22,9 @@ struct Inner<T> {
 
 impl<T, E> ResponseFuture<T, E>
 where
-    T: Future<Output = Result<Response<E::Item>, crate::Status>>,
+    T: Future<Output = Result<Response<E::Item>, crate::Status>> + Unpin,
     E: Encoder,
+    E::Item: Unpin,
 {
     pub fn new(inner: T, encoder: E) -> Self {
         let inner = Inner { inner };
@@ -34,8 +35,9 @@ where
 
 impl<T, E> Future for ResponseFuture<T, E>
 where
-    T: Future<Output = Result<Response<E::Item>, crate::Status>>,
-    E: Encoder,
+    T: Future<Output = Result<Response<E::Item>, crate::Status>> + Unpin,
+    E: Encoder + Unpin,
+    E::Item: Unpin,
 {
     type Output = Result<http::Response<Encode<E, Once<E::Item>>>, crate::error::Never>;
 
@@ -48,12 +50,12 @@ where
 
 impl<T, U> Future for Inner<T>
 where
-    T: Future<Output = Result<Response<U>, crate::Status>>,
+    T: Future<Output = Result<Response<U>, crate::Status>> + Unpin,
 {
     type Output = Result<Response<Once<U>>, crate::Status>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let response = ready!(Pin::new(&mut self.inner).poll(cx));
+        let response = ready!(Pin::new(&mut self.inner).poll(cx))?;
         Ok(Once::map(response)).into()
     }
 }

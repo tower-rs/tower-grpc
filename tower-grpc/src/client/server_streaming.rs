@@ -24,10 +24,10 @@ impl<T, U> ResponseFuture<T, U> {
 
 impl<T, U, B> Future for ResponseFuture<T, U>
 where
-    T: Message + Default,
-    U: TryFuture<Ok = Response<B>>,
+    T: Message + Default + Unpin,
+    U: TryFuture<Ok = Response<B>> + Unpin,
     U::Error: Into<Error>,
-    B: Body,
+    B: Body + Unpin,
 {
     type Output = Result<crate::Response<Streaming<T, B>>, crate::Status>;
 

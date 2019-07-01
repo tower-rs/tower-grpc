@@ -3,7 +3,7 @@ use crate::codec::Streaming;
 use crate::error::Error;
 use crate::Body;
 
-use futures::{future::TryFuture, ready};
+use futures::{ready, Stream, TryFuture};
 use http::{response, Response};
 use prost::Message;
 use std::fmt;
@@ -35,21 +35,25 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where
-    T: Message + Default,
-    U: TryFuture<Ok = Response<B>>,
+    T: Message + Default + Unpin,
+    U: TryFuture<Ok = Response<B>> + Unpin,
     U::Error: Into<Error>,
-    B: Body,
+    B: Body + Unpin,
+    B::Data: Unpin,
     B::Error: Into<Error>,
 {
     type Output = Result<crate::Response<T>, crate::Status>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            let response = match &mut self.state {
-                State::WaitResponse(inner) => ready!(Pin::new(inner).try_poll()),
+            let me = &mut self;
+
+            let response = match &mut me.state {
+                State::WaitResponse(inner) => ready!(Pin::new(inner).try_poll(cx))?,
                 State::WaitMessage { head, stream } => {
-                    let message = match ready!(Pin::new(stream).poll()) {
-                        Some(message) => message,
+                    let message = match ready!(Pin::new(stream).poll_next(cx)) {
+                        Some(Ok(message)) => message,
+                        Some(Err(e)) => return Err(e).into(),
                         None => {
                             return Err(crate::Status::new(
                                 crate::Code::Internal,
@@ -62,13 +66,13 @@ where
                     let head = head.take().unwrap();
                     let response = Response::from_parts(head, message);
 
-                    return Ok(crate::Response::from_http(response)).into();
+                    return Poll::Ready(Ok(crate::Response::from_http(response)));
                 }
             };
 
             let (head, body) = response.into_http().into_parts();
 
-            self.state = State::WaitMessage {
+            me.state = State::WaitMessage {
                 head: Some(head),
                 stream: body,
             };

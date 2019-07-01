@@ -2,7 +2,7 @@ use super::client_streaming;
 use crate::error::Error;
 use crate::Body;
 
-use futures::{future::TryFuture, stream};
+use futures::{future, stream, TryFuture};
 use http::Response;
 use prost::Message;
 use std::fmt;
@@ -14,7 +14,7 @@ pub struct ResponseFuture<T, U, B: Body> {
     inner: client_streaming::ResponseFuture<T, U, B>,
 }
 
-pub type Once<T> = stream::Once<Result<T, crate::Status>>;
+pub type Once<T> = stream::Once<future::Ready<Result<T, crate::Status>>>;
 
 impl<T, U, B: Body> ResponseFuture<T, U, B> {
     /// Create a new client-streaming response future.
@@ -25,10 +25,11 @@ impl<T, U, B: Body> ResponseFuture<T, U, B> {
 
 impl<T, U, B> Future for ResponseFuture<T, U, B>
 where
-    T: Message + Default,
-    U: TryFuture<Ok = Response<B>>,
+    T: Message + Default + Unpin,
+    U: TryFuture<Ok = Response<B>> + Unpin,
     U::Error: Into<Error>,
-    B: Body,
+    B: Body + Unpin,
+    B::Data: Unpin,
     B::Error: Into<Error>,
 {
     type Output = Result<crate::Response<T>, crate::Status>;

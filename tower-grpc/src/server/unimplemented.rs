@@ -21,7 +21,7 @@ impl ResponseFuture {
 impl Future for ResponseFuture {
     type Output = Result<http::Response<()>, crate::error::Never>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         let status = self.status.take().expect("polled after complete");
 
         // Construct http response

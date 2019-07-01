@@ -27,7 +27,10 @@ where
     ) -> unary::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
     where
         S: UnaryService<T::Decode, Response = T::Encode>,
-        B: Body,
+        T::Decoder: Unpin,
+        T::Encode: Unpin,
+        B: Body + Unpin,
+        B::Data: Unpin,
     {
         let request = self.map_request(request);
         unary::ResponseFuture::new(service, request, self.codec.encoder())
@@ -40,7 +43,11 @@ where
     ) -> client_streaming::ResponseFuture<S::Future, T::Encoder>
     where
         S: ClientStreamingService<Streaming<T::Decoder, B>, Response = T::Encode>,
-        B: Body,
+        S::Future: Unpin,
+        T: Unpin,
+        T::Encode: Unpin,
+        T::Decoder: Unpin,
+        B: Body + Unpin,
     {
         let response = service.call(self.map_request(request));
         client_streaming::ResponseFuture::new(response, self.codec.encoder())
@@ -52,8 +59,11 @@ where
         request: http::Request<B>,
     ) -> server_streaming::ResponseFuture<S, T::Encoder, Streaming<T::Decoder, B>>
     where
-        S: ServerStreamingService<T::Decode, Response = T::Encode>,
-        B: Body,
+        S: ServerStreamingService<T::Decode, Response = T::Encode> + Unpin,
+        S::Future: Unpin,
+        T::Decoder: Unpin,
+        B: Body + Unpin,
+        B::Data: Unpin,
     {
         let request = self.map_request(request);
         server_streaming::ResponseFuture::new(service, request, self.codec.encoder())
@@ -66,7 +76,9 @@ where
     ) -> streaming::ResponseFuture<S::Future, T::Encoder>
     where
         S: StreamingService<Streaming<T::Decoder, B>, Response = T::Encode>,
-        B: Body,
+        S::Future: Unpin,
+        T::Decoder: Unpin,
+        B: Body + Unpin,
     {
         let response = service.call(self.map_request(request));
         streaming::ResponseFuture::new(response, self.codec.encoder())
@@ -75,7 +87,8 @@ where
     /// Map an inbound HTTP request to a streaming decoded request
     fn map_request<B>(&mut self, request: http::Request<B>) -> Request<Streaming<T::Decoder, B>>
     where
-        B: Body,
+        B: Body + Unpin,
+        T::Decoder: Unpin,
     {
         Request::from_http(
             request.map(|body| Streaming::new(self.codec.decoder(), body, Direction::Request)),

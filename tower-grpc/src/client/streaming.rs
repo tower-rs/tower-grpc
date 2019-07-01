@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::Body;
 use crate::Code;
 
-use futures::{future::TryFuture, ready};
+use futures::{ready, TryFuture};
 use http::Response;
 use prost::Message;
 use std::future::Future;
@@ -29,21 +29,21 @@ impl<T, U> ResponseFuture<T, U> {
 
 impl<T, U, B> Future for ResponseFuture<T, U>
 where
-    T: Message + Default,
-    U: TryFuture<Ok = Response<B>>,
+    T: Message + Default + Unpin,
+    U: TryFuture<Ok = Response<B>> + Unpin,
     U::Error: Into<Error>,
-    B: Body,
+    B: Body + Unpin,
 {
     type Output = Result<crate::Response<Streaming<T, B>>, crate::Status>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         use crate::codec::Decoder;
         use crate::generic::Streaming;
 
         // Get the response
         let response = ready!(Pin::new(&mut self.inner)
             .try_poll(cx)
-            .map_err(|err| crate::Status::from_error(&*(err.into()))));
+            .map_err(|err| crate::Status::from_error(&*(err.into()))))?;
 
         let status_code = response.status();
 
@@ -52,7 +52,7 @@ where
         let expect_additional_trailers = trailers_only_status.is_none();
         if let Some(status) = trailers_only_status {
             if status.code() != Code::Ok {
-                return Err(status);
+                return Err(status).into();
             }
         }
 
@@ -65,6 +65,6 @@ where
         let response =
             response.map(move |body| Streaming::new(Decoder::new(), body, streaming_direction));
 
-        Ok(crate::Response::from_http(response).into())
+        Ok(crate::Response::from_http(response)).into()
     }
 }

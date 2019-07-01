@@ -8,7 +8,7 @@ pub mod unary;
 use crate::body::BoxBody;
 use crate::generic::client::{GrpcService, IntoService};
 
-use futures::{stream, Stream};
+use futures::{future, stream, FutureExt, Stream};
 use http::{uri, Uri};
 use prost::Message;
 use std::future::Future;
@@ -42,20 +42,21 @@ impl<T> Grpc<T> {
         T: GrpcService<R>,
     {
         self.inner
-            .poll_ready()
+            .poll_ready(cx)
             .map_err(|err| crate::Status::from_error(&*(err.into())))
     }
 
     /// Consumes `self`, returning a future that yields `self` back once it is ready to accept a
     /// request.
-    pub fn ready<R>(self) -> impl Future<Item = Self, Error = crate::Status>
+    pub fn ready<R>(self) -> impl Future<Output = Result<Self, crate::Status>>
     where
         T: GrpcService<R>,
     {
         use tower_util::Ready;
-        Ready::new(self.inner.into_service())
-            .map(|IntoService(inner)| Grpc { inner })
-            .map_err(|err| crate::Status::from_error(&*(err.into())))
+        Ready::new(self.inner.into_service()).map(|svc| match svc {
+            Ok(IntoService(inner)) => Ok(Grpc { inner }),
+            Err(err) => Err(crate::Status::from_error(&*(err.into()))),
+        })
     }
 
     /// Send a unary gRPC request.
@@ -68,7 +69,7 @@ impl<T> Grpc<T> {
         T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
     {
-        let request = request.map(|v| stream::once(Ok(v)));
+        let request = request.map(|v| stream::once(future::ok(v)));
         let response = self.client_streaming(request, path);
 
         unary::ResponseFuture::new(response)
@@ -98,7 +99,7 @@ impl<T> Grpc<T> {
         T: GrpcService<R>,
         unary::Once<M1>: Encodable<R>,
     {
-        let request = request.map(|v| stream::once(Ok(v)));
+        let request = request.map(|v| stream::once(future::ok(v)));
         let response = self.streaming(request, path);
 
         server_streaming::ResponseFuture::new(response)
@@ -160,8 +161,8 @@ impl<T> Grpc<T> {
 
 impl<T, U> Encodable<BoxBody> for T
 where
-    T: Stream<Item = Result<U, crate::Status>> + Send + 'static,
-    U: Message + 'static,
+    T: Stream<Item = Result<U, crate::Status>> + Send + 'static + Unpin,
+    U: Message + 'static + Unpin,
 {
     fn into_encode(self) -> BoxBody {
         use crate::codec::Encoder;

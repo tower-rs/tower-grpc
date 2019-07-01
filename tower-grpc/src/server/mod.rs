@@ -13,9 +13,10 @@ use crate::Body;
 pub fn unary<T, B, R>(service: T, request: http::Request<B>) -> unary::ResponseFuture<T, B, R>
 where
     T: UnaryService<R>,
-    R: prost::Message + Default,
+    R: prost::Message + Default + Unpin,
     T::Response: prost::Message,
-    B: Body,
+    B: Body + Unpin,
+    B::Data: Unpin,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.unary(service, request);
@@ -28,9 +29,11 @@ pub fn client_streaming<T, R, B>(
 ) -> client_streaming::ResponseFuture<T, Streaming<R, B>>
 where
     T: ClientStreamingService<Streaming<R, B>>,
-    R: prost::Message + Default,
-    T::Response: prost::Message,
-    B: Body,
+    T::Future: Unpin,
+    R: prost::Message + Default + Unpin,
+    T::Response: prost::Message + Unpin,
+    B: Body + Unpin,
+    B::Data: Unpin,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.client_streaming(service, request);
@@ -42,10 +45,12 @@ pub fn server_streaming<T, B, R>(
     request: http::Request<B>,
 ) -> server_streaming::ResponseFuture<T, B, R>
 where
-    T: ServerStreamingService<R>,
-    R: prost::Message + Default,
-    T::Response: prost::Message,
-    B: Body,
+    T: ServerStreamingService<R> + Unpin,
+    T::Future: Unpin,
+    R: prost::Message + Default + Unpin,
+    T::Response: prost::Message + Unpin,
+    B: Body + Unpin,
+    B::Data: Unpin,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.server_streaming(service, request);
@@ -58,9 +63,11 @@ pub fn streaming<T, R, B>(
 ) -> streaming::ResponseFuture<T, Streaming<R, B>>
 where
     T: StreamingService<Streaming<R, B>>,
-    R: prost::Message + Default,
-    T::Response: prost::Message,
-    B: Body,
+    T::Future: Unpin,
+    R: prost::Message + Default + Unpin,
+    T::Response: prost::Message + Unpin,
+    B: Body + Unpin,
+    B::Data: Unpin,
 {
     let mut grpc = Grpc::new(Codec::new());
     let inner = grpc.streaming(service, request);

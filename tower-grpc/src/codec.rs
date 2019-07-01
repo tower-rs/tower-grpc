@@ -2,7 +2,7 @@ use crate::body::{BoxBody, HttpBody};
 use crate::generic::{DecodeBuf, EncodeBuf};
 
 use bytes::BufMut;
-use futures::Stream;
+use futures::TryStream;
 use prost::DecodeError;
 use prost::Message;
 
@@ -29,9 +29,9 @@ pub(crate) use crate::generic::Direction;
 /// A protobuf encoded gRPC response body
 pub struct Encode<T>
 where
-    T: Stream,
+    T: TryStream,
 {
-    inner: crate::generic::Encode<Encoder<T::Item>, T>,
+    inner: crate::generic::Encode<Encoder<T::Ok>, T>,
 }
 
 // ===== impl Codec =====
@@ -149,45 +149,45 @@ impl<T> Clone for Decoder<T> {
 
 impl<T> Encode<T>
 where
-    T: Stream<Error = crate::Status>,
-    T::Item: ::prost::Message,
+    T: TryStream<Error = crate::Status>,
+    T::Ok: ::prost::Message,
 {
-    pub(crate) fn new(inner: crate::generic::Encode<Encoder<T::Item>, T>) -> Self {
+    pub(crate) fn new(inner: crate::generic::Encode<Encoder<T::Ok>, T>) -> Self {
         Encode { inner }
     }
 }
 
 impl<T> HttpBody for Encode<T>
 where
-    T: Stream<Error = crate::Status>,
-    T::Item: ::prost::Message,
+    T: TryStream<Error = crate::Status> + Unpin,
+    T::Ok: ::prost::Message + Unpin,
 {
-    type Data = <crate::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Data;
-    type Error = <crate::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Error;
+    type Data = <crate::generic::Encode<Encoder<T::Ok>, T> as HttpBody>::Data;
+    type Error = <crate::generic::Encode<Encoder<T::Ok>, T> as HttpBody>::Error;
 
     fn is_end_stream(&self) -> bool {
         false
     }
 
     fn poll_data(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Data>, Self::Error> {
-        Pin::new(&mut self.inner).poll_data()
+    ) -> Poll<Result<Option<Self::Data>, Self::Error>> {
+        Pin::new(&mut self.inner).poll_data(cx)
     }
 
     fn poll_trailers(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        Pin::new(&mut self.inner).poll_trailers()
+    ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
+        Pin::new(&mut self.inner).poll_trailers(cx)
     }
 }
 
 impl<T> fmt::Debug for Encode<T>
 where
-    T: Stream + fmt::Debug,
-    T::Item: fmt::Debug,
+    T: TryStream + fmt::Debug,
+    T::Ok: fmt::Debug,
     T::Error: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {

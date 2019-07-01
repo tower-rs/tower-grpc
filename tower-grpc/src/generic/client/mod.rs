@@ -10,12 +10,12 @@ use tower_service::Service;
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `GrpcService`.
-pub trait GrpcService<ReqBody> {
+pub trait GrpcService<ReqBody>: Unpin {
     /// Response body type
     type ResponseBody: Body + HttpBody;
 
     /// Response future
-    type Future: Future<Output = Result<Response<Self::ResponseBody>, Self::Error>>;
+    type Future: Future<Output = Result<Response<Self::ResponseBody>, Self::Error>> + Unpin;
 
     /// Error type
     type Error: Into<Error>;
@@ -69,6 +69,7 @@ pub struct AsService<'a, T>(&'a mut T);
 impl<'a, T, ReqBody> Service<Request<ReqBody>> for AsService<'a, T>
 where
     T: GrpcService<ReqBody> + 'a,
+    T::Future: Unpin,
 {
     type Response = Response<T::ResponseBody>;
     type Future = T::Future;
@@ -89,14 +90,15 @@ pub struct IntoService<T>(pub(crate) T);
 
 impl<T, ReqBody> Service<Request<ReqBody>> for IntoService<T>
 where
-    T: GrpcService<ReqBody>,
+    T: GrpcService<ReqBody> + Unpin,
+    T::Future: Unpin,
 {
     type Response = Response<T::ResponseBody>;
     type Future = T::Future;
     type Error = T::Error;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        GrpcService::poll_ready(&mut self.0)
+        GrpcService::poll_ready(&mut self.0, cx)
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {

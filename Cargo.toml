@@ -1,14 +1,14 @@
 [workspace]
 members = [
   "tower-grpc",
-  "tower-grpc-build",
-  "tower-grpc-examples",
-  "tower-grpc-interop",
+  # "tower-grpc-build",
+  # "tower-grpc-examples",
+  # "tower-grpc-interop",
 
   # For tests
-  "tests/multifile",
-  "tests/collide",
-  "tests/name-case",
-  "tests/unused-imports",
-  "tests/uses_empty",
+  # "tests/multifile",
+  # "tests/collide",
+  # "tests/name-case",
+  # "tests/unused-imports",
+  # "tests/uses_empty",
 ]

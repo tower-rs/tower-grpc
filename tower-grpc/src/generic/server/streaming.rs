@@ -2,7 +2,7 @@ use crate::error::{Error, Never};
 use crate::generic::{Encode, Encoder};
 use crate::Response;
 
-use futures::{Stream, TryStream};
+use futures::{ready, FutureExt, TryStream};
 use http::header;
 use std::future::Future;
 use std::pin::Pin;
@@ -20,7 +20,7 @@ impl<T, E, S> ResponseFuture<T, E>
 where
     T: Future<Output = Result<Response<S>, crate::Status>>,
     E: Encoder,
-    S: Stream<Item = E::Item>,
+    S: TryStream<Ok = E::Item>,
 {
     pub fn new(inner: T, encoder: E) -> Self {
         ResponseFuture {
@@ -32,18 +32,18 @@ where
 
 impl<T, E, S> Future for ResponseFuture<T, E>
 where
-    T: Future<Output = Result<Response<S>, crate::Status>>,
-    E: Encoder,
+    T: Future<Output = Result<Response<S>, crate::Status>> + Unpin,
+    E: Encoder + Unpin,
     S: TryStream<Ok = E::Item>,
     S::Error: Into<Error>,
 {
     type Output = Result<http::Response<Encode<E, S>>, Never>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Get the gRPC response
-        let response = match Pin::new(&mut self.inner).poll() {
-            Poll::Ready(Ok(response)) => response,
-            Poll::Ready(Err(status)) => {
+        let response = match ready!(self.inner.poll_unpin(cx)) {
+            Ok(response) => response,
+            Err(status) => {
                 // Construct http response
                 let mut response = Response::new(Encode::error(status)).into_http();
                 // Set the content type
@@ -55,7 +55,6 @@ where
                 // Early return
                 return Ok(response).into();
             }
-            Poll::Pending => return Poll::Pending,
         };
 
         // Convert to an HTTP response

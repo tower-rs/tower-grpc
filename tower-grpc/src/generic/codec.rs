@@ -9,7 +9,6 @@ use http::{HeaderMap, StatusCode};
 use log::{debug, trace, warn};
 use std::collections::VecDeque;
 use std::fmt;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -184,8 +183,8 @@ where
 
 impl<T, U> HttpBody for Encode<T, U>
 where
-    T: Encoder<Item = U::Ok>,
-    U: TryStream,
+    T: Encoder<Item = U::Ok> + Unpin,
+    U: TryStream + Unpin,
     U::Error: Into<Error>,
 {
     type Data = BytesBuf;
@@ -199,8 +198,10 @@ where
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<Self::Data>, Status>> {
-        match Pin::new(&mut self.inner).poll_encode(cx, &mut self.buf) {
-            Ok(ok) => Ok(ok),
+        let me = &mut *self;
+
+        match ready!(Pin::new(&mut me.inner).poll_encode(cx, &mut me.buf)) {
+            Ok(ok) => Ok(ok).into(),
             Err(status) => {
                 match self.role {
                     // clients don't send statuses as trailers, so just return
@@ -220,7 +221,7 @@ where
 
     fn poll_trailers(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
     ) -> Poll<Result<Option<HeaderMap>, Status>> {
         if let Role::Client = self.role {
             return Ok(None).into();
@@ -231,14 +232,14 @@ where
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
 
-        Some(Ok(map?)).into()
+        Ok(Some(map?)).into()
     }
 }
 
 impl<T, U> EncodeInner<T, U>
 where
-    T: Encoder<Item = U::Ok>,
-    U: TryStream,
+    T: Encoder<Item = U::Ok> + Unpin,
+    U: TryStream + Unpin,
     U::Error: Into<Error>,
 {
     fn poll_encode(
@@ -246,18 +247,17 @@ where
         cx: &mut Context<'_>,
         buf: &mut BytesMut,
     ) -> Poll<Result<Option<BytesBuf>, Status>> {
-        match self {
-            EncodeInner::Ok {
-                ref mut inner,
-                ref mut encoder,
-            } => {
-                let item = ready!(Pin::new(inner).poll(cx).map_err(|err| {
-                    let err = err.into();
-                    debug!("encoder inner stream error: {:?}", err);
-                    Status::from_error(&*err)
-                }));
+        match &mut *self {
+            EncodeInner::Ok { inner, encoder } => {
+                let item = ready!(Pin::new(inner).try_poll_next(cx)).map(|r| {
+                    r.map_err(|err| {
+                        let err = err.into();
+                        debug!("encoder inner stream error: {:?}", err);
+                        Status::from_error(&*err)
+                    })
+                });
 
-                let item = if let Some(item) = item {
+                let item = if let Some(Ok(item)) = item {
                     buf.reserve(5);
                     unsafe {
                         buf.advance_mut(5);
@@ -274,11 +274,13 @@ where
                     }
 
                     Some(buf.split_to(len + 5).freeze().into_buf())
+                } else if let Some(Err(e)) = item {
+                    return Err(e).into();
                 } else {
                     None
                 };
 
-                return Ok(Some(item)).into();
+                return Ok(item).into();
             }
             _ => return Ok(None).into(),
         }
@@ -286,11 +288,11 @@ where
 }
 
 // ===== impl Streaming =====
-
+impl<T, U: Body> Unpin for Streaming<T, U> {}
 impl<T, U> Streaming<T, U>
 where
-    T: Decoder,
-    U: Body,
+    T: Decoder + Unpin,
+    U: Body + Unpin,
 {
     pub(crate) fn new(decoder: T, inner: U, direction: Direction) -> Self {
         Streaming {
@@ -360,8 +362,8 @@ where
 
 impl<T, U> Stream for Streaming<T, U>
 where
-    T: Decoder,
-    U: Body,
+    T: Decoder + Unpin,
+    U: Body + Unpin,
 {
     type Item = Result<T::Item, Status>;
 
@@ -371,7 +373,8 @@ where
                 break;
             }
 
-            match self.decode()? {
+            let me = &mut *self;
+            match me.decode()? {
                 Some(val) => return Some(Ok(val)).into(),
                 None => (),
             }
@@ -380,17 +383,18 @@ where
                 let err = err.into();
                 debug!("decoder inner stream error: {:?}", err);
                 Status::from_error(&*err)
-            }));
+            }))?;
 
             if let Some(data) = chunk {
                 self.bufs.bufs.push_back(data.into_buf());
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");
-                    return Err(crate::Status::new(
+                    return Some(Err(crate::Status::new(
                         crate::Code::Internal,
                         "Unexpected EOF decoding stream.".to_string(),
-                    ));
+                    )))
+                    .into();
                 } else {
                     self.state = State::Done;
                     break;
@@ -403,13 +407,13 @@ where
                 let err = err.into();
                 debug!("decoder inner trailers error: {:?}", err);
                 Status::from_error(&*err)
-            }));
+            }))?;
             match infer_grpc_status(trailers, status_code) {
-                Ok(_) => Ok(None).into(),
-                Err(err) => Err(err).into(),
+                Ok(_) => None.into(),
+                Err(err) => Some(Err(err)).into(),
             }
         } else {
-            Ok(None).into()
+            None.into()
         }
     }
 }

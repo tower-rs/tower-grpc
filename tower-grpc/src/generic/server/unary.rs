@@ -3,7 +3,7 @@ use crate::generic::server::UnaryService;
 use crate::generic::{Encode, Encoder};
 use crate::{Request, Response};
 
-use futures::{ready, Stream, TryStream};
+use futures::{ready, TryStream};
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
@@ -12,8 +12,9 @@ use tower_service::Service;
 
 pub struct ResponseFuture<T, E, S>
 where
-    T: UnaryService<S::Item>,
-    S: Stream,
+    T: UnaryService<S::Ok>,
+    T::Response: Unpin,
+    S: TryStream,
 {
     inner: server_streaming::ResponseFuture<Inner<T>, E, S>,
 }
@@ -37,7 +38,8 @@ impl<T, E, S> ResponseFuture<T, E, S>
 where
     T: UnaryService<S::Ok, Response = E::Item>,
     E: Encoder,
-    S: TryStream<Error = crate::Status>,
+    E::Item: Unpin,
+    S: TryStream<Error = crate::Status> + Unpin,
 {
     pub fn new(inner: T, request: Request<S>, encoder: E) -> Self {
         let inner = server_streaming::ResponseFuture::new(Inner(inner), request, encoder);
@@ -48,13 +50,14 @@ where
 impl<T, E, S> Future for ResponseFuture<T, E, S>
 where
     T: UnaryService<S::Ok, Response = E::Item>,
-    E: Encoder,
-    S: TryStream<Error = crate::Status>,
+    E: Encoder + Unpin,
+    E::Item: Unpin,
+    S: TryStream<Error = crate::Status> + Unpin,
 {
     type Output = Result<http::Response<Encode<E, Once<T::Response>>>, crate::error::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Pin::new(&mut self.inner).poll()
+        Pin::new(&mut self.inner).poll(cx).map_err(Into::into)
     }
 }
 
@@ -68,8 +71,8 @@ where
     type Error = crate::Status;
     type Future = InnerFuture<T::Future>;
 
-    fn poll_ready(&mut self) -> Poll<Result<(), Self::Error>> {
-        Ok(().into())
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Ok(()).into()
     }
 
     fn call(&mut self, request: Request<R>) -> Self::Future {
@@ -82,12 +85,12 @@ where
 
 impl<T, U> Future for InnerFuture<T>
 where
-    T: Future<Output = Result<Response<U>, crate::Status>>,
+    T: Future<Output = Result<Response<U>, crate::Status>> + Unpin,
 {
     type Output = Result<Response<Once<U>>, crate::Status>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let response = ready!(Pin::new(&mut self.0).poll());
+        let response = ready!(Pin::new(&mut self.0).poll(cx))?;
         Ok(Once::map(response)).into()
     }
 }
@@ -101,21 +104,25 @@ impl<T> Once<T> {
     }
 }
 
-impl<T> Stream for Once<T> {
-    type Item = Result<T, crate::Status>;
+impl<T: Unpin> TryStream for Once<T> {
+    type Ok = T;
+    type Error = crate::Status;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Ok(self.inner.take().into())
+    fn try_poll_next(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Ok, Self::Error>>> {
+        Pin::new(&mut self.inner).take().map(|v| Ok(v)).into()
     }
 }
 
 impl<T, E, S> fmt::Debug for ResponseFuture<T, E, S>
 where
-    T: UnaryService<S::Item> + fmt::Debug,
-    T::Response: fmt::Debug,
+    T: UnaryService<S::Ok> + fmt::Debug,
+    T::Response: fmt::Debug + Unpin,
     T::Future: fmt::Debug,
     E: fmt::Debug,
-    S: Stream + fmt::Debug,
+    S: TryStream + fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("unary::ResponseFuture")

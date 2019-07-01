@@ -9,7 +9,7 @@ pub(crate) use self::grpc::Grpc;
 
 use crate::{Request, Response};
 
-use futures::stream::{Stream, TryStream};
+use futures::stream::TryStream;
 use std::future::Future;
 use tower_service::Service;
 
@@ -22,7 +22,7 @@ pub trait StreamingService<RequestStream> {
     type Response;
 
     /// Stream of outbound response messages
-    type ResponseStream: Stream<Item = Result<Self::Response, crate::Status>>;
+    type ResponseStream: TryStream<Ok = Self::Response, Error = crate::Status>;
 
     /// Response future
     type Future: Future<Output = Result<crate::Response<Self::ResponseStream>, crate::Status>>;
@@ -50,18 +50,18 @@ where
 ///
 /// Existing tower_service::Service implementations with the correct form will
 /// automatically implement `UnaryService`.
-pub trait UnaryService<R> {
+pub trait UnaryService<R>: Unpin {
     /// Protobuf response message type
-    type Response;
+    type Response: Unpin;
 
     /// Response future
-    type Future: Future<Output = Result<crate::Response<Self::Response>, crate::Status>>;
+    type Future: Future<Output = Result<crate::Response<Self::Response>, crate::Status>> + Unpin;
 
     /// Call the service
     fn call(&mut self, request: Request<R>) -> Self::Future;
 }
 
-impl<T, M1, M2> UnaryService<M1> for T
+impl<T, M1, M2: Unpin> UnaryService<M1> for T
 where
     T: Service<Request<M1>, Response = Response<M2>, Error = crate::Status>,
 {
@@ -110,7 +110,7 @@ pub trait ServerStreamingService<R> {
     type Response;
 
     /// Stream of outbound response messages
-    type ResponseStream: Stream<Item = Result<Self::Response, crate::Status>>;
+    type ResponseStream: TryStream<Ok = Self::Response, Error = crate::Status>;
 
     /// Response future
     type Future: Future<Output = Result<crate::Response<Self::ResponseStream>, crate::Status>>;
