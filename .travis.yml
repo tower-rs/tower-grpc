@@ -23,7 +23,7 @@ script:
   # run unit tests
   - cargo test --all
   # run interop tests
-  - ./tower-grpc-interop/travis-interop.sh
+  # - ./tower-grpc-interop/travis-interop.sh
 
 deploy:
   provider:  pages
