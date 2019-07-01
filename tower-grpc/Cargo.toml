@@ -35,10 +35,9 @@ h2 = "0.1.11"
 log = "0.4"
 percent-encoding = "1.0.1"
 tower-hyper = { version = "0.1", optional = true }
-# http-body = { git = "https://github.com/hyperium/http-body", branch = "std-future" }
-http-body = { path = "../../http-body" }
-tower-service = { path = "../../tower/tower-service" }
-tower-util = { path = "../../tower/tower-util" }
+http-body = { git = "https://github.com/hyperium/http-body", branch = "std-future" }
+tower-service = { git = "https://github.com/tower-rs/tower", branch = "std-future" }
+tower-util = { git = "https://github.com/tower-rs/tower", branch = "std-future" }
 
 # For protobuf
 prost = { version = "0.5", optional = true }
