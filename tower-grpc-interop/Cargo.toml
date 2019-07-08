@@ -31,7 +31,7 @@ http-connection = "0.1"
 
 clap = "2.33.0"
 console = "0.7"
-rustls = "0.14.0"
+rustls = "0.15.0"
 domain = "0.2.2"
 
 [build-dependencies]
