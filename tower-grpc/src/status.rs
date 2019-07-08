@@ -59,6 +59,15 @@ impl Status {
         }
     }
 
+    /// Create a new `Status` with the associated code, message, and binary details field.
+    pub fn with_raw_details(code: Code, message: impl Into<String>, details: Bytes) -> Status {
+        Status {
+            code,
+            message: message.into(),
+            details: details,
+        }
+    }
+
     // Deprecated: this constructor encourages creating statuses with no
     // message, hurting later debugging.
     #[doc(hidden)]
