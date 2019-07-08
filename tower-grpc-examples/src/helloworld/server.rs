@@ -2,7 +2,7 @@
 
 use crate::hello_world::{server, HelloReply, HelloRequest};
 
-use futures::{future, Future, Stream};
+use futures::future;
 use log::error;
 use tokio::net::TcpListener;
 use tower_grpc::{Request, Response};
@@ -16,7 +16,7 @@ pub mod hello_world {
 struct Greet;
 
 impl server::Greeter for Greet {
-    type SayHelloFuture = future::FutureResult<Response<HelloReply>, tower_grpc::Status>;
+    type SayHelloFuture = future::Ready<Result<Response<HelloReply>, tower_grpc::Status>>;
 
     fn say_hello(&mut self, request: Request<HelloRequest>) -> Self::SayHelloFuture {
         println!("REQUEST = {:?}", request);

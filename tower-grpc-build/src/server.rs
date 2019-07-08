@@ -19,18 +19,18 @@ impl ServiceGenerator {
                 .import("::tower_grpc::codegen::server", "*");
 
             // Re-define the try_ready macro
-            module.scope().raw(
-                "\
-// Redefine the try_ready macro so that it doesn't need to be explicitly
-// imported by the user of this generated code.
-macro_rules! try_ready {
-    ($e:expr) => (match $e {
-        Ok(futures::Async::Ready(t)) => t,
-        Ok(futures::Async::NotReady) => return Ok(futures::Async::NotReady),
-        Err(e) => return Err(From::from(e)),
-    })
-}",
-            );
+            //             module.scope().raw(
+            //                 "\
+            // // Redefine the try_ready macro so that it doesn't need to be explicitly
+            // // imported by the user of this generated code.
+            // macro_rules! try_ready {
+            //     ($e:expr) => (match $e {
+            //         Ok(futures::Async::Ready(t)) => t,
+            //         Ok(futures::Async::NotReady) => return Ok(futures::Async::NotReady),
+            //         Err(e) => return Err(From::from(e)),
+            //     })
+            // }",
+            //             );
 
             self.define_service_trait(service, module.scope());
             self.define_server_struct(service, module.scope());
@@ -39,6 +39,7 @@ macro_rules! try_ready {
                 .new_module(&crate::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
+                .import("::tower_grpc::codegen::server::futures", "try_ready")
                 .import("super", &service.name);
 
             self.define_response_future(service, support);
@@ -80,12 +81,12 @@ macro_rules! try_ready {
             if method.server_streaming {
                 let stream_name = format!("{}Stream", &upper_name);
                 let stream_bound = format!(
-                    "futures::Stream<Item = {}, Error = grpc::Status>",
+                    "futures::TryStream<Ok = {}, Error = grpc::Status> + Unpin",
                     crate::unqualified(&method.output_type, &method.output_proto_type, 1)
                 );
 
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<Self::{}>, Error = grpc::Status>",
+                    "futures::Future<Output = Result<grpc::Response<Self::{}>, grpc::Status>> + Unpin",
                     stream_name
                 );
 
@@ -94,7 +95,7 @@ macro_rules! try_ready {
                     .bound(&stream_bound);
             } else {
                 future_bound = format!(
-                    "futures::Future<Item = grpc::Response<{}>, Error = grpc::Status>",
+                    "futures::Future<Output = Result<grpc::Response<{}>, grpc::Status>> + Unpin",
                     crate::unqualified(&method.output_type, &method.output_proto_type, 1)
                 );
             }
@@ -163,7 +164,7 @@ macro_rules! try_ready {
             .impl_trait("tower::Service<http::Request<grpc::BoxBody>>")
             .generic("T")
             .target_generic("T")
-            .bound("T", &service.name)
+            .bound("T", format!("{} + Unpin", service.name))
             .associate_type("Response", &response_type)
             .associate_type("Error", "grpc::Never")
             .associate_type("Future", &format!("{}::ResponseFuture<T>", lower_name));
@@ -171,8 +172,8 @@ macro_rules! try_ready {
         service_impl
             .new_fn("poll_ready")
             .arg_mut_self()
-            .ret("futures::Poll<(), Self::Error>")
-            .line("Ok(().into())");
+            .ret("futures::Poll<Result<(), Self::Error>>")
+            .line("Ok(()).into()");
 
         {
             let call = service_impl
@@ -259,18 +260,18 @@ macro_rules! try_ready {
                 .generic("T")
                 .target_generic("T")
                 .impl_trait("tower::Service<()>")
-                .bound("T", &service.name)
+                .bound("T", format!("{} + Unpin", service.name))
                 .associate_type("Response", "Self")
                 .associate_type("Error", "grpc::Never")
                 .associate_type(
                     "Future",
-                    "futures::FutureResult<Self::Response, Self::Error>",
+                    "futures::Ready<Result<Self::Response, Self::Error>>",
                 );
 
             imp.new_fn("poll_ready")
                 .arg_mut_self()
-                .ret("futures::Poll<(), Self::Error>")
-                .line("Ok(futures::Async::Ready(()))");
+                .ret("futures::Poll<Result<(), Self::Error>>")
+                .line("Ok(()).into()");
 
             imp.new_fn("call")
                 .arg_mut_self()
@@ -287,7 +288,7 @@ macro_rules! try_ready {
                 .generic("T")
                 .target_generic("T")
                 .impl_trait("tower::Service<http::Request<tower_hyper::Body>>")
-                .bound("T", &service.name)
+                .bound("T", format!("{} + Unpin", service.name))
                 .associate_type(
                     "Response",
                     "<Self as tower::Service<http::Request<grpc::BoxBody>>>::Response",
@@ -303,7 +304,7 @@ macro_rules! try_ready {
 
             imp.new_fn("poll_ready")
                 .arg_mut_self()
-                .ret("futures::Poll<(), Self::Error>")
+                .ret("futures::Poll<Result<(), Self::Error>>")
                 .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)");
 
             imp.new_fn("call")
@@ -319,7 +320,7 @@ macro_rules! try_ready {
         module
             .new_struct("ResponseFuture")
             .generic("T")
-            .bound("T", &service.name)
+            .bound("T", format!("{} + Unpin", service.name))
             .vis("pub")
             .field("pub(super) kind", response_fut_kind(service));
 
@@ -328,12 +329,15 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait("futures::Future")
-            .bound("T", &service.name)
-            .associate_type("Item", "http::Response<ResponseBody<T>>")
-            .associate_type("Error", "grpc::Never")
+            .bound("T", format!("{} + Unpin", service.name))
+            .associate_type(
+                "Output",
+                "Result<http::Response<ResponseBody<T>>, grpc::Never>",
+            )
             .new_fn("poll")
-            .arg_mut_self()
-            .ret("futures::Poll<Self::Item, Self::Error>")
+            .arg("self", "std::pin::Pin<&mut Self>")
+            .arg("cx", "&mut std::task::Context<'_>")
+            .ret("futures::Poll<Self::Output>")
             .line("use self::Kind::*;")
             .line("")
             .push_block({
@@ -345,7 +349,7 @@ macro_rules! try_ready {
                     let match_line = format!("{}(ref mut fut) =>", &upper_name);
 
                     let mut blk = codegen::Block::new(&match_line);
-                    blk.line("let response = try_ready!(fut.poll());")
+                    blk.line("let response = try_ready!(std::pin::Pin::new(fut).poll());")
                         .line("let response = response.map(|body| {")
                         .line(&format!(
                             "    ResponseBody {{ kind: {}(body) }}",
@@ -385,7 +389,7 @@ macro_rules! try_ready {
         module
             .new_struct("ResponseBody")
             .generic("T")
-            .bound("T", &service.name)
+            .bound("T", format!("{} + Unpin", service.name))
             .vis("pub")
             .field("pub(super) kind", response_body_kind(service));
 
@@ -396,7 +400,7 @@ macro_rules! try_ready {
                 .generic("T")
                 .target_generic("T")
                 .impl_trait("tower::HttpBody")
-                .bound("T", &service.name)
+                .bound("T", format!("{} + Unpin", service.name))
                 .associate_type("Data", "<grpc::BoxBody as grpc::Body>::Data")
                 .associate_type("Error", "grpc::Status");
 
@@ -428,14 +432,14 @@ macro_rules! try_ready {
 
             imp.new_fn("poll_data")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<Self::Data>, Self::Error>")
+                .ret("futures::Poll<Result<Option<Self::Data>, Self::Error>>")
                 .line("use self::Kind::*;")
                 .line("")
                 .push_block(poll_data_block);
 
             imp.new_fn("poll_trailers")
                 .arg_mut_self()
-                .ret("futures::Poll<Option<http::HeaderMap>, Self::Error>")
+                .ret("futures::Poll<Result<Option<http::HeaderMap>, Self::Error>>")
                 .line("use self::Kind::*;")
                 .line("")
                 .push_block(poll_trailers_block);
@@ -526,15 +530,15 @@ macro_rules! try_ready {
             .generic("T")
             .target_generic("T")
             .impl_trait(format!("tower::Service<{}>", req_str))
-            .bound("T", &service.name)
+            .bound("T", format!("{} + Unpin", service.name))
             .associate_type("Response", response)
             .associate_type("Error", "grpc::Status")
             .associate_type("Future", &format!("T::{}Future", &upper_name));
 
         imp.new_fn("poll_ready")
             .arg_mut_self()
-            .ret("futures::Poll<(), Self::Error>")
-            .line("Ok(futures::Async::Ready(()))");
+            .ret("futures::Poll<Result<(), Self::Error>>")
+            .line("Ok(()).into()");
 
         imp.new_fn("call")
             .arg_mut_self()

@@ -1,8 +1,8 @@
 [workspace]
 members = [
   "tower-grpc",
-  # "tower-grpc-build",
-  # "tower-grpc-examples",
+  "tower-grpc-build",
+  "tower-grpc-examples",
   # "tower-grpc-interop",
 
   # For tests

@@ -9,28 +9,29 @@ publish = false
 name = "helloworld-server"
 path = "src/helloworld/server.rs"
 
-[[bin]]
-name = "helloworld-client"
-path = "src/helloworld/client.rs"
+# [[bin]]
+# name = "helloworld-client"
+# path = "src/helloworld/client.rs"
 
-[[bin]]
-name = "metadata-server"
-path = "src/metadata/server.rs"
+# [[bin]]
+# name = "metadata-server"
+# path = "src/metadata/server.rs"
 
-[[bin]]
-name = "metadata-client"
-path = "src/metadata/client.rs"
+# [[bin]]
+# name = "metadata-client"
+# path = "src/metadata/client.rs"
 
-[[bin]]
-name = "route-guide-server"
-path = "src/routeguide/server.rs"
+# [[bin]]
+# name = "route-guide-server"
+# path = "src/routeguide/server.rs"
 
-[[bin]]
-name = "route-guide-client"
-path = "src/routeguide/client.rs"
+# [[bin]]
+# name = "route-guide-client"
+# path = "src/routeguide/client.rs"
 
 [dependencies]
-futures = "0.1"
+# futures = "0.1"
+futures = { package = "futures-preview", version = "0.3.0-alpha.16" }
 bytes = "0.4"
 env_logger = { version = "0.5", default-features = false }
 log = "0.4"

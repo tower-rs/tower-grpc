@@ -66,7 +66,7 @@ impl ServiceGenerator {
             .bound("T", "grpc::GrpcService<R>")
             .vis("pub")
             .arg_mut_self()
-            .ret("futures::Poll<(), grpc::Status>")
+            .ret("futures::Poll<Result<(), grpc::Status>>")
             .line("self.inner.poll_ready()");
 
         imp.new_fn("ready")
@@ -75,7 +75,7 @@ impl ServiceGenerator {
             .bound("T", "grpc::GrpcService<R>")
             .vis("pub")
             .arg_self()
-            .ret("impl futures::Future<Item = Self, Error = grpc::Status>")
+            .ret("impl futures::Future<Output = Result<Self, grpc::Status>>")
             .line("futures::Future::map(self.inner.ready(), |inner| Self { inner })");
 
         for method in &service.methods {
@@ -133,7 +133,7 @@ impl ServiceGenerator {
                     request.generic("B");
 
                     func.generic("B")
-                        .bound("B", &format!("futures::Stream<Item = {}>", input_type,))
+                        .bound("B", &format!("futures::TryStream<Ok = {}>", input_type,))
                         .ret(ret)
                         .line("self.inner.client_streaming(request, path)");
 

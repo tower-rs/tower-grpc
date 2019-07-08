@@ -13,11 +13,11 @@ pub mod server {
     }
 
     // FIXME: update these to our own types
-    /// Re-export types from the `future` crate.
-    // pub mod futures {
-    //     pub use futures::future::{ok, FutureResult};
-    //     pub use futures::{Async, Future, Poll, Stream};
-    // }
+    // Re-export types from the `future` crate.
+    pub mod futures {
+        pub use futures::future::{ok, ready, Ready};
+        pub use futures::{ready, try_ready, Future, Poll, Stream, TryStream};
+    }
 
     /// Re-exported types from the `http` crate.
     pub mod http {
