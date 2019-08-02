@@ -39,7 +39,7 @@ impl ServiceGenerator {
                 .new_module(&crate::lower_name(&service.name))
                 .vis("pub")
                 .import("::tower_grpc::codegen::server", "*")
-                .import("::tower_grpc::codegen::server::futures", "try_ready")
+                .import("::tower_grpc::codegen::server::futures", "ready")
                 .import("super", &service.name);
 
             self.define_response_future(service, support);
@@ -172,6 +172,7 @@ impl ServiceGenerator {
         service_impl
             .new_fn("poll_ready")
             .arg_mut_self()
+            .arg("cx", "&mut futures::Context<'_>")
             .ret("futures::Poll<Result<(), Self::Error>>")
             .line("Ok(()).into()");
 
@@ -270,6 +271,7 @@ impl ServiceGenerator {
 
             imp.new_fn("poll_ready")
                 .arg_mut_self()
+                .arg("_cx", "&mut futures::Context<'_>")
                 .ret("futures::Poll<Result<(), Self::Error>>")
                 .line("Ok(()).into()");
 
@@ -304,8 +306,9 @@ impl ServiceGenerator {
 
             imp.new_fn("poll_ready")
                 .arg_mut_self()
+                .arg("cx", "&mut futures::Context<'_>")
                 .ret("futures::Poll<Result<(), Self::Error>>")
-                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)");
+                .line("tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self, cx)");
 
             imp.new_fn("call")
                 .arg_mut_self()
@@ -336,7 +339,7 @@ impl ServiceGenerator {
             )
             .new_fn("poll")
             .arg("self", "std::pin::Pin<&mut Self>")
-            .arg("cx", "&mut std::task::Context<'_>")
+            .arg("cx", "&mut futures::Context<'_>")
             .ret("futures::Poll<Self::Output>")
             .line("use self::Kind::*;")
             .line("")
@@ -349,14 +352,14 @@ impl ServiceGenerator {
                     let match_line = format!("{}(ref mut fut) =>", &upper_name);
 
                     let mut blk = codegen::Block::new(&match_line);
-                    blk.line("let response = try_ready!(std::pin::Pin::new(fut).poll());")
+                    blk.line("let response = ready!(std::pin::Pin::new(fut).poll(cx))?;")
                         .line("let response = response.map(|body| {")
                         .line(&format!(
                             "    ResponseBody {{ kind: {}(body) }}",
                             &upper_name
                         ))
                         .line("});")
-                        .line("Ok(response.into())");
+                        .line("Ok(response).into()");
 
                     match_kind.push_block(blk);
                 }
@@ -364,14 +367,14 @@ impl ServiceGenerator {
                 let mut err =
                     codegen::Block::new(&format!("{}(ref mut fut) =>", UNIMPLEMENTED_VARIANT,));
 
-                err.line("let response = try_ready!(fut.poll());")
+                err.line("let response = ready!(std::pin::Pin::new(fut).poll(cx))?;")
                     .line("let response = response.map(|body| {")
                     .line(&format!(
                         "    ResponseBody {{ kind: {}(body) }}",
                         UNIMPLEMENTED_VARIANT
                     ))
                     .line("});")
-                    .line("Ok(response.into())");
+                    .line("Ok(response).into()");
 
                 match_kind.push_block(err);
                 match_kind
@@ -413,15 +416,17 @@ impl ServiceGenerator {
 
                 is_end_stream_block.line(&format!("{}(ref v) => v.is_end_stream(),", &upper_name));
 
-                poll_data_block.line(&format!("{}(ref mut v) => v.poll_data(),", &upper_name));
+                poll_data_block.line(&format!("{}(ref mut v) => v.poll_data(cx),", &upper_name));
 
-                poll_trailers_block
-                    .line(&format!("{}(ref mut v) => v.poll_trailers(),", &upper_name));
+                poll_trailers_block.line(&format!(
+                    "{}(ref mut v) => v.poll_trailers(cx),",
+                    &upper_name
+                ));
             }
 
             is_end_stream_block.line(&format!("{}(_) => true,", UNIMPLEMENTED_VARIANT));
-            poll_data_block.line(&format!("{}(_) => Ok(None.into()),", UNIMPLEMENTED_VARIANT));
-            poll_trailers_block.line(&format!("{}(_) => Ok(None.into()),", UNIMPLEMENTED_VARIANT));
+            poll_data_block.line(&format!("{}(_) => None.into(),", UNIMPLEMENTED_VARIANT));
+            poll_trailers_block.line(&format!("{}(_) => Ok(None).into(),", UNIMPLEMENTED_VARIANT));
 
             imp.new_fn("is_end_stream")
                 .arg_ref_self()
@@ -432,13 +437,15 @@ impl ServiceGenerator {
 
             imp.new_fn("poll_data")
                 .arg_mut_self()
-                .ret("futures::Poll<Result<Option<Self::Data>, Self::Error>>")
+                .arg("cx", "&mut futures::Context<'_>")
+                .ret("futures::Poll<Option<Result<Self::Data, Self::Error>>>")
                 .line("use self::Kind::*;")
                 .line("")
                 .push_block(poll_data_block);
 
             imp.new_fn("poll_trailers")
                 .arg_mut_self()
+                .arg("cx", "&mut futures::Context<'_>")
                 .ret("futures::Poll<Result<Option<http::HeaderMap>, Self::Error>>")
                 .line("use self::Kind::*;")
                 .line("")
@@ -537,6 +544,7 @@ impl ServiceGenerator {
 
         imp.new_fn("poll_ready")
             .arg_mut_self()
+            .arg("cx", "&mut futures::Context<'_>")
             .ret("futures::Poll<Result<(), Self::Error>>")
             .line("Ok(()).into()");
 

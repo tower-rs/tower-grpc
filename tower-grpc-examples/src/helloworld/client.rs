@@ -1,6 +1,6 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use futures::Future;
+use futures::TryFutureExt;
 use hyper::client::connect::{Destination, HttpConnector};
 use tower_grpc::Request;
 use tower_hyper::{client, util};
@@ -26,10 +26,10 @@ pub fn main() {
         .and_then(move |conn| {
             use crate::hello_world::client::Greeter;
 
-            let conn = tower_request_modifier::Builder::new()
-                .set_origin(uri)
-                .build(conn)
-                .unwrap();
+            // let conn = tower_request_modifier::Builder::new()
+            //     .set_origin(uri)
+            //     .build(conn)
+            //     .unwrap();
 
             // Wait until the client is ready...
             Greeter::new(conn).ready()

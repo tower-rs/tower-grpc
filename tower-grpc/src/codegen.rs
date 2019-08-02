@@ -16,7 +16,8 @@ pub mod server {
     // Re-export types from the `future` crate.
     pub mod futures {
         pub use futures::future::{ok, ready, Ready};
-        pub use futures::{ready, Future, Poll, Stream, TryStream};
+        pub use futures::{ready, Future, Stream, TryStream};
+        pub use std::task::{Context, Poll};
     }
 
     /// Re-exported types from the `http` crate.
@@ -54,7 +55,8 @@ pub mod client {
 
     /// Re-export types from the `future` crate.
     pub mod futures {
-        pub use futures::{Future, Poll, Stream};
+        pub use futures::{Future, FutureExt, Stream, TryFutureExt};
+        pub use std::task::{Context, Poll};
     }
 
     pub mod tower {

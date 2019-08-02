@@ -17,6 +17,7 @@ impl ServiceGenerator {
             .get_or_new_module("client")
             .vis("pub")
             .import("::tower_grpc::codegen::client", "*")
+            .import("::tower_grpc::codegen::client::futures", "TryFutureExt")
             .scope();
 
         self.import_message_types(service, scope);
@@ -66,8 +67,9 @@ impl ServiceGenerator {
             .bound("T", "grpc::GrpcService<R>")
             .vis("pub")
             .arg_mut_self()
+            .arg("cx", "&mut futures::Context<'_>")
             .ret("futures::Poll<Result<(), grpc::Status>>")
-            .line("self.inner.poll_ready()");
+            .line("self.inner.poll_ready(cx)");
 
         imp.new_fn("ready")
             .doc("Get a `Future` of when this client is ready to send another request.")
@@ -76,7 +78,7 @@ impl ServiceGenerator {
             .vis("pub")
             .arg_self()
             .ret("impl futures::Future<Output = Result<Self, grpc::Status>>")
-            .line("futures::Future::map(self.inner.ready(), |inner| Self { inner })");
+            .line("self.inner.ready().map_ok(|inner| Self { inner })");
 
         for method in &service.methods {
             let name = &method.name;

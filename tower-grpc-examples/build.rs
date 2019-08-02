@@ -2,7 +2,7 @@ fn main() {
     // Build helloworld
     tower_grpc_build::Config::new()
         .enable_server(true)
-        // .enable_client(true)
+        .enable_client(true)
         .build(
             &["proto/helloworld/helloworld.proto"],
             &["proto/helloworld"],
