@@ -27,16 +27,14 @@ protobuf = ["prost"]
 [dependencies]
 base64 = "0.10"
 bytes = "0.4.7"
-# futures = "0.1"
-futures-preview = "0.3.0-alpha.16"
-tokio-futures = { git = "https://github.com/tokio-rs/tokio" }
+futures-preview = "=0.3.0-alpha.17"
 http = "0.1.14"
 h2 = "0.1.11"
 log = "0.4"
 percent-encoding = "1.0.1"
 tower-hyper = { version = "0.1", optional = true }
-# http-body = { git = "https://github.com/hyperium/http-body", branch = "std-future" }
-http-body = { path = "../../http-body" }
+http-body = { git = "https://github.com/hyperium/http-body", branch = "std-future" }
+# http-body = { path = "../../http-body" }
 tower-service = { git = "https://github.com/tower-rs/tower", branch = "std-future" }
 tower-util = { git = "https://github.com/tower-rs/tower", branch = "std-future" }
 

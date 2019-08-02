@@ -169,15 +169,12 @@ where
         false
     }
 
-    fn poll_data(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Self::Error>> {
+    fn poll_data(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<Self::Data, Self::Error>>> {
         Pin::new(&mut self.inner).poll_data(cx)
     }
 
     fn poll_trailers(
-        mut self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
         Pin::new(&mut self.inner).poll_trailers(cx)

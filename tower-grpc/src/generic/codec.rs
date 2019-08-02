@@ -194,35 +194,30 @@ where
         false
     }
 
-    fn poll_data(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Status>> {
+    fn poll_data(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<Self::Data, Status>>> {
         let me = &mut *self;
 
         match ready!(Pin::new(&mut me.inner).poll_encode(cx, &mut me.buf)) {
-            Ok(ok) => Ok(ok).into(),
-            Err(status) => {
+            Some(Ok(ok)) => Some(Ok(ok)).into(),
+            Some(Err(status)) => {
                 match self.role {
                     // clients don't send statuses as trailers, so just return
                     // this error directly to allow an HTTP2 rst_stream to be
                     // sent.
-                    Role::Client => Err(status).into(),
+                    Role::Client => Some(Err(status)).into(),
                     // otherwise, its better to send this status in the
                     // trailers, instead of a RST_STREAM as the server...
                     Role::Server => {
                         self.inner = EncodeInner::Err(status);
-                        Ok(None).into()
+                        None.into()
                     }
                 }
             }
+            None => None.into(),
         }
     }
 
-    fn poll_trailers(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<HeaderMap>, Status>> {
+    fn poll_trailers(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Option<HeaderMap>, Status>> {
         if let Role::Client = self.role {
             return Ok(None).into();
         }
@@ -246,7 +241,7 @@ where
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut BytesMut,
-    ) -> Poll<Result<Option<BytesBuf>, Status>> {
+    ) -> Poll<Option<Result<BytesBuf, Status>>> {
         match &mut *self {
             EncodeInner::Ok { inner, encoder } => {
                 let item = ready!(Pin::new(inner).try_poll_next(cx)).map(|r| {
@@ -273,16 +268,17 @@ where
                         cursor.put_u32_be(len as u32);
                     }
 
-                    Some(buf.split_to(len + 5).freeze().into_buf())
+                    Ok(buf.split_to(len + 5).freeze().into_buf())
                 } else if let Some(Err(e)) = item {
-                    return Err(e).into();
+                    Err(e).into()
                 } else {
-                    None
+                    return None.into();
                 };
 
-                return Ok(item).into();
+                Some(item).into()
             }
-            _ => return Ok(None).into(),
+
+            _ => None.into(),
         }
     }
 }
@@ -379,14 +375,19 @@ where
                 None => (),
             }
 
-            let chunk = ready!(Pin::new(&mut self.inner).poll_data(cx).map_err(|err| {
-                let err = err.into();
-                debug!("decoder inner stream error: {:?}", err);
-                Status::from_error(&*err)
-            }))?;
+            let chunk = ready!(Pin::new(&mut self.inner).poll_data(cx)).map(|r| {
+                r.map_err(|err| {
+                    let err = err.into();
+                    debug!("decoder inner stream error: {:?}", err);
+                    Status::from_error(&*err)
+                })
+            });
 
-            if let Some(data) = chunk {
-                self.bufs.bufs.push_back(data.into_buf());
+            if let Some(chunk) = chunk {
+                match chunk {
+                    Ok(data) => self.bufs.bufs.push_back(data.into_buf()),
+                    Err(e) => return Some(Err(e)).into(),
+                }
             } else {
                 if self.bufs.has_remaining() {
                     trace!("unexpected EOF decoding stream");

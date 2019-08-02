@@ -25,7 +25,7 @@ pub trait Body: Sealed {
     fn poll_data(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Self::Error>>;
+    ) -> Poll<Option<Result<Self::Data, Self::Error>>>;
 
     fn poll_trailers(
         self: Pin<&mut Self>,
@@ -46,17 +46,17 @@ where
     }
 
     fn poll_data(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Self::Error>> {
-        HttpBody::poll_data(self, cx)
+    ) -> Poll<Option<Result<Self::Data, Self::Error>>> {
+        HttpBody::poll_data(&mut *self, cx)
     }
 
     fn poll_trailers(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
-        HttpBody::poll_trailers(self, cx)
+        HttpBody::poll_trailers(&mut *self, cx)
     }
 }
 
@@ -101,15 +101,12 @@ impl HttpBody for BoxBody {
         self.inner.is_end_stream()
     }
 
-    fn poll_data(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Self::Error>> {
+    fn poll_data(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<Self::Data, Self::Error>>> {
         Pin::new(&mut *self.inner).poll_data(cx)
     }
 
     fn poll_trailers(
-        mut self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
         Pin::new(&mut *self.inner).poll_trailers(cx)
@@ -136,16 +133,20 @@ where
         self.0.is_end_stream()
     }
 
-    fn poll_data(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Self::Data>, Self::Error>> {
-        let item = ready!(Pin::new(&mut self.0).poll_data(cx)).map_err(Status::map_error)?;
-        Ok(item.map(|buf| buf.into().into_buf())).into()
+    fn poll_data(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<Self::Data, Self::Error>>> {
+        let item =
+            ready!(Pin::new(&mut self.0).poll_data(cx)).map(|r| r.map_err(Status::map_error));
+
+        match item {
+            Some(Ok(buf)) => Some(Ok(buf.into().into_buf())),
+            Some(Err(e)) => Some(Err(e)),
+            None => None,
+        }
+        .into()
     }
 
     fn poll_trailers(
-        mut self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
         Pin::new(&mut self.0)

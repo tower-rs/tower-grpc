@@ -16,7 +16,7 @@ pub mod server {
     // Re-export types from the `future` crate.
     pub mod futures {
         pub use futures::future::{ok, ready, Ready};
-        pub use futures::{ready, try_ready, Future, Poll, Stream, TryStream};
+        pub use futures::{ready, Future, Poll, Stream, TryStream};
     }
 
     /// Re-exported types from the `http` crate.
