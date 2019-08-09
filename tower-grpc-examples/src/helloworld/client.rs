@@ -10,24 +10,24 @@ pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
 
-use hello_world::*;
+use hello_world::{HelloRequest, client};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051";
     let io = TcpStream::connect(&addr.parse()?).await?;
 
-    let svc = {
+    let mut greeter = {
         let conn = Connection::handshake(io).await?;
-        add_origin::layer(conn, &format!("http://{}", addr))?
+        let add_origin = add_origin::layer(conn, &format!("http://{}", addr))?;
+        client::Greeter::new(add_origin).ready().await?
     };
 
     let req = Request::new(HelloRequest {
         name: "What is in a name?".to_string(),
     });
 
-    let mut svc = client::Greeter::new(svc).ready().await?;
-    let res = svc.say_hello(req).await?;
+    let res = greeter.say_hello(req).await?;
 
     println!("RESPONSE={:?}", res);
 
