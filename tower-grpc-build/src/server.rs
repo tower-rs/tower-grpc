@@ -344,7 +344,8 @@ impl ServiceGenerator {
             .line("use self::Kind::*;")
             .line("")
             .push_block({
-                let mut match_kind = codegen::Block::new("match self.kind");
+                let mut match_kind =
+                    codegen::Block::new("match unsafe { std::pin::Pin::new_unchecked(self) }.kind");
 
                 for method in &service.methods {
                     let upper_name = crate::to_upper_camel(&method.proto_name);
@@ -485,7 +486,7 @@ impl ServiceGenerator {
         module
             .new_struct(&upper_name)
             .vis("pub")
-            .generic("T")
+            .generic("T: Unpin")
             .tuple_field("pub T");
         let mut request = codegen::Type::new("grpc::Request");
         let mut response = codegen::Type::new("grpc::Response");

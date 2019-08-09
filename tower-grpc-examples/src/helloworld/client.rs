@@ -1,53 +1,114 @@
-#![deny(warnings, rust_2018_idioms)]
+#![feature(async_await)]
+// #![deny(warnings, rust_2018_idioms)]
 
-use futures::TryFutureExt;
-use hyper::client::connect::{Destination, HttpConnector};
+use tokio::net::TcpStream;
 use tower_grpc::Request;
-use tower_hyper::{client, util};
-use tower_util::MakeService;
+use tower_h2::Connection;
 
+#[allow(unused_variables)]
 pub mod hello_world {
     include!(concat!(env!("OUT_DIR"), "/helloworld.rs"));
 }
 
-pub fn main() {
-    let _ = ::env_logger::init();
+use hello_world::*;
 
-    let uri: http::Uri = format!("http://[::1]:50051").parse().unwrap();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "[::1]:50051";
+    let io = TcpStream::connect(&addr.parse()?).await?;
 
-    let dst = Destination::try_from_uri(uri.clone()).unwrap();
-    let connector = util::Connector::new(HttpConnector::new(4));
-    let settings = client::Builder::new().http2_only(true).clone();
-    let mut make_client = client::Connect::with_builder(connector, settings);
+    let svc = {
+        let conn = Connection::handshake(io).await?;
+        add_origin::layer(conn, &format!("http://{}", addr))?
+    };
 
-    let say_hello = make_client
-        .make_service(dst)
-        .map_err(|e| panic!("connect error: {:?}", e))
-        .and_then(move |conn| {
-            use crate::hello_world::client::Greeter;
+    let req = Request::new(HelloRequest {
+        name: "What is in a name?".to_string(),
+    });
 
-            // let conn = tower_request_modifier::Builder::new()
-            //     .set_origin(uri)
-            //     .build(conn)
-            //     .unwrap();
+    let mut svc = client::Greeter::new(svc).ready().await?;
+    let res = svc.say_hello(req).await?;
 
-            // Wait until the client is ready...
-            Greeter::new(conn).ready()
+    println!("RESPONSE={:?}", res);
+
+    Ok(())
+}
+
+mod add_origin {
+    use http::{uri, HttpTryFrom, Request, Uri};
+    use std::marker::PhantomData;
+    use std::task::{Context, Poll};
+    use tower_service::Service;
+
+    pub fn layer<T, B, O>(inner: T, origin: O) -> Result<AddOrigin<T, B>, <Uri as HttpTryFrom<O>>::Error>
+    where
+        Uri: HttpTryFrom<O>,
+    {
+        let origin = Uri::try_from(origin)?;
+
+        Ok(AddOrigin {
+            inner,
+            origin,
+            _pd: PhantomData,
         })
-        .and_then(|mut client| {
-            use crate::hello_world::HelloRequest;
+    }
 
-            client.say_hello(Request::new(HelloRequest {
-                name: "What is in a name?".to_string(),
-            }))
-        })
-        .and_then(|response| {
-            println!("RESPONSE = {:?}", response);
-            Ok(())
-        })
-        .map_err(|e| {
-            println!("ERR = {:?}", e);
-        });
+    pub struct AddOrigin<T, B> {
+        inner: T,
+        origin: Uri,
+        _pd: PhantomData<B>,
+    }
 
-    tokio::run(say_hello);
+    impl<T, B> Service<Request<B>> for AddOrigin<T, B>
+    where
+        T: Service<Request<B>> + Send + Unpin,
+        B: Send + Unpin,
+    {
+        type Response = T::Response;
+        type Error = T::Error;
+        type Future = T::Future;
+
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            self.inner.poll_ready(cx)
+        }
+
+        fn call(&mut self, request: Request<B>) -> Self::Future {
+            let parts = uri::Parts::from(self.origin.clone());
+
+            let scheme = parts.scheme.unwrap();
+            let authority = parts.authority.unwrap();
+
+            let _ = match parts.path_and_query {
+                None => Ok(()),
+                Some(ref path) if path == "/" => Ok(()),
+                _ => Err("something went wrong!".to_string()),
+            }
+            .unwrap();
+
+            // Split the request into the head and the body.
+            let (mut head, body) = request.into_parts();
+
+            // Split the request URI into parts.
+            let mut uri: http::uri::Parts = head.uri.into();
+
+            // Update the URI parts, setting the scheme and authority
+            uri.authority = Some(authority.clone());
+            uri.scheme = Some(scheme.clone());
+
+            // Update the the request URI
+            head.uri = http::Uri::from_parts(uri).expect("valid uri");
+
+            self.inner.call(Request::from_parts(head, body))
+        }
+    }
+
+    impl<T: Clone, B> Clone for AddOrigin<T, B> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+                origin: self.origin.clone(),
+                _pd: PhantomData
+            }
+        }
+    }
 }
