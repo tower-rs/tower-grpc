@@ -170,7 +170,7 @@ where
         Encode::new(encoder, inner, Role::Server)
     }
 
-    pub(crate) fn error(status: Status) -> Self {
+    pub(crate) fn _error(status: Status) -> Self {
         Encode {
             inner: EncodeInner::Err(status),
             buf: BytesMut::new(),

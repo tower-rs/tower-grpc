@@ -1,11 +1,12 @@
 use self::sealed::Sealed;
-use crate::error::Error;
+use crate::error::{Error, Never};
 use crate::Status;
 
 use bytes::{Buf, Bytes, IntoBuf};
-use futures::{try_ready, Poll};
+use futures::{try_ready, Async, Poll, Stream};
 pub use http_body::Body as HttpBody;
 use std::fmt;
+use std::marker::PhantomData;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -59,6 +60,14 @@ pub struct BoxBody {
 }
 
 struct MapBody<B>(B);
+
+#[derive(Debug)]
+pub struct NoBody<T> {
+    pub(crate) _marker: PhantomData<T>,
+}
+
+#[derive(Debug)]
+pub struct NoData;
 
 // ===== impl BoxBody =====
 
@@ -123,6 +132,50 @@ where
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
         self.0.poll_trailers().map_err(Status::map_error)
     }
+}
+
+// ===== impl NoBody =====
+
+impl<T> Body for NoBody<T> {
+    type Data = NoData;
+    type Error = Error;
+
+    fn is_end_stream(&self) -> bool {
+        true
+    }
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        Ok(None.into())
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        Ok(None.into())
+    }
+}
+
+impl<T> Stream for NoBody<T> {
+    type Item = T;
+    type Error = Never;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        Ok(Async::Ready(None))
+    }
+}
+
+impl<T> Sealed for NoBody<T> {}
+
+// ===== impl NoData =====
+
+impl Buf for NoData {
+    fn remaining(&self) -> usize {
+        0
+    }
+
+    fn bytes(&self) -> &[u8] {
+        &[]
+    }
+
+    fn advance(&mut self, _cnt: usize) {}
 }
 
 mod sealed {
