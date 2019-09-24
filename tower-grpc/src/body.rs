@@ -60,12 +60,6 @@ pub struct BoxBody {
 
 struct MapBody<B>(B);
 
-// #[derive(Debug)]
-// pub struct NoBody {}
-
-// #[derive(Debug)]
-// pub struct NoData;
-
 // ===== impl BoxBody =====
 
 impl BoxBody {
@@ -130,56 +124,6 @@ where
         self.0.poll_trailers().map_err(Status::map_error)
     }
 }
-
-// ===== impl NoBody =====
-
-// impl NoBody {
-//     pub fn new() -> Self {
-//         NoBody {}
-//     }
-// }
-
-// impl Body for NoBody {
-//     type Data = NoData;
-//     type Error = Error;
-
-//     fn is_end_stream(&self) -> bool {
-//         true
-//     }
-
-//     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
-//         Ok(None.into())
-//     }
-
-//     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-//         Ok(None.into())
-//     }
-// }
-
-// impl Stream for NoBody {
-//     type Item = ();
-//     type Error = Never;
-
-//     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-//         Ok(Async::Ready(None))
-//     }
-// }
-
-// impl Sealed for NoBody {}
-
-// ===== impl NoData =====
-
-// impl Buf for NoData {
-//     fn remaining(&self) -> usize {
-//         0
-//     }
-
-//     fn bytes(&self) -> &[u8] {
-//         &[]
-//     }
-
-//     fn advance(&mut self, _cnt: usize) {}
-// }
 
 mod sealed {
     pub trait Sealed {}

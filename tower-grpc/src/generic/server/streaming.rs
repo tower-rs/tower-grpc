@@ -44,7 +44,7 @@ where
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(status) => {
                 // Construct http response
-                let mut response = Response::new(Encode::no_body()).into_http();
+                let mut response = Response::new(Encode::error()).into_http();
                 // Set the content type
                 response.headers_mut().insert(
                     header::CONTENT_TYPE,

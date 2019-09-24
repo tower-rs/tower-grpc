@@ -81,8 +81,7 @@ enum EncodeInner<T, U> {
         /// The source of messages to encode
         inner: U,
     },
-    Err(Status),
-    NoBody,
+    Err,
 }
 
 #[derive(Debug)]
@@ -171,17 +170,9 @@ where
         Encode::new(encoder, inner, Role::Server)
     }
 
-    pub(crate) fn _error(status: Status) -> Self {
+    pub(crate) fn error() -> Self {
         Encode {
-            inner: EncodeInner::Err(status),
-            buf: BytesMut::new(),
-            role: Role::Server,
-        }
-    }
-
-    pub(crate) fn no_body() -> Self {
-        Encode {
-            inner: EncodeInner::NoBody,
+            inner: EncodeInner::Err,
             buf: BytesMut::new(),
             role: Role::Server,
         }
@@ -213,7 +204,7 @@ where
                     // otherwise, its better to send this status in the
                     // trailers, instead of a RST_STREAM as the server...
                     Role::Server => {
-                        self.inner = EncodeInner::Err(status);
+                        self.inner = EncodeInner::Err;
                         Ok(None.into())
                     }
                 }
@@ -228,8 +219,7 @@ where
 
         let map = match self.inner {
             EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
-            EncodeInner::Err(ref status) => status.to_header_map(),
-            EncodeInner::NoBody => return Ok(None.into()),
+            EncodeInner::Err => return Ok(None.into()),
         };
         Ok(Some(map?).into())
     }
