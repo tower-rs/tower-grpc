@@ -1,12 +1,11 @@
 use self::sealed::Sealed;
-use crate::error::{Error, Never};
+use crate::error::Error;
 use crate::Status;
 
 use bytes::{Buf, Bytes, IntoBuf};
-use futures::{try_ready, Async, Poll, Stream};
+use futures::{try_ready, Poll};
 pub use http_body::Body as HttpBody;
 use std::fmt;
-use std::marker::PhantomData;
 
 type BytesBuf = <Bytes as IntoBuf>::Buf;
 
@@ -61,13 +60,11 @@ pub struct BoxBody {
 
 struct MapBody<B>(B);
 
-#[derive(Debug)]
-pub struct NoBody<T> {
-    pub(crate) _marker: PhantomData<T>,
-}
+// #[derive(Debug)]
+// pub struct NoBody {}
 
-#[derive(Debug)]
-pub struct NoData;
+// #[derive(Debug)]
+// pub struct NoData;
 
 // ===== impl BoxBody =====
 
@@ -136,47 +133,53 @@ where
 
 // ===== impl NoBody =====
 
-impl<T> Body for NoBody<T> {
-    type Data = NoData;
-    type Error = Error;
+// impl NoBody {
+//     pub fn new() -> Self {
+//         NoBody {}
+//     }
+// }
 
-    fn is_end_stream(&self) -> bool {
-        true
-    }
+// impl Body for NoBody {
+//     type Data = NoData;
+//     type Error = Error;
 
-    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
-        Ok(None.into())
-    }
+//     fn is_end_stream(&self) -> bool {
+//         true
+//     }
 
-    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
-        Ok(None.into())
-    }
-}
+//     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+//         Ok(None.into())
+//     }
 
-impl<T> Stream for NoBody<T> {
-    type Item = T;
-    type Error = Never;
+//     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+//         Ok(None.into())
+//     }
+// }
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        Ok(Async::Ready(None))
-    }
-}
+// impl Stream for NoBody {
+//     type Item = ();
+//     type Error = Never;
 
-impl<T> Sealed for NoBody<T> {}
+//     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+//         Ok(Async::Ready(None))
+//     }
+// }
+
+// impl Sealed for NoBody {}
 
 // ===== impl NoData =====
 
-impl Buf for NoData {
-    fn remaining(&self) -> usize {
-        0
-    }
+// impl Buf for NoData {
+//     fn remaining(&self) -> usize {
+//         0
+//     }
 
-    fn bytes(&self) -> &[u8] {
-        &[]
-    }
+//     fn bytes(&self) -> &[u8] {
+//         &[]
+//     }
 
-    fn advance(&mut self, _cnt: usize) {}
-}
+//     fn advance(&mut self, _cnt: usize) {}
+// }
 
 mod sealed {
     pub trait Sealed {}

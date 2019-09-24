@@ -82,6 +82,7 @@ enum EncodeInner<T, U> {
         inner: U,
     },
     Err(Status),
+    NoBody,
 }
 
 #[derive(Debug)]
@@ -177,6 +178,14 @@ where
             role: Role::Server,
         }
     }
+
+    pub(crate) fn no_body() -> Self {
+        Encode {
+            inner: EncodeInner::NoBody,
+            buf: BytesMut::new(),
+            role: Role::Server,
+        }
+    }
 }
 
 impl<T, U> HttpBody for Encode<T, U>
@@ -220,6 +229,7 @@ where
         let map = match self.inner {
             EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
             EncodeInner::Err(ref status) => status.to_header_map(),
+            EncodeInner::NoBody => return Ok(None.into()),
         };
         Ok(Some(map?).into())
     }

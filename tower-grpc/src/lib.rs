@@ -16,7 +16,7 @@ mod request;
 mod response;
 mod status;
 
-pub use crate::body::{Body, BoxBody, NoBody};
+pub use crate::body::{Body, BoxBody};
 pub use crate::request::Request;
 pub use crate::response::Response;
 pub use crate::status::{Code, Status};

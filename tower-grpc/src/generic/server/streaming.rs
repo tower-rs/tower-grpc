@@ -1,11 +1,9 @@
 use crate::error::{Error, Never};
 use crate::generic::{Encode, Encoder};
-use crate::NoBody;
 use crate::Response;
 
 use futures::{Async, Future, Poll, Stream};
 use http::header;
-use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
@@ -45,16 +43,8 @@ where
             Ok(Async::Ready(response)) => response,
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(status) => {
-                let encoder = self.encoder.take().expect("encoder consumed");
-
                 // Construct http response
-                let mut response = Response::new(Encode::response(
-                    encoder,
-                    NoBody {
-                        _marker: PhantomData,
-                    },
-                ))
-                .into_http();
+                let mut response = Response::new(Encode::no_body()).into_http();
                 // Set the content type
                 response.headers_mut().insert(
                     header::CONTENT_TYPE,
