@@ -5,9 +5,9 @@ edition = "2018"
 authors = ["Carl Lerche <me@carllerche.com>"]
 publish = false
 
-# [[bin]]
-# name = "helloworld-server"
-# path = "src/helloworld/server.rs"
+ [[bin]]
+ name = "helloworld-server"
+ path = "src/helloworld/server.rs"
 
 [[bin]]
 name = "helloworld-client"
@@ -30,19 +30,19 @@ path = "src/helloworld/client.rs"
 # path = "src/routeguide/client.rs"
 
 [dependencies]
-futures = { package = "futures-preview", version = "=0.3.0-alpha.17" }
+futures = { package = "futures-preview", version = "=0.3.0-alpha.18" }
 bytes = "0.4"
 env_logger = { version = "0.5", default-features = false }
 log = "0.4"
 http = "0.1"
 prost = "0.5"
-tokio = "=0.2.0-alpha.1"
+tokio = "=0.2.0-alpha.5"
 # tower-request-modifier = { git = "https://github.com/tower-rs/tower-http" }
 # tower-hyper = "0.1"
-tower-h2 = { git = "https://github.com/LucioFranco/h2", branch = "lucio/tower-h2-hack" }
+h2 = { git = "https://github.com/LucioFranco/h2", branch = "0.1.x" }
 # hyper = "0.12"
-tower-grpc = { path = "../tower-grpc" }
-tower-service = { git = "https://github.com/tower-rs/tower", branch = "std-future" }
+tower-grpc = { path = "../tower-grpc", branch = "v0.3.x" }
+tower-service = { git = "https://github.com/tower-rs/tower", branch = "v0.3.x" }
 # tower-util = "0.1"
 
 # For the routeguide example
