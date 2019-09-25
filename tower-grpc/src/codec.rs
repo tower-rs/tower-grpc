@@ -164,7 +164,7 @@ where
     type Error = <crate::generic::Encode<Encoder<T::Item>, T> as HttpBody>::Error;
 
     fn is_end_stream(&self) -> bool {
-        false
+        self.inner.is_end_stream()
     }
 
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {

@@ -189,6 +189,9 @@ where
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
+        if let EncodeInner::Err = self.inner {
+            return true;
+        }
         false
     }
 
