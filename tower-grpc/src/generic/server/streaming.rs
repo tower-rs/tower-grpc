@@ -44,8 +44,9 @@ where
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(status) => {
                 // Construct http response
-                let mut response = Response::new(Encode::error()).into_http();
-                // Set the content type
+                let mut response = Response::new(Encode::empty()).into_http();
+
+                // Set the content type and add the gRPC error codes
                 response.headers_mut().insert(
                     header::CONTENT_TYPE,
                     header::HeaderValue::from_static(E::CONTENT_TYPE),

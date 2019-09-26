@@ -60,6 +60,11 @@ pub struct BoxBody {
 
 struct MapBody<B>(B);
 
+#[derive(Debug, Default)]
+struct EmptyBody {
+    _p: (),
+}
+
 // ===== impl BoxBody =====
 
 impl BoxBody {
@@ -75,6 +80,13 @@ impl BoxBody {
         B::Data: Into<Bytes>,
     {
         BoxBody::new(Box::new(MapBody(inner)))
+    }
+
+    /// Create a new `BoxBody` that is empty.
+    pub fn empty() -> Self {
+        Self {
+            inner: Box::new(EmptyBody::default()),
+        }
     }
 }
 
@@ -122,6 +134,23 @@ where
 
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
         self.0.poll_trailers().map_err(Status::map_error)
+    }
+}
+
+impl HttpBody for EmptyBody {
+    type Data = BytesBuf;
+    type Error = Status;
+
+    fn is_end_stream(&self) -> bool {
+        true
+    }
+
+    fn poll_data(&mut self) -> Poll<Option<Self::Data>, Self::Error> {
+        Ok(None.into())
+    }
+
+    fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, Self::Error> {
+        Ok(None.into())
     }
 }
 

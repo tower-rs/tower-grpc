@@ -81,7 +81,8 @@ enum EncodeInner<T, U> {
         /// The source of messages to encode
         inner: U,
     },
-    Err,
+    Empty,
+    Err(Status),
 }
 
 #[derive(Debug)]
@@ -170,9 +171,9 @@ where
         Encode::new(encoder, inner, Role::Server)
     }
 
-    pub(crate) fn error() -> Self {
+    pub(crate) fn empty() -> Self {
         Encode {
-            inner: EncodeInner::Err,
+            inner: EncodeInner::Empty,
             buf: BytesMut::new(),
             role: Role::Server,
         }
@@ -189,10 +190,11 @@ where
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
-        if let EncodeInner::Err = self.inner {
-            return true;
+        if let EncodeInner::Empty = self.inner {
+            true
+        } else {
+            false
         }
-        false
     }
 
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
@@ -207,7 +209,7 @@ where
                     // otherwise, its better to send this status in the
                     // trailers, instead of a RST_STREAM as the server...
                     Role::Server => {
-                        self.inner = EncodeInner::Err;
+                        self.inner = EncodeInner::Err(status);
                         Ok(None.into())
                     }
                 }
@@ -222,7 +224,8 @@ where
 
         let map = match self.inner {
             EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
-            EncodeInner::Err => return Ok(None.into()),
+            EncodeInner::Empty => return Ok(None.into()),
+            EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
     }
