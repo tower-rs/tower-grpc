@@ -81,6 +81,7 @@ enum EncodeInner<T, U> {
         /// The source of messages to encode
         inner: U,
     },
+    Empty,
     Err(Status),
 }
 
@@ -170,9 +171,9 @@ where
         Encode::new(encoder, inner, Role::Server)
     }
 
-    pub(crate) fn error(status: Status) -> Self {
+    pub(crate) fn empty() -> Self {
         Encode {
-            inner: EncodeInner::Err(status),
+            inner: EncodeInner::Empty,
             buf: BytesMut::new(),
             role: Role::Server,
         }
@@ -189,7 +190,11 @@ where
     type Error = Status;
 
     fn is_end_stream(&self) -> bool {
-        false
+        if let EncodeInner::Empty = self.inner {
+            true
+        } else {
+            false
+        }
     }
 
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, Status> {
@@ -219,6 +224,7 @@ where
 
         let map = match self.inner {
             EncodeInner::Ok { .. } => Status::new(crate::Code::Ok, "").to_header_map(),
+            EncodeInner::Empty => return Ok(None.into()),
             EncodeInner::Err(ref status) => status.to_header_map(),
         };
         Ok(Some(map?).into())
