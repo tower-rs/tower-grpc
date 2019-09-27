@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-grpc/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-grpc/0.1.1")]
 #![deny(missing_debug_implementations, rust_2018_idioms)]
 // TODO: enable when there actually are docs
 // #![deny(missing_docs)]
