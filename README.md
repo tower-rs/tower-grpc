@@ -1,5 +1,10 @@
 # Tower gRPC
 
+**NOTE**: This library will remain stable on a `0.1` release while continuing to support `futures 0.1` based libraries. If you are looking for a [`std::future::Future`] version please checkout [`tonic`] as it is the next generation of `tower-grpc`.
+
+[`tonic`]: https://github.com/hyperium/tonic
+[`std::future::Future`]: https://doc.rust-lang.org/std/future/trait.Future.html
+
 A client and server gRPC implementation based on Tower.
 
 [![Build Status](https://travis-ci.org/tower-rs/tower-grpc.svg?branch=master)](https://travis-ci.org/tower-rs/tower-grpc)
