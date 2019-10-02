@@ -1,0 +1,17 @@
+var N = null;var sourcesIndex = {};
+sourcesIndex["client"] = {"name":"","files":["client.rs","util.rs"]};
+sourcesIndex["collide"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["helloworld_client"] = {"name":"","files":["client.rs"]};
+sourcesIndex["helloworld_server"] = {"name":"","files":["server.rs"]};
+sourcesIndex["metadata_client"] = {"name":"","files":["client.rs"]};
+sourcesIndex["metadata_server"] = {"name":"","files":["server.rs"]};
+sourcesIndex["multifile"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["name_case"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["route_guide_client"] = {"name":"","files":["client.rs","data.rs"]};
+sourcesIndex["route_guide_server"] = {"name":"","files":["data.rs","server.rs"]};
+sourcesIndex["server"] = {"name":"","files":["server.rs"]};
+sourcesIndex["tower_grpc"] = {"name":"","dirs":[{"name":"client","files":["client_streaming.rs","mod.rs","server_streaming.rs","streaming.rs","unary.rs"]},{"name":"generic","dirs":[{"name":"client","files":["mod.rs"]},{"name":"server","files":["client_streaming.rs","grpc.rs","mod.rs","server_streaming.rs","streaming.rs","unary.rs"]}],"files":["codec.rs","mod.rs"]},{"name":"metadata","files":["encoding.rs","key.rs","map.rs","mod.rs","value.rs"]},{"name":"server","files":["client_streaming.rs","mod.rs","server_streaming.rs","streaming.rs","unary.rs","unimplemented.rs"]}],"files":["body.rs","codec.rs","codegen.rs","error.rs","lib.rs","request.rs","response.rs","status.rs"]};
+sourcesIndex["tower_grpc_build"] = {"name":"","files":["client.rs","lib.rs","server.rs"]};
+sourcesIndex["unused_imports"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["uses_empty"] = {"name":"","files":["lib.rs"]};
+createSourceSidebar();

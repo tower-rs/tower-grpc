@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["ClientStreamingService","A specialization of tower_service::Service."],["ServerStreamingService","A specialization of tower_service::Service."],["StreamingService","A specialization of tower_service::Service."],["UnaryService","A specialization of tower_service::Service."]]});

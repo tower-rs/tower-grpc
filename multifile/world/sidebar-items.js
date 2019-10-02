@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["client",""],["server",""]],"struct":[["WorldReply","The response"],["WorldRequest","A basic message"]]});

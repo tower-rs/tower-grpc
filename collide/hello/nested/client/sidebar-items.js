@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Hello","The greeting service definition."]]});

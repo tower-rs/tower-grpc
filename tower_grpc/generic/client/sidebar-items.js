@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["AsService","Helper when needing to pass a `GrpcService` to bounds needing `Service`."],["IntoService","Helper when needing to pass a `GrpcService` to bounds needing `Service`."]],"trait":[["GrpcService","A specialization of tower_service::Service."]]});

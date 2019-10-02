@@ -1,0 +1,16 @@
+var ALIASES = {};
+ALIASES["client"] = {};
+ALIASES["collide"] = {};
+ALIASES["helloworld_client"] = {};
+ALIASES["helloworld_server"] = {};
+ALIASES["metadata_client"] = {};
+ALIASES["metadata_server"] = {};
+ALIASES["multifile"] = {};
+ALIASES["name_case"] = {};
+ALIASES["route_guide_client"] = {};
+ALIASES["route_guide_server"] = {};
+ALIASES["server"] = {};
+ALIASES["tower_grpc"] = {};
+ALIASES["tower_grpc_build"] = {};
+ALIASES["unused_imports"] = {};
+ALIASES["uses_empty"] = {};

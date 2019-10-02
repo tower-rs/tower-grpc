@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["client",""],["server",""]],"struct":[["EnterReply","The response message containing approval to enter"],["EnterRequest","The request message containing a greeting."]]});

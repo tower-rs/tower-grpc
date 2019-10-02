@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Body","A stream of `Chunk`s, used when receiving bodies."]]});

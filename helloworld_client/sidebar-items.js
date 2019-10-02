@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["main",""]],"mod":[["hello_world",""]]});

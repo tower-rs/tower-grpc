@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["RouteGuide","Interface exported by the server."]]});

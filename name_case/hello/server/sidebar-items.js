@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["hello_api",""]],"struct":[["HelloApiServer",""]],"trait":[["HelloApi","The greeting service definition."]]});

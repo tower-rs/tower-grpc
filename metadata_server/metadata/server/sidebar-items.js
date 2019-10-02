@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["doorman",""]],"struct":[["DoormanServer",""]],"trait":[["Doorman","The doorman service definition."]]});

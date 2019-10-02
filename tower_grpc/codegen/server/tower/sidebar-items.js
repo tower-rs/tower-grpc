@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["HttpBody","Trait representing a streaming body of a Request or Response."],["MakeService","Creates new `Service` values."],["Service","An asynchronous function from `Request` to a `Response`."]]});

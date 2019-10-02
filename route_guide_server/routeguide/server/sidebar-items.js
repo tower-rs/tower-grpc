@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["route_guide",""]],"struct":[["RouteGuideServer",""]],"trait":[["RouteGuide","Interface exported by the server."]]});

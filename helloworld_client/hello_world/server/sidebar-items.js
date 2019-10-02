@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["greeter",""]],"struct":[["GreeterServer",""]],"trait":[["Greeter","The greeting service definition."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["PathAndQuery","Represents the path component of a URI"],["Uri","The URI component of a request."]]});
