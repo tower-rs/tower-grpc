@@ -4,6 +4,7 @@ use http::header::HeaderValue;
 use http::{self, HeaderMap};
 use log::{debug, trace, warn};
 use percent_encoding::{percent_decode, percent_encode, EncodeSet, DEFAULT_ENCODE_SET};
+use prost::Message;
 use std::{error::Error, fmt};
 
 const GRPC_STATUS_HEADER_CODE: &str = "grpc-status";
@@ -57,6 +58,24 @@ impl Status {
             message: message.into(),
             details: Bytes::new(),
         }
+    }
+
+    /// Create a new `Status` with the associated code, message, and binary details field.
+    pub fn with_raw_details(code: Code, message: impl Into<String>, details: Bytes) -> Status {
+        Status {
+            code,
+            message: message.into(),
+            details: details,
+        }
+    }
+
+    /// Create a new `Status` with the associated code, message, and protobuf details field.
+    pub fn with_details(code: Code, message: impl Into<String>, details: impl Message) -> Status {
+        let mut bytes = vec![];
+        details
+            .encode(&mut bytes)
+            .expect("Message only errors if not enough space");
+        Status::with_raw_details(code, message, bytes.into())
     }
 
     // Deprecated: this constructor encourages creating statuses with no
